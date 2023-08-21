@@ -462,10 +462,10 @@ def main(
     *Use S01E01-S01E10 to download a range of episodes (within the same season)
 
     \b
-    python all4.py --episode S01E01 URL
-    python all4.py --episode S01E01-S01E10 URL
-    python all4.py --quality 720 --season S01 URL
-    python all4.py --movie URL
+    python all4.py --episode S01E01 https://www.channel4.com/programmes/spin-city
+    python all4.py --episode S01E01-S01E10 https://www.channel4.com/programmes/spin-city
+    python all4.py --quality 720 --season S01 https://www.channel4.com/programmes/spin-city
+    python all4.py --movie https://www.channel4.com/programmes/ad-astra
     python all4.py --titles URL
     """
     list_titles(url) if titles else None
