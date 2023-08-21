@@ -3,7 +3,7 @@ ctv downloader - 21/08/23
 Author: stabbedbybrick
 
 Info:
-This program will grab up to 1080p and ac-3 audio (if available)
+This program will grab up to 1080p (if available)
 Default settings are set to local CDM and best available quality with all subtitles
 Place blob and key file in pywidevine/L3/cdm/devices/android_generic to use local CDM
 
@@ -435,9 +435,7 @@ def list_titles(url: str) -> None:
         print(episode.get_filename())
 
 
-def download_episode(
-    quality: str, url: str, dv: bool, remote: bool, requested: str
-) -> None:
+def download_episode(quality: str, url: str, remote: bool, requested: str) -> None:
     with console.status("Fetching titles..."):
         series = get_episodes(url)
 
@@ -449,17 +447,15 @@ def download_episode(
         stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
     )
     if "-" in requested:
-        download_range(series, requested, quality, dv, remote)
+        download_range(series, requested, quality, remote)
 
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, dv, remote, str(series))
+            download_stream(episode, quality, remote, str(series))
 
 
-def download_range(
-    series: object, episode: str, quality: str, dv: bool, remote: str
-) -> None:
+def download_range(series: object, episode: str, quality: str, remote: str) -> None:
     start, end = episode.split("-")
     start_season, start_episode = start.split("E")
     end_season, end_episode = end.split("E")
@@ -478,12 +474,10 @@ def download_range(
     for episode in series:
         episode.name = episode.get_filename()
         if any(i in episode.name for i in episode_range):
-            download_stream(episode, quality, dv, remote, str(series))
+            download_stream(episode, quality, remote, str(series))
 
 
-def download_season(
-    quality: str, url: str, dv: bool, remote: bool, requested: str
-) -> None:
+def download_season(quality: str, url: str, remote: bool, requested: str) -> None:
     with console.status("Fetching titles..."):
         series = get_episodes(url)
 
@@ -498,10 +492,10 @@ def download_season(
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, dv, remote, str(series))
+            download_stream(episode, quality, remote, str(series))
 
 
-def download_movie(quality: str, url: str, dv: bool, remote: bool) -> None:
+def download_movie(quality: str, url: str, remote: bool) -> None:
     with console.status("Fetching titles..."):
         movies = get_movies(url)
 
@@ -509,12 +503,10 @@ def download_movie(quality: str, url: str, dv: bool, remote: bool) -> None:
 
     for movie in movies:
         movie.name = movie.get_filename()
-        download_stream(movie, quality, dv, remote, str(movies))
+        download_stream(movie, quality, remote, str(movies))
 
 
-def download_stream(
-    stream: object, quality: str, dv: bool, remote: bool, title: str
-) -> None:
+def download_stream(stream: object, quality: str, remote: bool, title: str) -> None:
     title = string_cleaning(title)
 
     with console.status("Getting media info..."):
@@ -573,8 +565,6 @@ def download_stream(
         # "OFF",
     ]
 
-    args[7] = "for=worst" if dv else None
-
     args.extend(
         [f"--mux-import", "path=sub.vtt:lang=eng:name='English'"]
     ) if sub else None
@@ -592,7 +582,6 @@ def download_stream(
 @click.option("-e", "--episode", type=str, help="Download episode(s)")
 @click.option("-s", "--season", type=str, help="Download season")
 @click.option("-m", "--movie", is_flag=True, help="Download a movie")
-@click.option("-dv", "--dv", is_flag=True, help="Descriptive audio")
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
 @click.argument("url", type=str, required=True)
@@ -601,7 +590,6 @@ def main(
     episode: str,
     season: str,
     movie: bool,
-    dv: bool,
     titles: bool,
     url: str,
     remote: bool,
@@ -616,14 +604,13 @@ def main(
     python ctv.py --episode S01E01-S01E10 https://www.ctv.ca/shows/justified
     python ctv.py --remote --episode S01E01 https://www.ctv.ca/shows/justified
     python ctv.py --quality 720 --season S01 https://www.ctv.ca/shows/justified
-    python ctv.py --dv --episode S01E01 https://www.ctv.ca/shows/justified
     python ctv.py --movie https://www.ctv.ca/movies/celeste-and-jesse-forever
     python ctv.py --titles https://www.ctv.ca/shows/justified
     """
     list_titles(url) if titles else None
-    download_episode(quality, url, dv, remote, episode.upper()) if episode else None
-    download_season(quality, url, dv, remote, season.upper()) if season else None
-    download_movie(quality, url, dv, remote) if movie else None
+    download_episode(quality, url, remote, episode.upper()) if episode else None
+    download_season(quality, url, remote, season.upper()) if season else None
+    download_movie(quality, url, remote) if movie else None
 
     shutil.rmtree(TMP)
 
