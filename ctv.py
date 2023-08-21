@@ -197,6 +197,7 @@ def remote_cdm(pssh: str) -> str:
 
 
 def get_title_id(url: str) -> str:
+    url = url.rstrip("/")
     parse = urlparse(url).path.split("/")
     type = parse[1]
     slug = parse[-1]
