@@ -573,17 +573,18 @@ def main(
     remote: bool,
 ) -> None:
     """
+
     Examples:\n
 
     *Use S01E01-S01E10 to download a range of episodes (within the same season)
 
     \b
-    python ctv.py --episode S01E01 URL
-    python ctv.py --episode S01E01-S01E10 URL
-    python ctv.py --remote --episode S01E01 URL
-    python ctv.py --quality 720 --season S01 URL
-    python ctv.py --movie URL
-    python ctv.py --titles URL
+    python ctv.py --episode S01E01 https://www.ctv.ca/shows/justified
+    python ctv.py --episode S01E01-S01E10 https://www.ctv.ca/shows/justified
+    python ctv.py --remote --episode S01E01 https://www.ctv.ca/shows/justified
+    python ctv.py --quality 720 --season S01 https://www.ctv.ca/shows/justified
+    python ctv.py --movie https://www.ctv.ca/movies/celeste-and-jesse-forever
+    python ctv.py --titles https://www.ctv.ca/shows/justified
     """
     list_titles(url) if titles else None
     download_episode(quality, url, remote, episode.upper()) if episode else None
