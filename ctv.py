@@ -1,4 +1,6 @@
 """
+Credit to rlaphoenix for the title storage
+
 ctv downloader 0.2 - 22/08/23
 Author: stabbedbybrick
 
@@ -398,23 +400,26 @@ def get_mediainfo(manifest: str, quality: str) -> str:
     )
 
     elements = soup.find_all("Representation")
+    codecs = [x.attrs["codecs"] for x in elements if x.attrs.get("codecs")]
     heights = sorted(
         [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
         reverse=True,
     )
+
+    audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
 
     with open(TMP / "manifest.mpd", "w") as f:
         f.write(str(soup.prettify()))
 
     if quality is not None:
         if int(quality) in heights:
-            return quality, pssh
+            return quality, pssh, audio
         else:
             closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
             click.echo(stamp(f"Resolution not available. Getting closest match:"))
-            return closest_match, pssh
+            return closest_match, pssh, audio
 
-    return heights[0], pssh
+    return heights[0], pssh, audio
 
 
 def string_cleaning(filename: str) -> str:
@@ -528,7 +533,7 @@ def download_stream(
     with console.status("Getting media info..."):
         manifest, subtitle = get_playlist(stream.data, stream.id)
         resolution, pssh = get_mediainfo(manifest, quality)
-        filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+        filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.{audio}.H.264"
         sub_path = save_path / f"{filename}.vtt"
 
         r = requests.get(url=f"{subtitle}")
