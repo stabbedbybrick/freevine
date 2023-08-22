@@ -532,7 +532,7 @@ def download_stream(
 
     with console.status("Getting media info..."):
         manifest, subtitle = get_playlist(stream.data, stream.id)
-        resolution, pssh = get_mediainfo(manifest, quality)
+        resolution, pssh, audio = get_mediainfo(manifest, quality)
         filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.{audio}.H.264"
         sub_path = save_path / f"{filename}.vtt"
 
