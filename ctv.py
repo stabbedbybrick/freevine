@@ -1,9 +1,9 @@
 """
-ctv downloader - 21/08/23
+ctv downloader 0.2 - 22/08/23
 Author: stabbedbybrick
 
 Info:
-This program will grab up to 1080p (if available)
+This program will get 1080p and Dolby 5.1 audio (if available)
 Default settings are set to local CDM and best available quality with all subtitles
 Place blob and key file in pywidevine/L3/cdm/devices/android_generic to use local CDM
 
@@ -356,7 +356,11 @@ def get_playlist(hub: str, id: str) -> tuple:
 
 
 def get_pssh(soup):
-    base = soup.select_one("BaseURL").text
+    try:
+        base = soup.select_one("BaseURL").text
+    except AttributeError:
+        raise AttributeError("Failed to fetch manifest. Possible GEO block")
+
     rep_id = soup.select_one("Representation").attrs.get("id")
     template = (
         soup.select_one("SegmentTemplate")
@@ -435,7 +439,9 @@ def list_titles(url: str) -> None:
         print(episode.get_filename())
 
 
-def download_episode(quality: str, url: str, remote: bool, requested: str) -> None:
+def download_episode(
+    quality: str, aa: bool, url: str, remote: bool, requested: str
+) -> None:
     with console.status("Fetching titles..."):
         series = get_episodes(url)
 
@@ -447,15 +453,17 @@ def download_episode(quality: str, url: str, remote: bool, requested: str) -> No
         stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
     )
     if "-" in requested:
-        download_range(series, requested, quality, remote)
+        download_range(series, requested, quality, aa, remote)
 
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, remote, str(series))
+            download_stream(episode, quality, aa, remote, str(series))
 
 
-def download_range(series: object, episode: str, quality: str, remote: str) -> None:
+def download_range(
+    series: object, episode: str, quality: str, aa: bool, remote: str
+) -> None:
     start, end = episode.split("-")
     start_season, start_episode = start.split("E")
     end_season, end_episode = end.split("E")
@@ -474,10 +482,12 @@ def download_range(series: object, episode: str, quality: str, remote: str) -> N
     for episode in series:
         episode.name = episode.get_filename()
         if any(i in episode.name for i in episode_range):
-            download_stream(episode, quality, remote, str(series))
+            download_stream(episode, quality, aa, remote, str(series))
 
 
-def download_season(quality: str, url: str, remote: bool, requested: str) -> None:
+def download_season(
+    quality: str, aa: bool, url: str, remote: bool, requested: str
+) -> None:
     with console.status("Fetching titles..."):
         series = get_episodes(url)
 
@@ -492,10 +502,10 @@ def download_season(quality: str, url: str, remote: bool, requested: str) -> Non
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, remote, str(series))
+            download_stream(episode, quality, aa, remote, str(series))
 
 
-def download_movie(quality: str, url: str, remote: bool) -> None:
+def download_movie(quality: str, aa: bool, url: str, remote: bool) -> None:
     with console.status("Fetching titles..."):
         movies = get_movies(url)
 
@@ -503,28 +513,31 @@ def download_movie(quality: str, url: str, remote: bool) -> None:
 
     for movie in movies:
         movie.name = movie.get_filename()
-        download_stream(movie, quality, remote, str(movies))
+        download_stream(movie, quality, aa, remote, str(movies))
 
 
-def download_stream(stream: object, quality: str, remote: bool, title: str) -> None:
+def download_stream(
+    stream: object, quality: str, aa: bool, remote: bool, title: str
+) -> None:
     title = string_cleaning(title)
-
-    with console.status("Getting media info..."):
-        manifest, subtitle = get_playlist(stream.data, stream.id)
-        resolution, pssh = get_mediainfo(manifest, quality)
-        r = requests.get(url=f"{subtitle}")
-        if not r.ok:
-            sub = None
-        else:
-            sub = True
-            with open("sub.vtt", "wb") as f:
-                f.write(r.content)
 
     downloads = Path("downloads")
     save_path = downloads.joinpath(title)
     save_path.mkdir(parents=True, exist_ok=True)
 
-    filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+    with console.status("Getting media info..."):
+        manifest, subtitle = get_playlist(stream.data, stream.id)
+        resolution, pssh = get_mediainfo(manifest, quality)
+        filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+        sub_path = save_path / f"{filename}.vtt"
+
+        r = requests.get(url=f"{subtitle}")
+        if not r.ok:
+            sub = None
+        else:
+            sub = True
+            with open(sub_path, "wb") as f:
+                f.write(r.content)
 
     with console.status("Getting decryption keys..."):
         keys = remote_cdm(pssh) if remote else local_cdm(pssh)
@@ -546,7 +559,7 @@ def download_stream(stream: object, quality: str, remote: bool, title: str) -> N
         "-sv",
         f"res='{resolution}'",
         "-sa",
-        "for=best",
+        "all" if aa else "for=best",
         "-ss",
         "all",
         "-mt",
@@ -566,7 +579,7 @@ def download_stream(stream: object, quality: str, remote: bool, title: str) -> N
     ]
 
     args.extend(
-        [f"--mux-import", "path=sub.vtt:lang=eng:name='English'"]
+        [f"--mux-import", f"path={sub_path}:lang=eng:name='English'"]
     ) if sub else None
 
     try:
@@ -579,6 +592,7 @@ def download_stream(stream: object, quality: str, remote: bool, title: str) -> N
 
 @click.command()
 @click.option("-q", "--quality", type=str, help="Specify resolution")
+@click.option("-a", "--aa", is_flag=True, help="Include all audio tracks")
 @click.option("-e", "--episode", type=str, help="Download episode(s)")
 @click.option("-s", "--season", type=str, help="Download season")
 @click.option("-m", "--movie", is_flag=True, help="Download a movie")
@@ -587,6 +601,7 @@ def download_stream(stream: object, quality: str, remote: bool, title: str) -> N
 @click.argument("url", type=str, required=True)
 def main(
     quality: str,
+    aa: bool,
     episode: str,
     season: str,
     movie: bool,
@@ -604,13 +619,14 @@ def main(
     python ctv.py --episode S01E01-S01E10 https://www.ctv.ca/shows/justified
     python ctv.py --remote --episode S01E01 https://www.ctv.ca/shows/justified
     python ctv.py --quality 720 --season S01 https://www.ctv.ca/shows/justified
+    python ctv.py --aa --season S01 https://www.ctv.ca/shows/justified
     python ctv.py --movie https://www.ctv.ca/movies/celeste-and-jesse-forever
     python ctv.py --titles https://www.ctv.ca/shows/justified
     """
     list_titles(url) if titles else None
-    download_episode(quality, url, remote, episode.upper()) if episode else None
-    download_season(quality, url, remote, season.upper()) if season else None
-    download_movie(quality, url, remote) if movie else None
+    download_episode(quality, aa, url, remote, episode.upper()) if episode else None
+    download_season(quality, aa, url, remote, season.upper()) if season else None
+    download_movie(quality, aa, url, remote) if movie else None
 
     shutil.rmtree(TMP)
 
