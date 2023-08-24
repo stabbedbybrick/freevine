@@ -1,7 +1,5 @@
 """
-Credit to rlaphoenix for the title storage
-
-ctv downloader 0.2 - 22/08/23
+ctv downloader 0.2 - 24/08/23
 Author: stabbedbybrick
 
 Info:
@@ -304,7 +302,7 @@ async def get_titles(data: dict) -> list:
         return [episode for episodes in titles for episode in episodes]
 
 
-def get_episodes(url: str) -> Series:
+def get_series(url: str) -> Series:
     data = get_series_data(url)
     titles = asyncio.run(get_titles(data["contentData"]["seasons"]))
 
@@ -431,7 +429,7 @@ def string_cleaning(filename: str) -> str:
 
 def list_titles(url: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -444,11 +442,9 @@ def list_titles(url: str) -> None:
         print(episode.get_filename())
 
 
-def download_episode(
-    quality: str, aa: bool, url: str, remote: bool, requested: str
-) -> None:
+def get_episode(quality: str, aa: bool, url: str, remote: bool, requested: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -458,15 +454,15 @@ def download_episode(
         stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
     )
     if "-" in requested:
-        download_range(series, requested, quality, aa, remote)
+        get_range(series, requested, quality, aa, remote)
 
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, aa, remote, str(series))
+            download(episode, quality, aa, remote, str(series))
 
 
-def download_range(
+def get_range(
     series: object, episode: str, quality: str, aa: bool, remote: str
 ) -> None:
     start, end = episode.split("-")
@@ -487,14 +483,12 @@ def download_range(
     for episode in series:
         episode.name = episode.get_filename()
         if any(i in episode.name for i in episode_range):
-            download_stream(episode, quality, aa, remote, str(series))
+            download(episode, quality, aa, remote, str(series))
 
 
-def download_season(
-    quality: str, aa: bool, url: str, remote: bool, requested: str
-) -> None:
+def get_season(quality: str, aa: bool, url: str, remote: bool, requested: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -507,10 +501,10 @@ def download_season(
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, aa, remote, str(series))
+            download(episode, quality, aa, remote, str(series))
 
 
-def download_movie(quality: str, aa: bool, url: str, remote: bool) -> None:
+def get_movie(quality: str, aa: bool, url: str, remote: bool) -> None:
     with console.status("Fetching titles..."):
         movies = get_movies(url)
 
@@ -518,12 +512,26 @@ def download_movie(quality: str, aa: bool, url: str, remote: bool) -> None:
 
     for movie in movies:
         movie.name = movie.get_filename()
-        download_stream(movie, quality, aa, remote, str(movies))
+        download(movie, quality, aa, remote, str(movies))
 
 
-def download_stream(
-    stream: object, quality: str, aa: bool, remote: bool, title: str
-) -> None:
+def get_stream(**kwargs):
+    url = kwargs.get("url")
+    quality = kwargs.get("quality")
+    aa = kwargs.get("aa")
+    remote = kwargs.get("remote")
+    titles = kwargs.get("titles")
+    episode = kwargs.get("episode")
+    season = kwargs.get("season")
+    movie = kwargs.get("movie")
+
+    list_titles(url) if titles else None
+    get_episode(quality, aa, url, remote, episode.upper()) if episode else None
+    get_season(quality, aa, url, remote, season.upper()) if season else None
+    get_movie(quality, aa, url, remote) if movie else None
+
+
+def download(stream: object, quality: str, aa: bool, remote: bool, title: str) -> None:
     title = string_cleaning(title)
 
     downloads = Path("downloads")
@@ -604,34 +612,36 @@ def download_stream(
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
 @click.argument("url", type=str, required=True)
-def main(
-    quality: str,
-    aa: bool,
-    episode: str,
-    season: str,
-    movie: bool,
-    titles: bool,
-    url: str,
-    remote: bool,
-) -> None:
+def main(**kwargs) -> None:
     """
-    Examples:\n
-
-    *Use S01E01-S01E10 to download a range of episodes (within the same season)
+    Information:\n
 
     \b
-    python ctv.py --episode S01E01 https://www.ctv.ca/shows/justified
-    python ctv.py --episode S01E01-S01E10 https://www.ctv.ca/shows/justified
-    python ctv.py --remote --episode S01E01 https://www.ctv.ca/shows/justified
-    python ctv.py --quality 720 --season S01 https://www.ctv.ca/shows/justified
-    python ctv.py --aa --season S01 https://www.ctv.ca/shows/justified
-    python ctv.py --movie https://www.ctv.ca/movies/celeste-and-jesse-forever
-    python ctv.py --titles https://www.ctv.ca/shows/justified
+    Use base URL of series and then specify which episode(s) you want
+    Use the "S01E01" format (Season 1, Episode 1) to request episode
+    Movies only require --movie URL
+
+    \b
+    --remote argument to get decryption keys remotely
+    --titles argument to list all available episodes from a series
+    --quality argument to specify video quality
+    --aa argument to include all audio tracks (mostly for DV)
+
+    \b
+    File names follow the current P2P standard: "Title.S01E01.Name.1080p.CTV.WEB-DL.AAC2.0.H.264"
+    Downloads are located in /downloads folder
+
+    URL format: https://www.ctv.ca/shows/justified
+
+    \b
+    python ctv.py --episode S01E01 URL
+    python ctv.py --episode S01E01-S01E10 URL
+    python ctv.py --quality 720 --season S01 URL
+    python ctv.py --remote --season S01 URL
+    python ctv.py --movie URL
+    python ctv.py --titles URL
     """
-    list_titles(url) if titles else None
-    download_episode(quality, aa, url, remote, episode.upper()) if episode else None
-    download_season(quality, aa, url, remote, season.upper()) if season else None
-    download_movie(quality, aa, url, remote) if movie else None
+    get_stream(**kwargs)
 
     shutil.rmtree(TMP)
 
