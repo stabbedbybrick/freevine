@@ -1,8 +1,8 @@
 """
-All4 downloader - 19/08/23
-Author: stabbedbybrick
+Credit to Diazole and rlaphoenix for paving the way
 
-Credit to Diazole for paving the way
+ALL4 downloader 0.2 - 24/08/23
+Author: stabbedbybrick
 
 Info:
 This program will grab higher 1080p bitrate (if available)
@@ -43,6 +43,9 @@ from Crypto.Cipher import AES
 
 from pywidevine.L3.decrypt.wvdecryptcustom import WvDecrypt
 from pywidevine.L3.cdm import deviceconfig
+
+TMP = Path("tmp")
+TMP.mkdir(parents=True, exist_ok=True)
 
 
 class Episode:
@@ -157,8 +160,8 @@ def local_cdm(
     wvdecrypt.update_license(lic)
     status, content = wvdecrypt.start_process()
 
-    if status == True:
-        return content[0]
+    if status:
+        return content
     else:
         raise ValueError("Unable to fetch decryption keys")
 
@@ -213,7 +216,7 @@ def get_data(url: str) -> dict:
     return data["initialData"]
 
 
-def get_episodes(url: str) -> Series:
+def get_series(url: str) -> Series:
     data = get_data(url)
 
     return Series(
@@ -303,7 +306,7 @@ def string_cleaning(filename: str) -> str:
 
 def list_titles(url: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -316,9 +319,9 @@ def list_titles(url: str) -> None:
         print(episode.get_filename())
 
 
-def download_episode(quality: str, url: str, requested: str) -> None:
+def get_episode(quality: str, url: str, requested: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -328,15 +331,15 @@ def download_episode(quality: str, url: str, requested: str) -> None:
         stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
     )
     if "-" in requested:
-        download_range(series, requested, quality)
+        get_range(series, requested, quality)
 
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, str(series))
+            download(episode, quality, str(series))
 
 
-def download_range(series: object, episode: str, quality: str) -> None:
+def get_range(series: object, episode: str, quality: str) -> None:
     start, end = episode.split("-")
     start_season, start_episode = start.split("E")
     end_season, end_episode = end.split("E")
@@ -355,12 +358,12 @@ def download_range(series: object, episode: str, quality: str) -> None:
     for episode in series:
         episode.name = episode.get_filename()
         if any(i in episode.name for i in episode_range):
-            download_stream(episode, quality, str(series))
+            download(episode, quality, str(series))
 
 
-def download_season(quality: str, url: str, requested: str) -> None:
+def get_season(quality: str, url: str, requested: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -373,10 +376,10 @@ def download_season(quality: str, url: str, requested: str) -> None:
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, str(series))
+            download(episode, quality, str(series))
 
 
-def download_movie(quality: str, url: str) -> None:
+def get_movie(quality: str, url: str) -> None:
     with console.status("Fetching titles..."):
         movies = get_movies(url)
 
@@ -384,24 +387,44 @@ def download_movie(quality: str, url: str) -> None:
 
     for movie in movies:
         movie.name = movie.get_filename()
-        download_stream(movie, quality, str(movies))
+        download(movie, quality, str(movies))
 
 
-def download_stream(stream: object, quality: str, title: str) -> None:
+def get_stream(**kwargs):
+    url = kwargs.get("url")
+    quality = kwargs.get("quality")
+    titles = kwargs.get("titles")
+    episode = kwargs.get("episode")
+    season = kwargs.get("season")
+    movie = kwargs.get("movie")
+
+    list_titles(url) if titles else None
+    get_episode(quality, url, episode.upper()) if episode else None
+    get_season(quality, url, season.upper()) if season else None
+    get_movie(quality, url) if movie else None
+
+
+def download(stream: object, quality: str, title: str) -> None:
     title = string_cleaning(title)
-    manifest, token = get_playlist(stream.data)
-    resolution, pssh = get_mediainfo(manifest, quality)
-    token, license_url = decrypt_token(token)
-    key = local_cdm(pssh, license_url, manifest, token, stream.data)
 
     downloads = Path("downloads")
     save_path = downloads.joinpath(title)
     save_path.mkdir(parents=True, exist_ok=True)
 
-    filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+    with console.status("Getting media info..."):
+        manifest, token = get_playlist(stream.data)
+        resolution, pssh = get_mediainfo(manifest, quality)
+        token, license_url = decrypt_token(token)
+        filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+
+    with console.status("Getting decryption keys..."):
+        keys = local_cdm(pssh, license_url, manifest, token, stream.data)
+        with open(TMP / "keys.txt", "w") as file:
+            file.write("\n".join(keys))
 
     click.echo(stamp(f"{filename}"))
-    click.echo(stamp(f"{key}"))
+    for key in keys:
+        click.echo(stamp(f"{key}"))
     click.echo("")
 
     m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
@@ -448,30 +471,36 @@ def download_stream(stream: object, quality: str, title: str) -> None:
 @click.option("-m", "--movie", is_flag=True, help="Download a movie")
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.argument("url", type=str, required=True)
-def main(
-    quality: str,
-    episode: str,
-    season: str,
-    movie: bool,
-    titles: bool,
-    url: str,
-) -> None:
+def main(**kwargs) -> None:
     """
-    Examples:\n
-
-    *Use S01E01-S01E10 to download a range of episodes (within the same season)
+    Information:\n
 
     \b
-    python all4.py --episode S01E01 https://www.channel4.com/programmes/spin-city
-    python all4.py --episode S01E01-S01E10 https://www.channel4.com/programmes/spin-city
-    python all4.py --quality 720 --season S01 https://www.channel4.com/programmes/spin-city
-    python all4.py --movie https://www.channel4.com/programmes/ad-astra
+    Use base URL of series and then specify which episode(s) you want
+    Use the "S01E01" format (Season 1, Episode 1) to request episode
+    Movies only require --movie URL
+
+    \b
+    --remote argument to get decryption keys remotely
+    --titles argument to list all available episodes from a series
+    --quality argument to specify video quality
+
+    \b
+    File names follow the current P2P standard: "Title.S01E01.Name.1080p.ALL4.WEB-DL.AAC2.0.H.264"
+    Downloads are located in /downloads folder
+
+    URL format: https://www.channel4.com/programmes/alone
+
+    \b
+    python all4.py --episode S01E01 URL
+    python all4.py --episode S01E01-S01E10 URL
+    python all4.py --quality 720 --season S01 URL
+    python all4.py --movie URL
     python all4.py --titles URL
     """
-    list_titles(url) if titles else None
-    download_episode(quality, url, episode.upper()) if episode else None
-    download_season(quality, url, season.upper()) if season else None
-    download_movie(quality, url) if movie else None
+    get_stream(**kwargs)
+
+    shutil.rmtree(TMP)
 
 
 if __name__ == "__main__":
