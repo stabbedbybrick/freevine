@@ -9,5 +9,6 @@ ffmpeg OR mkvmerge (default: mkvmerge)
 
 mp4decrypt OR shaka-packager (default: mp4decrypt)
 
-See script documentation for usage examples
+For more information:
+`python SCRIPT_NAME.py --help`
 
