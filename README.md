@@ -9,6 +9,7 @@ ffmpeg OR mkvmerge (default: mkvmerge)
 
 mp4decrypt OR shaka-packager (default: mp4decrypt)
 
-For more information:
+Run --help for more information on each service:
+
 `python SCRIPT_NAME.py --help`
 
