@@ -1,11 +1,11 @@
 """
 Credit to rlaphoenix for the title storage
 
-itv downloader 0.1 - 22/08/23
+ITV downloader 0.2 - 24/08/23
 Author: stabbedbybrick
 
 Info:
-ITV L3 is 720p max
+ITV L3 is 720p, AAC 2.0 max
 Place blob and key file in pywidevine/L3/cdm/devices/android_generic
 
 Requirements:
@@ -27,7 +27,6 @@ import re
 import subprocess
 import json
 import shutil
-import sys
 
 from pathlib import Path
 from abc import ABC
@@ -193,7 +192,7 @@ def get_data(url: str) -> dict:
     return data["props"]["pageProps"]
 
 
-def get_episodes(url: str) -> Series:
+def get_series(url: str) -> Series:
     data = get_data(url)
 
     return Series(
@@ -296,7 +295,7 @@ def string_cleaning(filename: str) -> str:
 
 def list_titles(url: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -309,9 +308,9 @@ def list_titles(url: str) -> None:
         print(episode.get_filename())
 
 
-def download_episode(quality: str, url: str, remote: bool, requested: str) -> None:
+def get_episode(quality: str, url: str, remote: bool, requested: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -321,15 +320,15 @@ def download_episode(quality: str, url: str, remote: bool, requested: str) -> No
         stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
     )
     if "-" in requested:
-        download_range(series, requested, quality, remote)
+        get_range(series, requested, quality, remote)
 
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, remote, str(series))
+            download(episode, quality, remote, str(series))
 
 
-def download_range(series: object, episode: str, quality: str, remote: bool) -> None:
+def get_range(series: object, episode: str, quality: str, remote: bool) -> None:
     start, end = episode.split("-")
     start_season, start_episode = start.split("E")
     end_season, end_episode = end.split("E")
@@ -348,12 +347,12 @@ def download_range(series: object, episode: str, quality: str, remote: bool) -> 
     for episode in series:
         episode.name = episode.get_filename()
         if any(i in episode.name for i in episode_range):
-            download_stream(episode, quality, remote, str(series))
+            download(episode, quality, remote, str(series))
 
 
-def download_season(quality: str, url: str, remote: bool, requested: str) -> None:
+def get_season(quality: str, url: str, remote: bool, requested: str) -> None:
     with console.status("Fetching titles..."):
-        series = get_episodes(url)
+        series = get_series(url)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -366,10 +365,10 @@ def download_season(quality: str, url: str, remote: bool, requested: str) -> Non
     for episode in series:
         episode.name = episode.get_filename()
         if requested in episode.name:
-            download_stream(episode, quality, remote, str(series))
+            download(episode, quality, remote, str(series))
 
 
-def download_movie(quality: str, url: str, remote: bool) -> None:
+def get_movie(quality: str, url: str, remote: bool) -> None:
     with console.status("Fetching titles..."):
         movies = get_movies(url)
 
@@ -377,10 +376,23 @@ def download_movie(quality: str, url: str, remote: bool) -> None:
 
     for movie in movies:
         movie.name = movie.get_filename()
-        download_stream(movie, quality, remote, str(movies))
+        download(movie, quality, remote, str(movies))
 
 
-def download_stream(stream: object, quality: str, remote: bool, title: str) -> None:
+def get_stream(**kwargs):
+    url = kwargs.get("url")
+    quality = kwargs.get("quality")
+    remote = kwargs.get("remote")
+    titles = kwargs.get("titles")
+    episode = kwargs.get("episode")
+    season = kwargs.get("season")
+
+    list_titles(url) if titles else None
+    get_episode(quality, url, remote, episode.upper()) if episode else None
+    get_season(quality, url, remote, season.upper()) if season else None
+
+
+def download(stream: object, quality: str, remote: bool, title: str) -> None:
     title = string_cleaning(title)
 
     downloads = Path("downloads")
@@ -465,31 +477,35 @@ def download_stream(stream: object, quality: str, remote: bool, title: str) -> N
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
 @click.argument("url", type=str, required=True)
-def main(
-    quality: str,
-    episode: str,
-    season: str,
-    movie: bool,
-    titles: bool,
-    url: str,
-    remote: bool,
-) -> None:
+def main(**kwargs) -> None:
     """
-    Examples:\n
-
-    *Use S01E01-S01E10 to download a range of episodes (within the same season)
+    Information:\n
 
     \b
-    python itv.py --episode S01E01 https://www.itv.com/watch/broadchurch/2a1926/2a1926a0001
-    python itv.py --episode S01E01-S01E10 https://www.itv.com/watch/broadchurch/2a1926/2a1926a0001
-    python itv.py --quality 720 --season S01 https://www.itv.com/watch/broadchurch/2a1926/2a1926a0001
-    python itv.py --movie https://www.itv.com/watch/fantastic-beasts-and-where-to-find-them/2a6291
-    python itv.py --titles https://www.itv.com/watch/broadchurch/2a1926/2a1926a0001
+    Use base URL of series and then specify which episode(s) you want
+    Use the "S01E01" format (Season 1, Episode 1) to request episode
+    Movies only require --movie URL
+
+    \b
+    --remote argument to get decryption keys remotely
+    --titles argument to list all available episodes from a series
+    --quality argument to specify video quality
+
+    \b
+    File names follow the current P2P standard: "Title.S01E01.Name.1080p.ITV.WEB-DL.AAC2.0.H.264"
+    Downloads are located in /downloads folder
+
+    URL format: https://www.itv.com/watch/broadchurch/2a1926/2a1926a0001
+
+    \b
+    python itv.py --episode S01E01 URL
+    python itv.py --episode S01E01-S01E10 URL
+    python itv.py --quality 720 --season S01 URL
+    python itv.py --remote --season S01 URL
+    python itv.py --movie URL
+    python itv.py --titles URL
     """
-    list_titles(url) if titles else None
-    download_episode(quality, url, remote, episode.upper()) if episode else None
-    download_season(quality, url, remote, season.upper()) if season else None
-    download_movie(quality, url, remote) if movie else None
+    get_stream(**kwargs)
 
     shutil.rmtree(TMP)
 
