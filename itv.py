@@ -1,5 +1,4 @@
 """
-Credit to rlaphoenix for the title storage
 Thanks to A_n_g_e_l_a for the cookies!
 
 ITV downloader 0.2 - 24/08/23
@@ -387,10 +386,12 @@ def get_stream(**kwargs):
     titles = kwargs.get("titles")
     episode = kwargs.get("episode")
     season = kwargs.get("season")
+    movie = kwargs.get("movie")
 
     list_titles(url) if titles else None
     get_episode(quality, url, remote, episode.upper()) if episode else None
     get_season(quality, url, remote, season.upper()) if season else None
+    get_movie(quality, url, remote) if movie else None
 
 
 def download(stream: object, quality: str, remote: bool, title: str) -> None:
