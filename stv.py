@@ -6,7 +6,7 @@ Author: stabbedbybrick
 
 Info:
 Some titles are encrypted, some are not. This program works for both
-Quality: 1080p max
+Quality: 1080p, AAC 2.0 max
 Place blob and key file in pywidevine/L3/cdm/devices/android_generic
 
 Requirements:
@@ -28,7 +28,6 @@ import re
 import subprocess
 import json
 import shutil
-import sys
 
 from pathlib import Path
 from abc import ABC
@@ -204,7 +203,7 @@ def get_playlist(video_id: str, drm: bool):
     return mpd, lic_url
 
 
-def get_episodes(data: list):
+def get_series(data: list):
     return Series(
         [
             Episode(
@@ -265,7 +264,7 @@ def string_cleaning(filename: str) -> str:
 def list_titles(url: str) -> None:
     with console.status("Fetching titles..."):
         data, drm = get_data(url)
-        series = get_episodes(data)
+        series = get_series(data)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -280,10 +279,10 @@ def list_titles(url: str) -> None:
     exit(0)
 
 
-def download_episode(quality: str, url: str, remote: bool, requested: str) -> None:
+def get_episode(quality: str, url: str, remote: bool, requested: str) -> None:
     with console.status("Fetching titles..."):
         data, drm = get_data(url)
-        series = get_episodes(data)
+        series = get_series(data)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -293,7 +292,7 @@ def download_episode(quality: str, url: str, remote: bool, requested: str) -> No
         stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
     )
     if "-" in requested:
-        download_range(series, requested, quality, drm, remote)
+        get_range(series, requested, quality, drm, remote)
 
     for episode in series:
         episode.name = episode.get_filename()
@@ -301,7 +300,7 @@ def download_episode(quality: str, url: str, remote: bool, requested: str) -> No
             download(episode, quality, remote, drm, str(series))
 
 
-def download_range(
+def get_range(
     series: object, episode: str, quality: str, drm: bool, remote: bool
 ) -> None:
     start, end = episode.split("-")
@@ -325,10 +324,10 @@ def download_range(
             download(episode, quality, remote, drm, str(series))
 
 
-def download_season(quality: str, url: str, remote: bool, requested: str) -> None:
+def get_season(quality: str, url: str, remote: bool, requested: str) -> None:
     with console.status("Fetching titles..."):
         data, drm = get_data(url)
-        series = get_episodes(data)
+        series = get_series(data)
 
     seasons = Counter(x.season for x in series)
     num_seasons = len(seasons)
@@ -353,8 +352,8 @@ def get_stream(**kwargs):
     season = kwargs.get("season")
 
     list_titles(url) if titles else None
-    download_episode(quality, url, remote, episode.upper()) if episode else None
-    download_season(quality, url, remote, season.upper()) if season else None
+    get_episode(quality, url, remote, episode.upper()) if episode else None
+    get_season(quality, url, remote, season.upper()) if season else None
 
 
 def download(stream: object, quality: str, remote: bool, drm: bool, title: str) -> None:
