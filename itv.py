@@ -1,5 +1,6 @@
 """
 Credit to rlaphoenix for the title storage
+Thanks to A_n_g_e_l_a for the cookies!
 
 ITV downloader 0.2 - 24/08/23
 Author: stabbedbybrick
