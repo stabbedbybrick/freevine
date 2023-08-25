@@ -1,7 +1,7 @@
 """
 Credit to rlaphoenix for the title storage
 
-STV downloader 0.1 - 24/08/23
+STV downloader 0.0.1 - 25/08/23
 Author: stabbedbybrick
 
 Info:
@@ -215,7 +215,7 @@ def get_series(data: list):
                 title=episode["programme"]["name"],
                 season=int(episode["playerSeries"]["name"].split(" ")[1]),
                 number=episode["number"],
-                name=episode["title"],
+                name=None,
                 year=None,
                 data=episode["video"]["id"],
             )
@@ -347,6 +347,22 @@ def get_season(quality: str, url: str, remote: bool, requested: str) -> None:
             download(episode, quality, remote, drm, str(series))
 
 
+def get_complete(quality: str, url: str, remote: bool) -> None:
+    with console.status("Fetching titles..."):
+        series = get_series(url)
+
+    seasons = Counter(x.season for x in series)
+    num_seasons = len(seasons)
+    num_episodes = sum(seasons.values())
+
+    click.echo(
+        stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
+    )
+    for episode in series:
+        episode.name = episode.get_filename()
+        download(episode, quality, remote, str(series))
+
+
 def get_stream(**kwargs):
     url = kwargs.get("url")
     quality = kwargs.get("quality")
@@ -354,10 +370,12 @@ def get_stream(**kwargs):
     titles = kwargs.get("titles")
     episode = kwargs.get("episode")
     season = kwargs.get("season")
+    complete = kwargs.get("season")
 
     list_titles(url) if titles else None
     get_episode(quality, url, remote, episode.upper()) if episode else None
     get_season(quality, url, remote, season.upper()) if season else None
+    get_complete(quality, url, remote) if complete else None
 
 
 def download(stream: object, quality: str, remote: bool, drm: bool, title: str) -> None:
@@ -422,6 +440,7 @@ def download(stream: object, quality: str, remote: bool, drm: bool, title: str) 
 @click.option("-q", "--quality", type=str, help="Specify resolution")
 @click.option("-e", "--episode", type=str, help="Download episode(s)")
 @click.option("-s", "--season", type=str, help="Download season")
+@click.option("-c", "--complete", is_flag=True, help="Download complete series")
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
 @click.argument("url", type=str, required=True)
