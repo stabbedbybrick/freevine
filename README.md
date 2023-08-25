@@ -18,6 +18,7 @@
     python ctv.py --episode S01E01-S01E10 URL
     python ctv.py --quality 720 --season S01 URL
     python ctv.py --remote --season S01 URL
+    python ctv.py --complete URL
     python ctv.py --movie URL
     python ctv.py --titles URL
 
