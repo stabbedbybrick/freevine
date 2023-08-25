@@ -2,7 +2,7 @@
 Credit to rlaphoenix for the title storage
 
 Roku channel downloader
-Version: 0.0.2 - 24/08/23
+Version: 0.0.2 - 25/08/23
 Author: stabbedbybrick
 
 Info:
@@ -73,6 +73,8 @@ class Episode:
 
         if name is not None:
             name = name.strip()
+            if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
+                name = None
 
         self.service = service
         self.title = title
@@ -402,6 +404,22 @@ def get_season(quality: str, url: str, remote: bool, requested: str) -> None:
             download(episode, quality, remote, str(series))
 
 
+def get_complete(quality: str, url: str, remote: bool) -> None:
+    with console.status("Fetching titles..."):
+        series = get_series(url)
+
+    seasons = Counter(x.season for x in series)
+    num_seasons = len(seasons)
+    num_episodes = sum(seasons.values())
+
+    click.echo(
+        stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
+    )
+    for episode in series:
+        episode.name = episode.get_filename()
+        download(episode, quality, remote, str(series))
+
+
 def get_movie(quality: str, url: str, remote: bool) -> None:
     with console.status("Fetching titles..."):
         movies = get_movies(url)
@@ -420,11 +438,13 @@ def get_stream(**kwargs):
     titles = kwargs.get("titles")
     episode = kwargs.get("episode")
     season = kwargs.get("season")
+    complete = kwargs.get("complete")
     movie = kwargs.get("movie")
 
     list_titles(url) if titles else None
     get_episode(quality, url, remote, episode.upper()) if episode else None
     get_season(quality, url, remote, season.upper()) if season else None
+    get_complete(quality, url, remote) if complete else None
     get_movie(quality, url, remote) if movie else None
 
 
@@ -455,8 +475,8 @@ def download(stream: object, quality: str, remote: bool, title: str) -> None:
 
     args = [
         m3u8dl,
-        "--key",
-        key,
+        "--key-text-file",
+        TMP / "keys.txt",
         manifest,
         "-sv",
         f"res='{resolution}'",
@@ -492,6 +512,7 @@ def download(stream: object, quality: str, remote: bool, title: str) -> None:
 @click.option("-q", "--quality", type=str, help="Specify resolution")
 @click.option("-e", "--episode", type=str, help="Download episode(s)")
 @click.option("-s", "--season", type=str, help="Download season")
+@click.option("-c", "--complete", is_flag=True, help="Download complete series")
 @click.option("-m", "--movie", is_flag=True, help="Download a movie")
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
