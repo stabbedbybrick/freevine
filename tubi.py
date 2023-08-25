@@ -60,12 +60,15 @@ class Episode:
         name: str,
         year: str,
         data: str,
+        subtitle: str,
         lic_url: str,
     ) -> None:
         title = title.strip()
 
         if name is not None:
             name = name.strip()
+            if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
+                name = None
 
         self.service = service
         self.title = title
@@ -74,6 +77,7 @@ class Episode:
         self.name = name
         self.year = year
         self.data = data
+        self.subtitle = subtitle
         self.lic_url = lic_url
 
     def __str__(self) -> str:
@@ -222,6 +226,7 @@ def get_series(url: str) -> Series:
                 name=episode["title"].split("-")[1],
                 year=data["year"],
                 data=episode["video_resources"][0]["manifest"]["url"],
+                subtitle=episode["subtitles"][0].get("url"),
                 lic_url=episode["video_resources"][0]["license_server"]["url"]
                 if episode["video_resources"][0].get("license_server")
                 else None,
@@ -243,6 +248,7 @@ def get_movies(url: str) -> Movies:
                 year=data["year"],
                 name=data["title"],
                 data=data["video_resources"][0]["manifest"]["url"],
+                subtitle=data["subtitles"][0].get("url"),
                 lic_url=data["video_resources"][0]["license_server"]["url"]
                 if data["video_resources"][0].get("license_server")
                 else None,
@@ -376,6 +382,22 @@ def get_season(quality: str, url: str, remote: bool, requested: str) -> None:
             download(episode, quality, remote, str(series))
 
 
+def get_complete(quality: str, url: str, remote: bool) -> None:
+    with console.status("Fetching titles..."):
+        series = get_series(url)
+
+    seasons = Counter(x.season for x in series)
+    num_seasons = len(seasons)
+    num_episodes = sum(seasons.values())
+
+    click.echo(
+        stamp((f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"))
+    )
+    for episode in series:
+        episode.name = episode.get_filename()
+        download(episode, quality, remote, str(series))
+
+
 def get_movie(quality: str, url: str, remote: bool) -> None:
     with console.status("Fetching titles..."):
         movies = get_movies(url)
@@ -394,17 +416,18 @@ def get_stream(**kwargs):
     titles = kwargs.get("titles")
     episode = kwargs.get("episode")
     season = kwargs.get("season")
+    complete = kwargs.get("complete")
     movie = kwargs.get("movie")
 
     list_titles(url) if titles else None
     get_episode(quality, url, remote, episode.upper()) if episode else None
     get_season(quality, url, remote, season.upper()) if season else None
+    get_complete(quality, url, remote) if complete else None
     get_movie(quality, url, remote) if movie else None
 
 
 def download(stream: object, quality: str, remote: bool, title: str) -> None:
     title = string_cleaning(title)
-    drm = True if stream.lic_url else False
 
     downloads = Path("downloads")
     save_path = downloads.joinpath(title)
@@ -413,8 +436,13 @@ def download(stream: object, quality: str, remote: bool, title: str) -> None:
     with console.status("Getting media info..."):
         manifest, resolution = get_mediainfo(stream.data, quality)
         filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+        sub_path = save_path / f"{filename}.srt"
+        if stream.subtitle is not None:
+            r = client.get(url=f"{stream.subtitle}")
+            with open(sub_path, "wb") as f:
+                f.write(r.content)
 
-    if drm:
+    if stream.lic_url:
         with console.status("Getting decryption keys..."):
             pssh = get_pssh(manifest)
             keys = (
@@ -426,7 +454,7 @@ def download(stream: object, quality: str, remote: bool, title: str) -> None:
                 file.write("\n".join(keys))
 
     click.echo(stamp(f"{filename}"))
-    click.echo(stamp(f"{keys[0]}")) if drm else None
+    click.echo(stamp(f"{keys[0]}")) if stream.lic_url else None
     click.echo("")
 
     m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
@@ -456,7 +484,10 @@ def download(stream: object, quality: str, remote: bool, title: str) -> None:
         # "OFF",
     ]
 
-    args.extend(["--key-text-file", TMP / "keys.txt"]) if drm else None
+    args.extend(["--key-text-file", TMP / "keys.txt"]) if stream.lic_url else None
+    args.extend(
+        [f"--mux-import", f"path={sub_path}:lang=eng:name='English'"]
+    ) if stream.subtitle else None
 
     try:
         subprocess.run(args, check=True)
@@ -470,6 +501,7 @@ def download(stream: object, quality: str, remote: bool, title: str) -> None:
 @click.option("-q", "--quality", type=str, help="Specify resolution")
 @click.option("-e", "--episode", type=str, help="Download episode(s)")
 @click.option("-s", "--season", type=str, help="Download season")
+@click.option("-c", "--complete", is_flag=True, help="Download complete series")
 @click.option("-m", "--movie", is_flag=True, help="Download a movie")
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
@@ -487,6 +519,7 @@ def main(**kwargs) -> None:
     --remote argument to get decryption keys remotely
     --titles argument to list all available episodes from a series
     --quality argument to specify video quality
+    --complete argument to download complete series
 
     \b
     File names follow the current P2P standard: "Title.S01E01.Name.720p.TUBi.WEB-DL.AAC2.0.H.264"
@@ -498,13 +531,14 @@ def main(**kwargs) -> None:
     python tubi.py --episode S01E01 URL
     python tubi.py --episode S01E01-S01E10 URL
     python tubi.py --quality 720 --season S01 URL
+    python tubi.py --complete URL
     python tubi.py --remote --season S01 URL
     python tubi.py --movie URL
     python tubi.py --titles URL
     """
     get_stream(**kwargs)
 
-    shutil.rmtree(TMP) if TMP else None
+    shutil.rmtree(TMP)
 
 
 if __name__ == "__main__":
