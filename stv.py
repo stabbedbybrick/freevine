@@ -5,7 +5,9 @@ STV downloader 0.1 - 24/08/23
 Author: stabbedbybrick
 
 Info:
-Some titles are encrypted, some are not. This program works for both
+Due to the inconsistency of STV's data structure, some titles currently doesn't work.
+For those titles that does work, both encrypted and non-encrypted are supported. 
+
 Quality: 1080p, AAC 2.0 max
 Place blob and key file in pywidevine/L3/cdm/devices/android_generic
 
@@ -67,6 +69,8 @@ class Episode:
 
         if name is not None:
             name = name.strip()
+            if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
+                name = None
 
         self.service = service
         self.title = title
@@ -211,7 +215,7 @@ def get_series(data: list):
                 title=episode["programme"]["name"],
                 season=int(episode["playerSeries"]["name"].split(" ")[1]),
                 number=episode["number"],
-                name=re.split(r"[,.]", episode["title"])[1],
+                name=episode["title"],
                 year=None,
                 data=episode["video"]["id"],
             )
