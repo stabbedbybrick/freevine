@@ -1,7 +1,7 @@
 """
 Thanks to A_n_g_e_l_a for the cookies!
 
-ITV downloader 0.0.2 - 25/08/23
+ITV downloader 0.0.2 - 26/08/23
 Author: stabbedbybrick
 
 Info:
@@ -202,7 +202,7 @@ def get_series(url: str) -> Series:
             Episode(
                 service="ITV",
                 title=data["programme"]["title"],
-                season=int(episode["series"]),
+                season=episode.get("series") or 0,
                 number=int(episode["episode"]),
                 name=episode["episodeTitle"],
                 year=None,
@@ -210,7 +210,6 @@ def get_series(url: str) -> Series:
             )
             for series in data["seriesList"]
             for episode in series["titles"]
-            if episode["series"] is not None  # TODO: Include standalone episodes
         ]
     )
 
@@ -507,15 +506,17 @@ def main(**kwargs) -> None:
     \b
     Use base URL of series and then specify which episode(s) you want
     Use the "S01E01" format (Season 1, Episode 1) to request episode
+    Standalone episodes are labeled as "S00E01"
     Movies only require --movie URL
 
     \b
     --remote argument to get decryption keys remotely
     --titles argument to list all available episodes from a series
     --quality argument to specify video quality
+    --complete argument to download complete series
 
     \b
-    File names follow the current P2P standard: "Title.S01E01.Name.1080p.ITV.WEB-DL.AAC2.0.H.264"
+    File names follow the current P2P standard: "Title.S01E01.Name.720p.ITV.WEB-DL.AAC2.0.H.264"
     Downloads are located in /downloads folder
 
     URL format: https://www.itv.com/watch/broadchurch/2a1926/2a1926a0001
@@ -524,6 +525,7 @@ def main(**kwargs) -> None:
     python itv.py --episode S01E01 URL
     python itv.py --episode S01E01-S01E10 URL
     python itv.py --quality 720 --season S01 URL
+    python itv.py --complete URL
     python itv.py --remote --season S01 URL
     python itv.py --movie URL
     python itv.py --titles URL
