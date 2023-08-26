@@ -1,4 +1,5 @@
 httpx
+requests
 lxml
 click
 rich
