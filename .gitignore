@@ -1,0 +1,24 @@
+# CDM
+pywidevine
+device_cert
+device_client_id_blob
+device_private_key
+device_vmp_blob
+
+# Extensions
+*.mkv
+*.mp4
+*.exe
+*.dll
+*.crt
+*.wvd
+*.der
+*.pem
+*.bin
+*.db
+
+# venv
+.env
+.venv
+env/
+venv/
