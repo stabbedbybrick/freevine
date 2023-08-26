@@ -1,0 +1,9 @@
+httpx
+lxml
+click
+rich
+sortedcontainers
+google
+protobuf==3.19.5
+pycryptodomex
+pycryptodome
