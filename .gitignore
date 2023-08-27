@@ -24,8 +24,3 @@ device_vmp_blob
 .venv
 env/
 venv/
-
-# misc
-downloads
-tmp
-temp
