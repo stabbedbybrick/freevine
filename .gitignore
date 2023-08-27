@@ -8,6 +8,8 @@ device_vmp_blob
 # Extensions
 *.mkv
 *.mp4
+*.srt
+*.vtt
 *.exe
 *.dll
 *.crt
@@ -22,3 +24,8 @@ device_vmp_blob
 .venv
 env/
 venv/
+
+# misc
+downloads
+tmp
+temp
