@@ -14,7 +14,7 @@ ffmpeg OR mkvmerge (default: mkvmerge)
 mp4decrypt OR shaka-packager (default: mp4decrypt)
 
 Necessary libraries:
-pip install -r requirements.txt
+pip install httpx lxml click rich sortedcontainers google protobuf==3.19.5 pycryptodomex pycryptodome
 
 Usage:
 python uktv.py --help
