@@ -1,17 +1,19 @@
 ### Freevine
 
 #### Requirements:
-    Python 3.7+
+* Python 3.7+
 
-    Local pywidevine module
+* Local pywidevine module
 
-    N_m3u8DL-RE
+* N_m3u8DL-RE
 
-    ffmpeg OR mkvmerge (default: mkvmerge)
+* ffmpeg OR mkvmerge (default: mkvmerge)
 
-    mp4decrypt OR shaka-packager (default: mp4decrypt)
+* mp4decrypt OR shaka-packager (default: mp4decrypt)
 
-#### Usage examples:
+#### Usage:
+    pip install -r requirements.txt
+
     python ctv.py --help
 
     python ctv.py --episode S01E01 URL
