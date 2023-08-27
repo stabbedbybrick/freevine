@@ -22,3 +22,8 @@ device_vmp_blob
 .venv
 env/
 venv/
+
+# Misc
+downloads
+temp
+tmp
