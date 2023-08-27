@@ -26,6 +26,6 @@ env/
 venv/
 
 # misc
-download
+downloads
 tmp
 temp
