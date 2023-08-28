@@ -603,7 +603,7 @@ def download(stream: object, quality: str, aa: bool, remote: bool, title: str) -
         "--save-name",
         f"{filename}",
         "--tmp-dir",
-        "tmp",
+        "temp",
         "--save-dir",
         f"{save_path}",
         "--no-log",

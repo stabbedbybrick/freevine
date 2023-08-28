@@ -397,7 +397,7 @@ def download(stream: object, quality: str, remote: bool, title: str) -> None:
         "--save-name",
         f"{filename}",
         "--tmp-dir",
-        "tmp",
+        "temp",
         "--save-dir",
         f"{save_path}",
         "--no-log",
