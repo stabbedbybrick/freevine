@@ -27,7 +27,7 @@ main_help = f"""
         Place blob and key file in pywidevine/L3/cdm/devices/android_generic to use local CDM
         Use --remote option if you don't have a CDM (ALL4 not supported)
     \b
-        Use freevine.py to call on the streaming service you want to use
+        Use dl.py to call on the streaming service you want to download from
         by using the service alias: ALL4, CTV, ITV, UKTV, STV, ROKU, TUBI, PLUTO
         Add options and a URL to series or movie to specify what you want to download
         See examples at the bottom
@@ -64,9 +64,9 @@ main_help = f"""
 
     \b
     Examples:
-        python freevine.py CTV  --episode S01E01 URL
-        python freevine.py ALL4 --episode S01E01-S01E10 URL
-        python freevine.py ITV  --quality 720p --season S01 URL
-        python freevine.py ROKU --remote --season S01 URL
-        python freevine.py UKTV --titles URL
+        python dl.py CTV  --episode S01E01 URL
+        python dl.py ALL4 --episode S01E01-S01E10 URL
+        python dl.py ITV  --quality 720p --season S01 URL
+        python dl.py ROKU --remote --season S01 URL
+        python dl.py UKTV --titles URL
     """
