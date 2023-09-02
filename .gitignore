@@ -1,4 +1,5 @@
 # CDM
+pywidevine
 device_cert
 device_client_id_blob
 device_private_key
