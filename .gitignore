@@ -1,5 +1,4 @@
 # CDM
-pywidevine
 device_cert
 device_client_id_blob
 device_private_key
@@ -25,7 +24,11 @@ device_vmp_blob
 env/
 venv/
 
+# vscode
+*.code-workspace
+
 # misc
+__pycache__
 downloads
 tmp
 temp

@@ -1,0 +1,33 @@
+## USER SETTINGS:
+
+# Provide download path. Default is /downloads
+save_dir: "downloads"
+
+# Temp folder. This is where downloading files are temporarly
+# stored while being processed. It might be a good idea to have this
+# on the same hdd as your download folder. Default is /temp
+temp_dir: "temp"
+
+# Specify file format. Default: mkv
+format: mkv
+
+# Specify muxer (ffmpeg or mkvmerge) Default: mkvmerge
+muxer: mkvmerge
+
+# Set subtitle to skip muxing with video file (true or false)
+# If "true", subtitles will be stored separately
+# If "false", subtitles will be muxed into video file
+skip_sub: "false"
+
+# Choose file name output (default or simple)
+# "default": "Title.S01E01.Episode.Name.1080p.SERVICE.WEB-DL.AUDIO.CODEC"
+# "simple": "Title.S01E01.Episode.Name.1080p"
+filename: "default"
+
+# Thread-count. Set how many concurrent fragments N_m3u8DL-RE should download
+# More threads can speed up slow downloads, but too many could potentially
+# leave a bigger footprint? Experiment with it.
+threads: "16"
+
+# Set TV series to be sorted into respective season folders (true or false)
+seasons: "true"
