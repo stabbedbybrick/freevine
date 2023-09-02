@@ -26,14 +26,14 @@
 #### Usage:
     pip install -r requirements.txt
 
-    python freevine.py --help (READ THIS!)
+    python dl.py --help (READ THIS!)
 
     Examples:
-    python freevine.py SERVICE --episode S01E01 URL
-    python freevine.py SERVICE --episode S01E01-S01E10 URL
-    python freevine.py SERVICE --episode S01E01,S03E12,S05E03 URL
-    python freevine.py SERVICE --quality 720p --season S01 URL
-    python freevine.py SERVICE --remote --season S01 URL
-    python freevine.py SERVICE --titles URL
+    python dl.py SERVICE --episode S01E01 URL
+    python dl.py SERVICE --episode S01E01-S01E10 URL
+    python dl.py SERVICE --episode S01E01,S03E12,S05E03 URL
+    python dl.py SERVICE --quality 720p --season S01 URL
+    python dl.py SERVICE --remote --season S01 URL
+    python dl.py SERVICE --titles URL
 
 
