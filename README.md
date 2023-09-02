@@ -1,14 +1,14 @@
 ### Freevine (beta)
 
 #### Supported services:
-ROKU:  1080p, DD5.1
-CTV:   1080p, DD5.1
-ALL4:  1080p, AAC2.0
-UKTV:  1080p, AAC2.0
-STV:   1080p, AAC2.0
-ITV:   720p,  AAC2.0
-TUBI:  720p,  AAC2.0
-PLUTO: 720p,  AAC2.0
+    ROKU:  1080p, DD5.1
+    CTV:   1080p, DD5.1
+    ALL4:  1080p, AAC2.0
+    UKTV:  1080p, AAC2.0
+    STV:   1080p, AAC2.0
+    ITV:   720p,  AAC2.0
+    TUBI:  720p,  AAC2.0
+    PLUTO: 720p,  AAC2.0
 
 #### Requirements:
 * Python 3.7+
