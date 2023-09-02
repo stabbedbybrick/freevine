@@ -1,9 +1,7 @@
 # CDM
-pywidevine
-device_cert
-device_client_id_blob
-device_private_key
-device_vmp_blob
+pywidevine/L3/cdm/devices/android_generic/device_cert
+pywidevine/L3/cdm/devices/android_generic/device_client_id_blob
+pywidevine/L3/cdm/devices/android_generic/device_private_key
 
 # Extensions
 *.mkv
