@@ -183,7 +183,7 @@ class ALL4:
     def get_playlist(self, asset_id: str) -> tuple[str, str]:
         url = f"https://ais.channel4.com/asset/{asset_id}?client=android-mod"
         r = self.client.get(url)
-        if r != 200:
+        if not r.is_success:
             shutil.rmtree(self.tmp)
             raise ValueError("Invalid assetID")
         soup = BeautifulSoup(r.text, "xml")
