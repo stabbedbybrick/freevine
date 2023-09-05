@@ -75,9 +75,6 @@ class PLUTO:
     def get_data(self, url: str) -> dict:
         type = urlparse(url).path.split("/")[3]
         video_id = urlparse(url).path.split("/")[4]
-        if not video_id.isdigit():
-            stamp("URL must contain series id: series/SERIES_ID/details/")
-            sys.exit(1)
 
         params = {
             "appName": "web",
