@@ -19,6 +19,7 @@ from helpers.utilities import stamp
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
 def main(service: bool, **kwargs) -> None:
+    click.echo("")
     stamp(f"Freevine v{__version__}\n")
 
     with open("config.yaml", "r") as f:

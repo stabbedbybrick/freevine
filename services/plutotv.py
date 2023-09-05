@@ -21,6 +21,7 @@ import re
 import subprocess
 import shutil
 import uuid
+import sys
 
 from urllib.parse import urlparse
 from pathlib import Path
@@ -74,6 +75,9 @@ class PLUTO:
     def get_data(self, url: str) -> dict:
         type = urlparse(url).path.split("/")[3]
         video_id = urlparse(url).path.split("/")[4]
+        if not video_id.isdigit():
+            stamp("URL must contain series id: series/SERIES_ID/details/")
+            sys.exit(1)
 
         params = {
             "appName": "web",
@@ -147,8 +151,12 @@ class PLUTO:
 
         url = f"{base}{stitch}"
         soup = BeautifulSoup(self.client.get(url), "xml")
-        base_url = soup.select_one("BaseURL").text
-        parse = urlparse(base_url)
+        base_urls = soup.find_all("BaseURL")
+        for base_url in base_urls:
+            if base_url.text.endswith("end/"):
+                new_base = base_url.text
+
+        parse = urlparse(new_base)
         _path = parse.path.split("/")
         _path = "/".join(_path[:-3])
         new_path = f"{_path}/dash/0-end/main.mpd"
@@ -194,7 +202,9 @@ class PLUTO:
             return self.get_dash(stitched)
 
         if stitched.endswith(".m3u8"):
-            return self.get_hls(stitched)
+            # return self.get_hls(stitched)
+            stamp("Format not yet supported")
+            sys.exit(1)
 
     def get_pssh(self, kid: str):
         array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
