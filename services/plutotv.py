@@ -248,7 +248,6 @@ class PLUTO:
         for episode in series:
             stamp(episode.name)
 
-        shutil.rmtree(self.tmp)
 
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
@@ -264,7 +263,6 @@ class PLUTO:
             f"{self.episode} was not found"
         )
 
-        shutil.rmtree(self.tmp)
 
     def get_range(self, series: object, episodes: str, title: str) -> None:
         episode_range = set_range(episodes)
@@ -293,7 +291,6 @@ class PLUTO:
             if self.season in episode.name:
                 self.download(episode, title)
 
-        shutil.rmtree(self.tmp)
 
     def get_complete(self) -> None:
         series, title = self.get_info(self.url)
@@ -301,7 +298,6 @@ class PLUTO:
         for episode in series:
             self.download(episode, title)
 
-        shutil.rmtree(self.tmp)
 
     def get_movie(self) -> None:
         with self.console.status("Fetching titles..."):
@@ -314,7 +310,6 @@ class PLUTO:
             movie.name = movie.get_filename()
             self.download(movie, title)
 
-        shutil.rmtree(self.tmp)
 
     def download(self, stream: object, title: str) -> None:
         downloads = Path(self.config["save_dir"])

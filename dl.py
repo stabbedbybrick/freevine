@@ -1,3 +1,7 @@
+import shutil
+
+from pathlib import Path
+
 import click
 import yaml
 
@@ -27,6 +31,8 @@ def main(service: bool, **kwargs) -> None:
 
     Service = get_alias(service)
     Service(config, **kwargs)
+
+    shutil.rmtree("tmp") if Path("tmp").exists() else None
 
 
 if __name__ == "__main__":
