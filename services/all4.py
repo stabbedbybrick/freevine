@@ -180,7 +180,7 @@ class ALL4:
             ]
         )
 
-    def get_playlist(self, asset_id: str) -> tuple[str, str]:
+    def get_playlist(self, asset_id: str) -> tuple:
         url = f"https://ais.channel4.com/asset/{asset_id}?client=android-mod"
         r = self.client.get(url)
         if not r.is_success:
@@ -243,8 +243,6 @@ class ALL4:
         for episode in series:
             stamp(episode.name)
 
-        shutil.rmtree(self.tmp)
-
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
 
@@ -258,8 +256,6 @@ class ALL4:
         self.download(target, title) if target else stamp(
             f"{self.episode} was not found"
         )
-
-        shutil.rmtree(self.tmp)
 
     def get_range(self, series: object, episodes: str, title: str) -> None:
         episode_range = set_range(episodes)
@@ -288,15 +284,11 @@ class ALL4:
             if self.season in episode.name:
                 self.download(episode, title)
 
-        shutil.rmtree(self.tmp)
-
     def get_complete(self) -> None:
         series, title = self.get_info(self.url)
 
         for episode in series:
             self.download(episode, title)
-
-        shutil.rmtree(self.tmp)
 
     def get_movie(self) -> None:
         with self.console.status("Fetching titles..."):
@@ -308,8 +300,6 @@ class ALL4:
         for movie in movies:
             movie.name = movie.get_filename()
             self.download(movie, title)
-
-        shutil.rmtree(self.tmp)
 
     def download(self, stream: object, title: str) -> None:
         downloads = Path(self.config["save_dir"])
