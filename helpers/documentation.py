@@ -7,8 +7,8 @@ main_help = f"""
 
     \b
     Requirements:
-        Python 3.7+
-        Working CDM(blob and key)
+        Python 3.10.*
+        Valid L3 CDM(blob and key)
         N_m3u8DL-RE
         ffmpeg
         mkvmerge
@@ -27,10 +27,9 @@ main_help = f"""
         Place blob and key file in pywidevine/L3/cdm/devices/android_generic to use local CDM
         Use --remote option if you don't have a CDM (ALL4 not supported)
     \b
-        Use dl.py to call on the streaming service you want to download from
-        by using the service alias: ALL4, CTV, ITV, UKTV, STV, ROKU, TUBI, PLUTO
-        Add options and a URL to series or movie to specify what you want to download
-        See examples at the bottom
+        Use freevine.py followed by options and URL to content
+        Service is found automatically and is not needed in the command
+        See examples at the bottom for usage
     \b
         Always use main page URL of series or movie, not specific episode URLs
         Use the "S01E01" format (Season 1, Episode 1) to request episodes
@@ -48,6 +47,7 @@ main_help = f"""
         ALL4:  1080p, AAC2.0
         UKTV:  1080p, AAC2.0
         STV:   1080p, AAC2.0 Some titles have DRM, some do not. Both are supported
+        CRKL:  1080p, AAC2.0 
         ITV:   720p,  AAC2.0
         TUBI:  720p,  AAC2.0 Some titles have DRM, some do not. Both are supported
         PLUTO: 720p,  AAC2.0 
@@ -58,15 +58,10 @@ main_help = f"""
         If you request a quality that's not available,
         the closest match is downloaded instead
     \b
-        Default download path is /downloads folder
-        Series are organized in respective season folder
-        Subtitles(if available) are muxed in with the final file
-
-    \b
     Examples:
-        python dl.py CTV  --episode S01E01 URL
-        python dl.py ALL4 --episode S01E01-S01E10 URL
-        python dl.py ITV  --quality 720p --season S01 URL
-        python dl.py ROKU --remote --season S01 URL
-        python dl.py UKTV --titles URL
+        python freevine.py --episode S01E01 URL
+        python freevine.py --episode S01E01-S01E10 URL
+        python freevine.py --quality 720p --season S01 URL
+        python freevine.py --remote --season S01 URL
+        python freevine.py --titles URL
     """

@@ -1,19 +1,18 @@
 """
 Credit to rlaphoenix for the title storage
 
-ROKU
+CRACKLE
 Author: stabbedbybrick
 
 Info:
-This program will grab higher 1080p bitrate and Dolby 5.1 audio (if available)
 
 """
 
 import subprocess
-import urllib
 import json
-import asyncio
 import shutil
+import sys
+import base64
 
 from urllib.parse import urlparse
 from pathlib import Path
@@ -30,7 +29,7 @@ from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 
 
-class ROKU:
+class CRKL:
     def __init__(self, config, **kwargs) -> None:
         self.config = config
         self.tmp = Path("tmp")
@@ -45,12 +44,13 @@ class ROKU:
         self.all_audio = kwargs.get("all_audio")
 
         self.console = Console()
-        self.api = (
-            f"https://therokuchannel.roku.com/api/v2/homescreen/content/"
-            f"https%3A%2F%2Fcontent.sr.roku.com%2Fcontent%2Fv1%2Froku-trc%2F"
-        )
+        self.api = "https://prod-api.crackle.com"
         self.client = httpx.Client(
-            headers={"user-agent": "Chrome/113.0.0.0 Safari/537.36"}
+            headers={
+                "user-agent": "Chrome/113.0.0.0 Safari/537.36",
+                "x-crackle-platform": "5FE67CCA-069A-42C6-A20F-4B47A8054D46",
+            },
+            follow_redirects=True,
         )
 
         self.tmp.mkdir(parents=True, exist_ok=True)
@@ -66,45 +66,40 @@ class ROKU:
         self.get_movie() if self.movie else None
 
     def get_data(self, url: str) -> json:
-        video_id = urlparse(url).path.split("/")[2]
+        self.video_id = urlparse(url).path.split("/")[2]
 
-        try:
-            return self.client.get(f"{self.api}{video_id}").json()
-        except:
-            raise KeyError(
-                "Request failed. IP-address is either blocked or content is paywalled"
-            )
+        r = self.client.get(f"{self.api}/content/{self.video_id}")
+        if not r.is_success:
+            print(f"\nError! {r.status_code}\n{r.json()['error']['message']}")
+            shutil.rmtree(self.tmp)
+            sys.exit(1)
 
-    async def fetch_titles(self, async_client: httpx.AsyncClient, id: str) -> json:
-        response = await async_client.get(f"{self.api}{id}")
-        return response.json()
-
-    async def get_titles(self, data: dict) -> list:
-        async with httpx.AsyncClient() as async_client:
-            tasks = [
-                self.fetch_titles(async_client, x["meta"]["id"])
-                for x in data["episodes"]
-            ]
-
-            return await asyncio.gather(*tasks)
+        return r.json()["data"]
 
     def get_series(self, url: str) -> Series:
         data = self.get_data(url)
-        episodes = asyncio.run(self.get_titles(data))
+
+        r = self.client.get(f"{self.api}/content/{self.video_id}/children").json()
+
+        seasons = [
+            self.client.get(f"{self.api}/content/{x['id']}/children").json()
+            for x in r["data"]
+        ]
 
         return Series(
             [
                 Episode(
                     id_=None,
-                    service="ROKU",
-                    title=data["title"],
+                    service="CRKL",
+                    title=data["metadata"][0]["title"],
                     season=int(episode["seasonNumber"]),
                     number=int(episode["episodeNumber"]),
                     name=episode["title"],
-                    year=data["releaseYear"],
-                    data=episode["meta"]["id"],
+                    year=None,
+                    data=episode["id"],
                 )
-                for episode in episodes
+                for season in seasons
+                for episode in season["data"]
             ]
         )
 
@@ -115,77 +110,64 @@ class ROKU:
             [
                 Movie(
                     id_=None,
-                    service="ROKU",
-                    title=data["title"],
-                    year=data["releaseYear"],
-                    name=data["title"],
-                    data=data["meta"]["id"],
+                    service="CRKL",
+                    title=data["metadata"][0]["title"],
+                    year=data["metadata"][0]["releaseDate"].split("-")[0],
+                    name=data["metadata"][0]["title"],
+                    data=data["id"],
                 )
             ]
         )
 
     def get_playlist(self, id: str) -> tuple:
-        response = self.client.get("https://therokuchannel.roku.com/api/v1/csrf").json()
+        r = self.client.get(f"{self.api}/playback/vod/{id}").json()
 
-        token = response["csrf"]
-
-        headers = {
-            "csrf-token": token,
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 \
-            (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36",
-        }
-        payload = {
-            "rokuId": id,
-            "mediaFormat": "mpeg-dash",
-            "drmType": "widevine",
-            "quality": "fhd",
-            "providerId": "rokuavod",
-        }
-
-        url = f"https://therokuchannel.roku.com/api/v3/playback"
-
-        response = self.client.post(
-            url, headers=headers, cookies=self.client.cookies, json=payload
-        ).json()
-
-        try:
-            videos = response["playbackMedia"]["videos"]
-        except:
-            raise KeyError(
-                "Request failed. IP-address is either blocked or content is paywalled"
-            )
-
-        lic_url = [
-            x["drmParams"]["licenseServerURL"]
-            for x in videos
-            if x["drmParams"]["keySystem"] == "Widevine"
+        manifest = [
+            source["url"].replace("session", "dash")
+            for source in r["data"]["streams"]
+            if source.get("type") == "dash-widevine"
         ][0]
 
-        mpd = [x["url"] for x in videos if x["streamFormat"] == "dash"][0]
-        manifest = urllib.parse.unquote(mpd).split("=")[1].split("?")[0]
+        lic_url = [
+            source["drm"]["keyUrl"]
+            for source in r["data"]["streams"]
+            if source.get("type") == "dash-widevine"
+        ][0]
 
         return lic_url, manifest
 
+    def get_pssh(self, soup: str) -> str:
+        kid = (
+            soup.select_one("ContentProtection")
+            .attrs.get("cenc:default_KID")
+            .replace("-", "")
+        )
+        array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
+        array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
+        array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
+        array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
+        return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
+
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         soup = BeautifulSoup(self.client.get(manifest), "xml")
+        new_manifest = soup.select_one("BaseURL").text + "index.mpd"
+        soup = BeautifulSoup(self.client.get(new_manifest), "xml")
+        pssh = self.get_pssh(soup)
         elements = soup.find_all("Representation")
-        codecs = [x.attrs["codecs"] for x in elements if x.attrs.get("codecs")]
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
             reverse=True,
         )
 
-        audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
-
         if quality is not None:
             if int(quality) in heights:
-                return quality, audio
+                return quality, pssh
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
                 stamp(f"Resolution not available. Getting closest match:")
-                return closest_match, audio
+                return closest_match, pssh
 
-        return heights[0], audio
+        return heights[0], pssh
 
     def get_info(self, url: str) -> object:
         with self.console.status("Fetching titles..."):
@@ -267,8 +249,6 @@ class ROKU:
             self.download(movie, title)
 
     def download(self, stream: object, title: str) -> None:
-        pssh = "AAAAKXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAkiASpI49yVmwY="
-
         downloads = Path(self.config["save_dir"])
         save_path = downloads.joinpath(title)
         save_path.mkdir(parents=True, exist_ok=True)
@@ -280,7 +260,7 @@ class ROKU:
 
         with self.console.status("Getting media info..."):
             lic_url, manifest = self.get_playlist(stream.data)
-            resolution, audio = self.get_mediainfo(manifest, self.quality)
+            resolution, pssh = self.get_mediainfo(manifest, self.quality)
 
         with self.console.status("Getting decryption keys..."):
             keys = (
@@ -309,7 +289,7 @@ class ROKU:
         _sub = self.config["skip_sub"]
 
         if self.config["filename"] == "default":
-            file = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.{audio}.H.264"
+            file = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
         else:
             file = f"{stream.name}.{resolution}p"
 

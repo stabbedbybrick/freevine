@@ -33,7 +33,7 @@ import httpx
 from bs4 import BeautifulSoup
 from rich.console import Console
 
-from helpers.utilities import stamp, string_cleaning, set_range
+from helpers.utilities import stamp, stamperr, string_cleaning, set_range
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 
@@ -169,26 +169,32 @@ class PLUTO:
 
         url = f"{base}{stitch}"
         response = self.client.get(url).text
-        pattern = r"#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=(\d+),.*\n(.+\.m3u8)"
+        pattern = r"#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=(\d+)"
         matches = re.findall(pattern, response)
 
-        playlists = [(int(bandwidth), url) for bandwidth, url in matches]
-        max_bandwidth = sorted(playlists, key=lambda x: x[0], reverse=True)
+        max_bandwidth = sorted(matches, key=int, reverse=True)
+        url = url.replace("master.m3u8", f"{max_bandwidth[0]}/playlist.m3u8")
 
-        url = url.replace("master.m3u8", "")
-        base_url = f"{url}{max_bandwidth[0][1]}"
-
-        response = self.client.get(base_url).text
+        response = self.client.get(url).text
         segment = re.search(
             r"^(https?://.*/)0\-(end|[0-9]+)/[^/]+\.ts$", response, re.MULTILINE
         ).group(1)
 
         parse = urlparse(f"{segment}0-end/master.m3u8")
 
-        return parse._replace(
+        master = parse._replace(
             scheme="http",
             netloc="silo-hybrik.pluto.tv.s3.amazonaws.com",
         ).geturl()
+
+        self.client.headers.pop("Authorization")
+        response = self.client.get(master).text
+
+        matches = re.findall(r"hls_(\d+).m3u8", response)
+        hls = sorted(matches, key=int, reverse=True)[0]
+
+        manifest = master.replace("master.m3u8", f"hls_{hls}.m3u8")
+        return manifest
 
     def get_playlist(self, playlists: str) -> tuple:
         stitched = next((x for x in playlists if x.endswith(".mpd")), None)
@@ -199,18 +205,17 @@ class PLUTO:
             return self.get_dash(stitched)
 
         if stitched.endswith(".m3u8"):
-            # return self.get_hls(stitched)
-            stamp("Format not yet supported")
-            sys.exit(1)
+            return self.get_hls(stitched)
 
-    def get_pssh(self, kid: str):
+    def generate_pssh(self, kid: str):
         array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
         array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
         array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
         array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
         return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
 
-    def get_kids(self, manifest: str) -> str:
+    def get_pssh(self, manifest: str) -> str:
+        self.client.headers.pop("Authorization")
         soup = BeautifulSoup(self.client.get(manifest), "xml")
         tags = soup.find_all("ContentProtection")
         kids = set(
@@ -221,11 +226,10 @@ class PLUTO:
             ]
         )
 
-        return [self.get_pssh(kid) for kid in kids]
+        return [self.generate_pssh(kid) for kid in kids]
 
     def get_mediainfo(self, manifest: str) -> str:
-        self.client.headers.pop("Authorization")
-        return self.get_kids(manifest) if manifest.endswith(".mpd") else None
+        return self.get_pssh(manifest) if manifest.endswith(".mpd") else None
 
     def get_info(self, url: str) -> object:
         with self.console.status("Fetching titles..."):
@@ -248,7 +252,6 @@ class PLUTO:
         for episode in series:
             stamp(episode.name)
 
-
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
 
@@ -262,7 +265,6 @@ class PLUTO:
         self.download(target, title) if target else stamp(
             f"{self.episode} was not found"
         )
-
 
     def get_range(self, series: object, episodes: str, title: str) -> None:
         episode_range = set_range(episodes)
@@ -291,13 +293,11 @@ class PLUTO:
             if self.season in episode.name:
                 self.download(episode, title)
 
-
     def get_complete(self) -> None:
         series, title = self.get_info(self.url)
 
         for episode in series:
             self.download(episode, title)
-
 
     def get_movie(self) -> None:
         with self.console.status("Fetching titles..."):
@@ -309,7 +309,6 @@ class PLUTO:
         for movie in movies:
             movie.name = movie.get_filename()
             self.download(movie, title)
-
 
     def download(self, stream: object, title: str) -> None:
         downloads = Path(self.config["save_dir"])
