@@ -29,9 +29,6 @@ from helpers.utilities import stamp, string_cleaning, set_range
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 
-TMP = Path("tmp")
-TMP.mkdir(parents=True, exist_ok=True)
-
 
 class ROKU:
     def __init__(self, config, **kwargs) -> None:
@@ -181,7 +178,7 @@ class ROKU:
         audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
 
         if quality is not None:
-            if quality in heights:
+            if int(quality) in heights:
                 return quality, audio
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
@@ -211,7 +208,6 @@ class ROKU:
         for episode in series:
             stamp(episode.name)
 
-
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
 
@@ -225,7 +221,6 @@ class ROKU:
         self.download(target, title) if target else stamp(
             f"{self.episode} was not found"
         )
-
 
     def get_range(self, series: object, episodes: str, title: str) -> None:
         episode_range = set_range(episodes)
@@ -254,13 +249,11 @@ class ROKU:
             if self.season in episode.name:
                 self.download(episode, title)
 
-
     def get_complete(self) -> None:
         series, title = self.get_info(self.url)
 
         for episode in series:
             self.download(episode, title)
-
 
     def get_movie(self) -> None:
         with self.console.status("Fetching titles..."):
@@ -272,7 +265,6 @@ class ROKU:
         for movie in movies:
             movie.name = movie.get_filename()
             self.download(movie, title)
-
 
     def download(self, stream: object, title: str) -> None:
         pssh = "AAAAKXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAkiASpI49yVmwY="
