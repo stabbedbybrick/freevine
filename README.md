@@ -11,15 +11,15 @@
 
 #### Supported services:
 
-    ROKU:    1080p, DD5.1
-    CTV:     1080p, DD5.1
-    ALL4:    1080p, AAC2.0
-    UKTV:    1080p, AAC2.0
-    STV:     1080p, AAC2.0
-    CRACKLE: 1080p, AAC2.0
-    ITV:     720p,  AAC2.0
-    TUBI:    720p,  AAC2.0
-    PLUTO:   720p,  AAC2.0
+    ROKU:  1080p, DD5.1
+    CTV:   1080p, DD5.1
+    ALL4:  1080p, AAC2.0
+    UKTV:  1080p, AAC2.0
+    STV:   1080p, AAC2.0
+    CRKL:  1080p, AAC2.0
+    ITV:   720p,  AAC2.0
+    TUBI:  720p,  AAC2.0
+    PLUTO: 720p,  AAC2.0
 
 #### Required tools:
 
@@ -27,7 +27,7 @@
 
 * [Pywidevine](https://www.mediafire.com/file/y7o57xs6pazx0rc/pywidevine.zip/)
 
-    * Valid L3 CDM (blob and key) required for some services
+    * Valid L3 CDM (blob and key) not included
 
 * [N_m3u8DL-RE](https://github.com/nilaoda/N_m3u8DL-RE/releases/)
 
@@ -61,7 +61,8 @@
 > It's still in early beta. Expect bugs here and there
 
 > Free streaming services are known for having gaps in their library and odd labels
-> It's highly recommended to use --titles before downloading to see available episodes
+
+> It's highly recommended to view available episodes with --titles before downloading
 
 #### Changelog:
 
