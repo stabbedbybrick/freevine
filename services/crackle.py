@@ -106,15 +106,19 @@ class CRKL:
     def get_movies(self, url: str) -> Movies:
         data = self.get_data(url)
 
+        r = self.client.get(f"{self.api}/content/{self.video_id}/children").json()
+
         return Movies(
             [
                 Movie(
                     id_=None,
                     service="CRKL",
                     title=data["metadata"][0]["title"],
-                    year=data["metadata"][0]["releaseDate"].split("-")[0],
+                    year=data["metadata"][0]["releaseDate"].split("-")[0]
+                    if data["metadata"][0]["releaseDate"] is not None
+                    else None,
                     name=data["metadata"][0]["title"],
-                    data=data["id"],
+                    data=r["data"][0]["id"],
                 )
             ]
         )
