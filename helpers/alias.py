@@ -18,66 +18,69 @@ from services.crackle import CRKL
 
 def get_service(url: str):
     parse = urlparse(url)
+    service = None
 
     if "pluto" in parse.netloc:
         stamp("PlutoTV")
         if "episode" in parse.path:
             stamperr("Wrong URL format. Use series URL, not episode URL")
             sys.exit(1)
-        return "PLUTO"
+        service = "PLUTO"
 
     if "channel4" in parse.netloc:
         stamp("All4")
         if re.search(r"\d+-\d+$", parse.path):
             stamperr("Wrong URL format. Use series URL, not episode URL")
             sys.exit(1)
-        return "ALL4"
+        service = "ALL4"
 
     if "ctv" in parse.netloc:
         stamp("CTV")
         if re.search(r"s\d+e\d+$", parse.path):
             stamperr("Wrong URL format. Use series URL, not episode URL")
             sys.exit(1)
-        return "CTV"
+        service = "CTV"
 
     if "uktvplay" in parse.netloc:
         stamp("UKTV Play")
         if "episode" in parse.path:
             stamperr("Wrong URL format. Use series URL, not episode URL")
             sys.exit(1)
-        return "UKTV"
+        service = "UKTV"
 
     if "stv" in parse.netloc:
         stamp("STV Player")
         if "episode" in parse.path:
             stamperr("Wrong URL format. Use series URL, not episode URL")
             sys.exit(1)
-        return "STV"
+        service = "STV"
 
     if "tubitv" in parse.netloc:
         stamp("TubiTV")
         if "tv-shows" in parse.path:
             stamperr("Wrong URL format. Use series URL, not episode URL")
             sys.exit(1)
-        return "TUBI"
+        service = "TUBI"
 
     if "roku" in parse.netloc:
         stamp("The Roku Channel")
         if re.search(r"s\d+-e\d+", parse.path):
             stamperr("Wrong URL format. Use series URL, not episode URL")
             sys.exit(1)
-        return "ROKU"
+        service = "ROKU"
 
     if "crackle" in parse.netloc:
         stamp("CRACKLE")
         if "?" in parse.path:
             stamperr("Wrong URL format. Use series URL, not episode URL")
             sys.exit(1)
-        return "CRKL"
+        service = "CRKL"
 
     if "itv" in parse.netloc:
         stamp("ITVX")
-        return "ITV"
+        service = "ITV"
+
+    return service
 
 
 def get_alias(url: str):
@@ -97,4 +100,5 @@ def get_alias(url: str):
     if service in aliases:
         return aliases[service]
     else:
-        raise ValueError(f"{service} is not a valid service")
+        stamperr("Service not supported")
+        sys.exit(1)
