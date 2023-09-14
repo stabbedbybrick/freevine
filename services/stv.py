@@ -27,7 +27,7 @@ import httpx
 from bs4 import BeautifulSoup
 from rich.console import Console
 
-from helpers.utilities import stamp, string_cleaning, set_range
+from helpers.utilities import info, string_cleaning, set_range
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series
 
@@ -174,7 +174,7 @@ class STV:
                 return quality, pssh
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                stamp(f"Resolution not available. Getting closest match:")
+                info(f"Resolution not available. Getting closest match:")
                 return closest_match, pssh
 
         return heights[0], pssh
@@ -191,7 +191,7 @@ class STV:
         num_seasons = len(seasons)
         num_episodes = sum(seasons.values())
 
-        stamp(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
+        info(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
 
         return series, title, drm
 
@@ -199,8 +199,7 @@ class STV:
         series, title, drm = self.get_info(self.url)
 
         for episode in series:
-            stamp(episode.name)
-
+            info(episode.name)
 
     def get_episode(self) -> None:
         series, title, drm = self.get_info(self.url)
@@ -212,10 +211,9 @@ class STV:
 
         target = next((i for i in series if self.episode in i.name), None)
 
-        self.download(target, title, drm) if target else stamp(
+        self.download(target, title, drm) if target else info(
             f"{self.episode} was not found"
         )
-
 
     def get_range(self, series: object, episodes: str, title: str, drm: bool) -> None:
         episode_range = set_range(episodes)
@@ -244,13 +242,11 @@ class STV:
             if self.season in episode.name:
                 self.download(episode, title, drm)
 
-
     def get_complete(self) -> None:
         series, title, drm = self.get_info(self.url)
 
         for episode in series:
             self.download(episode, title, drm)
-
 
     def download(self, stream: object, title: str, drm: bool) -> None:
         downloads = Path(self.config["save_dir"])
@@ -276,8 +272,8 @@ class STV:
                 with open(self.tmp / "keys.txt", "w") as file:
                     file.write("\n".join(keys))
 
-        stamp(f"{stream.name}")
-        stamp(f"{keys[0]}") if drm else stamp("No encryption found")
+        info(f"{stream.name}")
+        info(f"{keys[0]}") if drm else info("No encryption found")
         click.echo("")
 
         m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
@@ -299,8 +295,6 @@ class STV:
 
         args = [
             m3u8dl,
-            "--key-text-file",
-            self.tmp / "keys.txt",
             manifest,
             "-sv",
             _video,

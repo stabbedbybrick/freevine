@@ -33,7 +33,7 @@ import httpx
 from bs4 import BeautifulSoup
 from rich.console import Console
 
-from helpers.utilities import stamp, stamperr, string_cleaning, set_range
+from helpers.utilities import info, error, string_cleaning, set_range
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 
@@ -242,7 +242,7 @@ class PLUTO:
         num_seasons = len(seasons)
         num_episodes = sum(seasons.values())
 
-        stamp(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
+        info(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
 
         return series, title
 
@@ -250,7 +250,7 @@ class PLUTO:
         series, title = self.get_info(self.url)
 
         for episode in series:
-            stamp(episode.name)
+            info(episode.name)
 
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
@@ -262,7 +262,7 @@ class PLUTO:
 
         target = next((i for i in series if self.episode in i.name), None)
 
-        self.download(target, title) if target else stamp(
+        self.download(target, title) if target else info(
             f"{self.episode} was not found"
         )
 
@@ -304,7 +304,7 @@ class PLUTO:
             movies = self.get_movies(self.url)
             title = string_cleaning(str(movies))
 
-        stamp(f"{str(movies)}\n")
+        info(f"{str(movies)}\n")
 
         for movie in movies:
             movie.name = movie.get_filename()
@@ -336,7 +336,7 @@ class PLUTO:
                 with open(self.tmp / "keys.txt", "w") as file:
                     file.write("\n".join(key[0] for key in keys))
 
-        stamp(f"{stream.name}")
+        info(f"{stream.name}")
         click.echo("")
 
         m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")

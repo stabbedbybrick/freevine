@@ -23,7 +23,7 @@ import httpx
 from bs4 import BeautifulSoup
 from rich.console import Console
 
-from helpers.utilities import stamp, string_cleaning, set_range
+from helpers.utilities import info, string_cleaning, set_range
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 
@@ -272,7 +272,7 @@ class CTV:
                 return quality, pssh, audio
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                click.echo(stamp(f"Resolution not available. Getting closest match:"))
+                info(f"Resolution not available. Getting closest match:")
                 return closest_match, pssh, audio
 
         return heights[0], pssh, audio
@@ -288,7 +288,7 @@ class CTV:
         num_seasons = len(seasons)
         num_episodes = sum(seasons.values())
 
-        stamp(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
+        info(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
 
         return series, title
 
@@ -296,8 +296,7 @@ class CTV:
         series, title = self.get_info(self.url)
 
         for episode in series:
-            stamp(episode.name)
-
+            info(episode.name)
 
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
@@ -309,10 +308,9 @@ class CTV:
 
         target = next((i for i in series if self.episode in i.name), None)
 
-        self.download(target, title) if target else stamp(
+        self.download(target, title) if target else info(
             f"{self.episode} was not found"
         )
-
 
     def get_range(self, series: object, episodes: str, title: str) -> None:
         episode_range = set_range(episodes)
@@ -341,25 +339,22 @@ class CTV:
             if self.season in episode.name:
                 self.download(episode, title)
 
-
     def get_complete(self) -> None:
         series, title = self.get_info(self.url)
 
         for episode in series:
             self.download(episode, title)
 
-
     def get_movie(self) -> None:
         with self.console.status("Fetching titles..."):
             movies = self.get_movies(self.url)
             title = string_cleaning(str(movies))
 
-        stamp(f"{str(movies)}\n")
+        info(f"{str(movies)}\n")
 
         for movie in movies:
             movie.name = movie.get_filename()
             self.download(movie, title)
-
 
     def download(self, stream: object, title: str) -> None:
         downloads = Path(self.config["save_dir"])
@@ -376,7 +371,7 @@ class CTV:
             resolution, pssh, audio = self.get_mediainfo(manifest, self.quality)
             if self.config["filename"] == "default":
                 filename = (
-                    f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+                    f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.{audio}.H.264"
                 )
             else:
                 filename = f"{stream.name}.{resolution}p"
@@ -385,7 +380,7 @@ class CTV:
 
             r = self.client.get(url=f"{subtitle}")
             if r.status_code != 200:
-                stamp("No subtitle found")
+                info("No subtitle found")
                 sub = None
             else:
                 sub = True
@@ -401,9 +396,9 @@ class CTV:
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
-        stamp(f"{stream.name}")
+        info(f"{stream.name}")
         for key in keys:
-            stamp(f"{key}")
+            info(f"{key}")
         click.echo("")
 
         m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
@@ -417,11 +412,6 @@ class CTV:
         _format = self.config["format"]
         _muxer = self.config["muxer"]
         _sub = self.config["skip_sub"]
-
-        if self.config["filename"] == "default":
-            file = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
-        else:
-            file = f"{stream.name}.{resolution}p"
 
         args = [
             m3u8dl,

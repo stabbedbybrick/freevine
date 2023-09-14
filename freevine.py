@@ -7,8 +7,8 @@ import yaml
 
 from helpers import __version__
 from helpers.documentation import main_help
-from helpers.alias import get_alias
-from helpers.utilities import stamp
+from helpers.services import get_service
+from helpers.utilities import info
 
 
 @click.command(help=main_help)
@@ -23,12 +23,12 @@ from helpers.utilities import stamp
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
 def main(**kwargs) -> None:
     click.echo("")
-    stamp(f"Freevine v{__version__}\n")
+    info(f"Freevine v{__version__}\n")
 
     with open("config.yaml", "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
 
-    Service = get_alias(kwargs.get("url"))
+    Service = get_service(kwargs.get("url"))
     Service(config, **kwargs)
 
     shutil.rmtree("tmp") if Path("tmp").exists() else None

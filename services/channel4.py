@@ -1,19 +1,21 @@
 """
-Credit to rlaphoenix for the title storage
+Credit to Diazole and rlaphoenix for paving the way
 
 Author: stabbedbybrick
 
 Info:
-Quality: 1080p, AAC 2.0 max
+This program will grab higher 1080p bitrate (if available)
+Place blob and key file in pywidevine/L3/cdm/devices/android_generic
 
 """
 
 import base64
-import shutil
+import re
 import subprocess
+import json
+import shutil
 import sys
 
-from urllib.parse import urlparse
 from pathlib import Path
 from collections import Counter
 
@@ -22,13 +24,16 @@ import httpx
 
 from bs4 import BeautifulSoup
 from rich.console import Console
+from Crypto.Cipher import AES
 
-from helpers.utilities import stamp, string_cleaning, set_range
-from helpers.cdm import local_cdm, remote_cdm
-from helpers.titles import Episode, Series
+from helpers.utilities import info, string_cleaning, set_range
+from helpers.titles import Episode, Series, Movie, Movies
+
+from pywidevine.L3.decrypt.wvdecryptcustom import WvDecrypt
+from pywidevine.L3.cdm import deviceconfig
 
 
-class UKTV:
+class CHANNEL4:
     def __init__(self, config, **kwargs) -> None:
         self.config = config
         self.tmp = Path("tmp")
@@ -42,35 +47,102 @@ class UKTV:
         self.complete = kwargs.get("complete")
         self.all_audio = kwargs.get("all_audio")
 
-        self.vod = f"https://vschedules.uktv.co.uk/vod/"
-        self.api = f"https://edge.api.brightcove.com/playback/v1/accounts/"
         self.console = Console()
         self.client = httpx.Client(
-            headers={"user-agent": "Chrome/118.0.0.0 Safari/537.36"}
+            headers={"user-agent": "Chrome/113.0.0.0 Safari/537.36"}
         )
-
-        self.tmp.mkdir(parents=True, exist_ok=True)
 
         self.episode = self.episode.upper() if self.episode else None
         self.season = self.season.upper() if self.season else None
         self.quality = self.quality.rstrip("p") if self.quality else None
 
+        self.tmp.mkdir(parents=True, exist_ok=True)
+
         self.list_titles() if self.titles else None
         self.get_episode() if self.episode else None
         self.get_season() if self.season else None
         self.get_complete() if self.complete else None
+        self.get_movie() if self.movie else None
 
-    def get_data(self, url: str) -> list[dict]:
-        slug = urlparse(url).path.split("/")[2]
+    def local_cdm(
+        self,
+        pssh: str,
+        lic_url: str,
+        manifest: str,
+        token: str,
+        asset: str,
+        cert_b64=None,
+    ) -> str:
+        wvdecrypt = WvDecrypt(
+            init_data_b64=pssh,
+            cert_data_b64=cert_b64,
+            device=deviceconfig.device_android_generic,
+        )
+        lic = self.get_license(
+            wvdecrypt.get_challenge(), lic_url, manifest, token, asset
+        )
 
-        response = self.client.get(f"{self.vod}brand/?slug={slug}").json()
+        wvdecrypt.update_license(lic)
+        status, content = wvdecrypt.start_process()
 
-        id_list = [series["id"] for series in response["series"]]
+        if status:
+            return content
+        else:
+            raise ValueError("Unable to fetch decryption keys")
 
-        seasons = [
-            self.client.get(f"{self.vod}series/?id={id}").json() for id in id_list
-        ]
-        return seasons
+    def get_license(
+        self,
+        challenge: bytes,
+        lic_url: str,
+        manifest: str,
+        token: str,
+        asset: str,
+    ) -> str:
+        r = self.client.post(
+            lic_url,
+            data=json.dumps(
+                {
+                    "message": base64.b64encode(challenge).decode("utf8"),
+                    "token": token,
+                    "request_id": asset,
+                    "video": {"type": "ondemand", "url": manifest},
+                }
+            ),
+            headers={"Content-Type": "application/json"},
+        )
+        if r.status_code != 200:
+            click.echo(f"Failed to get license! Error: {r.json()['status']['type']}")
+            sys.exit(1)
+        return r.json()["license"]
+
+    def decrypt_token(self, token: str) -> tuple:
+        key = "QVlESUQ4U0RGQlA0TThESA=="
+        iv = "MURDRDAzODNES0RGU0w4Mg=="
+
+        if isinstance(token, str):
+            token = base64.b64decode(token)
+            cipher = AES.new(
+                key=base64.b64decode(key),
+                iv=base64.b64decode(iv),
+                mode=AES.MODE_CBC,
+            )
+            data = cipher.decrypt(token)[:-2]
+            license_api, dec_token = data.decode().split("|")
+            return dec_token.strip(), license_api.strip()
+
+    def get_data(self, url: str) -> dict:
+        r = self.client.get(url)
+        init_data = re.search(
+            "<script>window\.__PARAMS__ = (.*)</script>",
+            "".join(
+                r.content.decode()
+                .replace("\u200c", "")
+                .replace("\r\n", "")
+                .replace("undefined", "null")
+            ),
+        )
+        data = json.loads(init_data.group(1))
+        return data["initialData"]
 
     def get_titles(self, url: str) -> Series:
         data = self.get_data(url)
@@ -79,49 +151,45 @@ class UKTV:
             [
                 Episode(
                     id_=None,
-                    service="UKTV",
-                    title=episode["brand_name"],
-                    season=int(episode["series_number"]),
-                    number=episode["episode_number"],
-                    name=episode["name"],
+                    service="ALL4",
+                    title=data["brand"]["title"],
+                    season=episode["seriesNumber"],
+                    number=episode["episodeNumber"],
+                    name=episode["originalTitle"],
                     year=None,
-                    data=episode["video_id"],
+                    data=episode.get("assetId"),
                 )
-                for season in data
-                for episode in season["episodes"]
+                for episode in data["brand"]["episodes"]
             ]
         )
 
-    def get_playlist(self, video_id: str) -> tuple:
-        account = "1242911124001"
-        headers = {
-            "Accept": "application/json;pk="
-            "BCpkADawqM3vt2DxMZ94FyjAfheKk_-e92F-hnuKgoJMh2hgaASJJV_gUeYm710md2yS24_"
-            "4PfOEbF_SSTNM4PijWNnwZG8Tlg4Y40XyFQh_T9Vq2460u3GXCUoSQOYlpfhbzmQ8lEwUmmte"
-        }
-        url = f"{self.api}{account}/videos/{video_id}"
+    def get_movies(self, url: str) -> Movies:
+        data = self.get_data(url)
 
-        r = self.client.get(url, headers=headers)
+        return Movies(
+            [
+                Movie(
+                    id_=None,
+                    service="ALL4",
+                    title=data["brand"]["title"],
+                    year=data["brand"]["summary"].split(" ")[0].strip().strip("()"),
+                    name=data["brand"]["title"],
+                    data=movie.get("assetId"),
+                )
+                for movie in data["brand"]["episodes"]
+            ]
+        )
+
+    def get_playlist(self, asset_id: str) -> tuple:
+        url = f"https://ais.channel4.com/asset/{asset_id}?client=android-mod"
+        r = self.client.get(url)
         if not r.is_success:
-            print(f"\nError! {r.status_code}")
             shutil.rmtree(self.tmp)
-            sys.exit(1)
-
-        data = r.json()
-
-        manifest = [
-            x["src"]
-            for x in data["sources"]
-            if x.get("key_systems").get("com.widevine.alpha")
-        ][0]
-
-        lic_url = [
-            x["key_systems"]["com.widevine.alpha"]["license_url"]
-            for x in data["sources"]
-            if x.get("key_systems").get("com.widevine.alpha")
-        ][0]
-
-        return manifest, lic_url
+            raise ValueError("Invalid assetID")
+        soup = BeautifulSoup(r.text, "xml")
+        token = soup.select_one("token").text
+        manifest = soup.select_one("uri").text
+        return manifest, token
 
     def get_pssh(self, soup: str) -> str:
         kid = (
@@ -129,11 +197,11 @@ class UKTV:
             .attrs.get("cenc:default_KID")
             .replace("-", "")
         )
-        version = "3870737368"
-        system_id = "EDEF8BA979D64ACEA3C827DCD51D21ED"
-        data = "48E3DC959B06"
-        s = f"000000{version}00000000{system_id}000000181210{kid}{data}"
-        return base64.b64encode(bytes.fromhex(s)).decode()
+        array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
+        array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
+        array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
+        array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
+        return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         soup = BeautifulSoup(self.client.get(manifest), "xml")
@@ -149,7 +217,7 @@ class UKTV:
                 return quality, pssh
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                stamp(f"Resolution not available. Getting closest match:")
+                info(f"Resolution not available. Getting closest match:")
                 return closest_match, pssh
 
         return heights[0], pssh
@@ -165,7 +233,7 @@ class UKTV:
         num_seasons = len(seasons)
         num_episodes = sum(seasons.values())
 
-        stamp(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
+        info(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
 
         return series, title
 
@@ -173,7 +241,7 @@ class UKTV:
         series, title = self.get_info(self.url)
 
         for episode in series:
-            stamp(episode.name)
+            info(episode.name)
 
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
@@ -185,7 +253,7 @@ class UKTV:
 
         target = next((i for i in series if self.episode in i.name), None)
 
-        self.download(target, title) if target else stamp(
+        self.download(target, title) if target else info(
             f"{self.episode} was not found"
         )
 
@@ -222,6 +290,17 @@ class UKTV:
         for episode in series:
             self.download(episode, title)
 
+    def get_movie(self) -> None:
+        with self.console.status("Fetching titles..."):
+            movies = self.get_movies(self.url)
+            title = string_cleaning(str(movies))
+
+        info(f"{str(movies)}\n")
+
+        for movie in movies:
+            movie.name = movie.get_filename()
+            self.download(movie, title)
+
     def download(self, stream: object, title: str) -> None:
         downloads = Path(self.config["save_dir"])
         save_path = downloads.joinpath(title)
@@ -233,21 +312,17 @@ class UKTV:
             save_path.mkdir(parents=True, exist_ok=True)
 
         with self.console.status("Getting media info..."):
-            manifest, lic_url = self.get_playlist(stream.data)
+            manifest, token = self.get_playlist(stream.data)
             resolution, pssh = self.get_mediainfo(manifest, self.quality)
+            token, license_url = self.decrypt_token(token)
 
         with self.console.status("Getting decryption keys..."):
-            keys = (
-                remote_cdm(pssh, lic_url, self.client)
-                if self.remote
-                else local_cdm(pssh, lic_url, self.client)
-            )
+            keys = self.local_cdm(pssh, license_url, manifest, token, stream.data)
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
-        stamp(f"{stream.name}")
-        for key in keys:
-            stamp(f"{key}")
+        info(f"{stream.name}")
+        info(f"{keys[0]}")
         click.echo("")
 
         m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
@@ -263,9 +338,9 @@ class UKTV:
         _sub = self.config["skip_sub"]
 
         if self.config["filename"] == "default":
-            _file = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+            file = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
         else:
-            _file = f"{stream.name}.{resolution}p"
+            file = f"{stream.name}.{resolution}p"
 
         args = [
             m3u8dl,
@@ -284,7 +359,7 @@ class UKTV:
             "--thread-count",
             _threads,
             "--save-name",
-            _file,
+            file,
             "--tmp-dir",
             _temp,
             "--save-dir",
