@@ -5,7 +5,7 @@ import datetime
 import click
 
 
-def stamp(text: str) -> str:
+def info(text: str) -> str:
     time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
     stamp = click.style(f"{time}")
     info = click.style(f"INFO", fg="green", underline=True)
@@ -13,7 +13,7 @@ def stamp(text: str) -> str:
     return click.echo(f"{stamp} {info}{message}")
 
 
-def stamperr(text: str) -> str:
+def error(text: str) -> str:
     time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
     stamp = click.style(f"{time}")
     info = click.style(f"ERROR", fg="red", underline=True)
