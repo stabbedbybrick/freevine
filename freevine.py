@@ -23,7 +23,7 @@ from helpers.utilities import info
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
 def main(**kwargs) -> None:
     click.echo("")
-    info(f"Freevine v{__version__}\n")
+    info(f"Freevine {__version__}\n")
 
     with open("config.yaml", "r") as f:
         config = yaml.load(f, Loader=yaml.FullLoader)
