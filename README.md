@@ -1,4 +1,13 @@
-### Freevine (v0.0.6-beta)
+### Freevine beta (160923)
+
+#### Changelog:
+
+    #(160923):
+
+    Removed version label. Consider it forever beta and look at date for latest version 
+
+    STV: Updated method to fetching titles. Most titles should be working now
+    ITV: Fixed an error for standalone/behind the scenes episodes
 
 #### Features:
 
@@ -64,12 +73,5 @@
 
 > It's highly recommended to view available episodes with --titles before downloading
 
-#### Changelog:
-
-    #(160923):
-
-    STV: Updated method to fetching titles. Most titles whould be working now
-
-    ITV: Fixed an error for standalone/behind the scenes episodes
     
 
