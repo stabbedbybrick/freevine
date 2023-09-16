@@ -4,8 +4,6 @@ Credit to rlaphoenix for the title storage
 Author: stabbedbybrick
 
 Info:
-Due to the inconsistency of STV's data structure, some titles currently don't work.
-For those titles that do work, both encrypted and non-encrypted are supported. 
 
 Quality: 1080p, AAC 2.0 max
 
@@ -17,6 +15,7 @@ import subprocess
 import json
 import shutil
 import sys
+import urllib.parse
 
 from pathlib import Path
 from collections import Counter
@@ -46,7 +45,7 @@ class STV:
         self.complete = kwargs.get("complete")
         self.all_audio = kwargs.get("all_audio")
 
-        self.vod = f"https://player.api.stv.tv/v1/episodes?series.guid="
+        self.vod = f"https://player.api.stv.tv/v1/episodes?"
         self.api = f"https://edge.api.brightcove.com/playback/v1/accounts"
         self.console = Console()
         self.client = httpx.Client(
@@ -70,13 +69,19 @@ class STV:
         data = json.loads(props)
         data = data["props"]["pageProps"]["data"]
 
-        id_list = [x["id"] for x in data["tabs"] if x["type"] == "episode"]
+        params = [
+            urllib.parse.urlencode(x["params"]["query"])
+            for x in data["tabs"]
+            if x["params"]["path"] == "/episodes"
+        ]
+
         drm = data["programmeData"]["drmEnabled"]
 
         headers = {"stv-drm": "true"} if drm else None
 
         seasons = [
-            self.client.get(f"{self.vod}{id}", headers=headers).json() for id in id_list
+            self.client.get(f"{self.vod}{param}", headers=headers).json()
+            for param in params
         ]
 
         return seasons, drm
@@ -137,8 +142,10 @@ class STV:
                     id_=None,
                     service="STV",
                     title=episode["programme"]["name"],
-                    season=int(episode["playerSeries"]["name"].split(" ")[1]),
-                    number=episode["number"],
+                    season=int(episode["playerSeries"]["name"].split(" ")[1])
+                    if "movie" not in episode["playerSeries"]["name"]
+                    else 0,
+                    number=episode.get("number") or 0,
                     name=None,
                     year=None,
                     data=episode["video"]["id"],
