@@ -83,7 +83,7 @@ class ITV:
                     service="ITV",
                     title=data["programme"]["title"],
                     season=episode.get("series") or 0,
-                    number=int(episode["episode"]),
+                    number=episode.get("episode") or 0,
                     name=episode["episodeTitle"],
                     year=None,
                     data=episode["playlistUrl"],
@@ -189,7 +189,6 @@ class ITV:
         for episode in series:
             info(episode.name)
 
-
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
 
@@ -203,7 +202,6 @@ class ITV:
         self.download(target, title) if target else info(
             f"{self.episode} was not found"
         )
-
 
     def get_range(self, series: object, episodes: str, title: str) -> None:
         episode_range = set_range(episodes)
@@ -232,13 +230,11 @@ class ITV:
             if self.season in episode.name:
                 self.download(episode, title)
 
-
     def get_complete(self) -> None:
         series, title = self.get_info(self.url)
 
         for episode in series:
             self.download(episode, title)
-
 
     def get_movie(self) -> None:
         with self.console.status("Fetching titles..."):
