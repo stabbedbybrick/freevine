@@ -66,14 +66,10 @@
 
 #### Changelog:
 
-    #(080923) Release version 0.0.6-beta:
-    Restructured command to be cleaner and less clunky
-    Service is automatically found through the URL and is no longer needed in command
-    Added some helpful errors for improper URL input
+    #(160923):
 
-    CRACKLE: added service
+    STV: Updated method to fetching titles. Most titles whould be working now
 
-    PlutoTV: improved search for baseURL
-    PlutoTV: added support for non-drm, HLS-only content
+    ITV: Fixed an error for standalone/behind the scenes episodes
     
 
