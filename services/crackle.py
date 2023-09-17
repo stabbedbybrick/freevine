@@ -293,9 +293,9 @@ class CRACKLE:
         _sub = self.config["skip_sub"]
 
         if self.config["filename"] == "default":
-            file = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+            filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
         else:
-            file = f"{stream.name}.{resolution}p"
+            filename = f"{stream.name}.{resolution}p"
 
         args = [
             m3u8dl,
@@ -314,7 +314,7 @@ class CRACKLE:
             "--thread-count",
             _threads,
             "--save-name",
-            file,
+            filename,
             "--tmp-dir",
             _temp,
             "--save-dir",
@@ -324,9 +324,15 @@ class CRACKLE:
             # "OFF",
         ]
 
-        try:
-            subprocess.run(args, check=True)
-        except:
-            raise ValueError(
-                "Download failed. Install necessary binaries before downloading"
-            )
+        file_path = Path(save_path) / f"{filename}.{_format}"
+
+        if not file_path.exists():
+            try:
+                subprocess.run(args, check=True)
+            except:
+                raise ValueError(
+                    "Download failed. Install necessary binaries before downloading"
+                )
+        else:
+            info(f"{filename} already exist. Skipping download\n")
+            pass

@@ -186,7 +186,6 @@ class TUBITV:
         for episode in series:
             info(episode.name)
 
-
     def get_episode(self) -> None:
         series, title = self.get_info(self.url)
 
@@ -200,7 +199,6 @@ class TUBITV:
         self.download(target, title) if target else info(
             f"{self.episode} was not found"
         )
-
 
     def get_range(self, series: object, episodes: str, title: str) -> None:
         episode_range = set_range(episodes)
@@ -229,13 +227,11 @@ class TUBITV:
             if self.season in episode.name:
                 self.download(episode, title)
 
-
     def get_complete(self) -> None:
         series, title = self.get_info(self.url)
 
         for episode in series:
             self.download(episode, title)
-
 
     def get_movie(self) -> None:
         with self.console.status("Fetching titles..."):
@@ -247,7 +243,6 @@ class TUBITV:
         for movie in movies:
             movie.name = movie.get_filename()
             self.download(movie, title)
-
 
     def download(self, stream: object, title: str) -> None:
         downloads = Path(self.config["save_dir"])
@@ -339,9 +334,16 @@ class TUBITV:
             [f"--mux-import", f"path={sub_path}:lang=eng:name='English'"]
         ) if stream.subtitle and _sub == "false" else None
 
-        try:
-            subprocess.run(args, check=True)
-        except:
-            raise ValueError(
-                "Download failed. Install necessary binaries before downloading"
-            )
+        file_path = Path(save_path) / f"{filename}.{_format}"
+
+        if not file_path.exists():
+            try:
+                subprocess.run(args, check=True)
+            except:
+                raise ValueError(
+                    "Download failed. Install necessary binaries before downloading"
+                )
+        else:
+            info(f"{filename} already exist. Skipping download\n")
+            sub_path.unlink() if sub_path.exists() else None
+            pass

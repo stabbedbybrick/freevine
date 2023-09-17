@@ -143,7 +143,8 @@ class STV:
                     service="STV",
                     title=episode["programme"]["name"],
                     season=int(episode["playerSeries"]["name"].split(" ")[1])
-                    if "movie" not in episode["playerSeries"]["name"]
+                    if episode["playerSeries"] is not None
+                    and "movie" not in episode["playerSeries"]["name"]
                     else 0,
                     number=episode.get("number") or 0,
                     name=None,
@@ -296,9 +297,11 @@ class STV:
         _sub = self.config["skip_sub"]
 
         if self.config["filename"] == "default":
-            file = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+            filename = (
+                f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
+            )
         else:
-            file = f"{stream.name}.{resolution}p"
+            filename = f"{stream.name}.{resolution}p"
 
         args = [
             m3u8dl,
@@ -315,7 +318,7 @@ class STV:
             "--thread-count",
             _threads,
             "--save-name",
-            file,
+            filename,
             "--tmp-dir",
             _temp,
             "--save-dir",
@@ -327,9 +330,15 @@ class STV:
 
         args.extend(["--key-text-file", self.tmp / "keys.txt"]) if drm else None
 
-        try:
-            subprocess.run(args, check=True)
-        except:
-            raise ValueError(
-                "Download failed. Install necessary binaries before downloading"
-            )
+        file_path = Path(save_path) / f"{filename}.{_format}"
+
+        if not file_path.exists():
+            try:
+                subprocess.run(args, check=True)
+            except:
+                raise ValueError(
+                    "Download failed. Install necessary binaries before downloading"
+                )
+        else:
+            info(f"{filename} already exist. Skipping download\n")
+            pass

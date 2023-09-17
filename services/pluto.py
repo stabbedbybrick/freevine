@@ -352,9 +352,9 @@ class PLUTO:
         _sub = self.config["skip_sub"]
 
         if self.config["filename"] == "default":
-            file = f"{stream.name}.{stream.service}.WEB-DL.AAC2.0.H.264"
+            filename = f"{stream.name}.{stream.service}.WEB-DL.AAC2.0.H.264"
         else:
-            file = f"{stream.name}"
+            filename = f"{stream.name}"
 
         args = [
             m3u8dl,
@@ -372,7 +372,7 @@ class PLUTO:
             "--thread-count",
             _threads,
             "--save-name",
-            file,
+            filename,
             "--tmp-dir",
             _temp,
             "--save-dir",
@@ -385,9 +385,15 @@ class PLUTO:
             ["--key-text-file", self.tmp / "keys.txt"]
         ) if pssh is not None else None
 
-        try:
-            subprocess.run(args, check=True)
-        except:
-            raise ValueError(
-                "Download failed. Install necessary binaries before downloading"
-            )
+        file_path = Path(save_path) / f"{filename}.{_format}"
+
+        if not file_path.exists():
+            try:
+                subprocess.run(args, check=True)
+            except:
+                raise ValueError(
+                    "Download failed. Install necessary binaries before downloading"
+                )
+        else:
+            info(f"{filename} already exist. Skipping download\n")
+            pass

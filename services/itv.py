@@ -338,9 +338,15 @@ class ITV:
             [f"--mux-import", f"path={sub_path}:lang=eng:name='English'"]
         ) if subtitle is not None and _sub == "false" else None
 
-        try:
-            subprocess.run(args, check=True)
-        except:
-            raise ValueError(
-                "Download failed. Install necessary binaries before downloading"
-            )
+        file_path = Path(save_path) / f"{filename}.{_format}"
+
+        if not file_path.exists():
+            try:
+                subprocess.run(args, check=True)
+            except:
+                raise ValueError(
+                    "Download failed. Install necessary binaries before downloading"
+                )
+        else:
+            info(f"{filename} already exist. Skipping download\n")
+            pass
