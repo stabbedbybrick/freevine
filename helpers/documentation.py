@@ -2,7 +2,7 @@ from helpers import __version__
 
 main_help = f"""
     \b
-    Freevine v{__version__}
+    Freevine {__version__}
     Author: stabbedbybrick
 
     \b
