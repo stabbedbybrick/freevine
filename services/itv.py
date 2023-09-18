@@ -20,11 +20,12 @@ from collections import Counter
 
 import click
 import httpx
+import requests
 
 from bs4 import BeautifulSoup
 from rich.console import Console
 
-from helpers.utilities import info, string_cleaning, set_range
+from helpers.utilities import info, error, string_cleaning, set_range
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 
@@ -123,7 +124,7 @@ class ITV:
 
         r = self.client.post(playlist, json=payload)
         if not r.is_success:
-            print(f"\nError! {r.status_code}")
+            click.echo(f"\n\nError! {r.status_code}\n{r.content}")
             shutil.rmtree(self.tmp)
             sys.exit(1)
 
@@ -151,7 +152,11 @@ class ITV:
         return base64.b64encode(bytes.fromhex(s)).decode()
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
-        soup = BeautifulSoup(self.client.get(manifest), "xml")
+        r = requests.get(manifest)
+        if not r.ok:
+            click.echo(f"\n\nError! {r.status_code}\n{r.content}")
+            sys.exit(1)
+        soup = BeautifulSoup(r.content, "xml")
         pssh = self.get_pssh(soup)
         elements = soup.find_all("Representation")
         heights = sorted(
