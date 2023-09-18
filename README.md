@@ -41,7 +41,7 @@
 
 #### Required tools:
 
-* [Python 3.9+](https://www.python.org/)
+* [Python 3.10+](https://www.python.org/)
 
 * [Pywidevine](https://www.mediafire.com/file/y7o57xs6pazx0rc/pywidevine.zip/)
 
