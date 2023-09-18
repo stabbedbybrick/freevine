@@ -211,7 +211,7 @@ class CTV:
         base += "/playback/contents"
 
         manifest = f"{base}/{id}/contentPackages/{pkg_id}/manifest.mpd?filter=fe&mca=true&mta=true"
-        subtitle = f"{base}/{id}/contentPackages/{pkg_id}/manifest.vtt"
+        subtitle = f"{base}/{id}/contentPackages/{pkg_id}/manifest.srt"
         return manifest, subtitle
 
     def get_pssh(self, soup):
@@ -376,7 +376,7 @@ class CTV:
             else:
                 filename = f"{stream.name}.{resolution}p"
 
-            sub_path = save_path / f"{filename}.vtt"
+            sub_path = save_path / f"{filename}.srt"
 
             r = self.client.get(url=f"{subtitle}")
             if r.status_code != 200:
