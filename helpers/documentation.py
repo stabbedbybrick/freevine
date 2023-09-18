@@ -7,7 +7,7 @@ main_help = f"""
 
     \b
     Requirements:
-        Python 3.10.*
+        Python 3.9+
         Valid L3 CDM(blob and key)
         N_m3u8DL-RE
         ffmpeg
