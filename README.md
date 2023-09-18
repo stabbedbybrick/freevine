@@ -1,6 +1,13 @@
-### Freevine beta (170923)
+### Freevine beta (180923)
 
 #### Changelog:
+
+    #(180923):
+
+    CTV: Changed subtitles from VTT to SRT
+    ITV: Fixed attribute errors in some python versions
+
+    Minor maintenance
 
     #(170923):
 
@@ -34,7 +41,7 @@
 
 #### Required tools:
 
-* [Python 3.10.*](https://www.python.org/)
+* [Python 3.9+](https://www.python.org/)
 
 * [Pywidevine](https://www.mediafire.com/file/y7o57xs6pazx0rc/pywidevine.zip/)
 
