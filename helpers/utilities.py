@@ -23,7 +23,7 @@ def error(text: str) -> str:
 
 def string_cleaning(filename: str) -> str:
     filename = filename.replace("&", "and")
-    filename = re.sub(r"[:; ]", ".", filename)
+    filename = re.sub(r"[:;/ ]", ".", filename)
     filename = re.sub(r"[\\*!?¿,'\"()<>|$#`]", "", filename)
     filename = re.sub(rf"[{'.'}]{{2,}}", ".", filename)
     return filename
