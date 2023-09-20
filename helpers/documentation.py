@@ -42,8 +42,9 @@ main_help = f"""
         --all-audio to include all audio tracks (default: Best)
     \b
     Information:
-        ROKU:  1080p, DD5.1, premium content is not supported
-        CTV:   1080p, DD5.1, TV provider-required content is (probably) not supported
+        (Premium content on any service is not supported)
+        ROKU:  1080p, DD5.1
+        CTV:   1080p, DD5.1
         ALL4:  1080p, AAC2.0
         UKTV:  1080p, AAC2.0
         STV:   1080p, AAC2.0 Some titles have DRM, some do not. Both are supported
