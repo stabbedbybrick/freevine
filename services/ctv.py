@@ -123,6 +123,9 @@ class CTV:
                         firstAirYear
                         firstPlayableContent {
                             axisId
+                            axisPlaybackLanguages {
+                                destinationCode
+                            }
                         }
                     }
                 }
@@ -193,7 +196,9 @@ class CTV:
                     title=data["contentData"]["title"],
                     year=data["contentData"]["firstAirYear"],
                     name=data["contentData"]["title"],
-                    data="ctvmovies_hub",  # TODO: Don't hardcode
+                    data=data["contentData"]["firstPlayableContent"][
+                        "axisPlaybackLanguages"
+                    ][0]["destinationCode"],
                 )
             ]
         )
