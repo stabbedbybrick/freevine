@@ -25,7 +25,7 @@ import requests
 from bs4 import BeautifulSoup
 from rich.console import Console
 
-from helpers.utilities import info, error, string_cleaning, set_range
+from helpers.utilities import info, error, string_cleaning, set_range, add_subtitles
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 
@@ -151,11 +151,12 @@ class ITV:
         s = f"000000{version}00000000{system_id}000000181210{kid}{data}"
         return base64.b64encode(bytes.fromhex(s)).decode()
 
-    def get_mediainfo(self, manifest: str, quality: str) -> str:
+    def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
         r = requests.get(manifest)
         if not r.ok:
             click.echo(f"\n\nError! {r.status_code}\n{r.content}")
             sys.exit(1)
+
         soup = BeautifulSoup(r.content, "xml")
         pssh = self.get_pssh(soup)
         elements = soup.find_all("Representation")
@@ -163,6 +164,21 @@ class ITV:
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
             reverse=True,
         )
+
+        new_base, params = manifest.split(".mpd")
+        new_base += "dash/"
+        soup.select_one("BaseURL").string = new_base
+
+        segments = soup.find_all("SegmentTemplate")
+        for segment in segments:
+            segment["media"] += params
+            segment["initialization"] += params
+
+        if subtitle is not None:
+            soup = add_subtitles(soup, subtitle)
+
+        with open(self.tmp / "manifest.mpd", "w") as f:
+            f.write(str(soup.prettify()))
 
         if quality is not None:
             if int(quality) in heights:
@@ -266,20 +282,13 @@ class ITV:
 
         with self.console.status("Getting media info..."):
             manifest, lic_url, subtitle = self.get_playlist(stream.data)
-            resolution, pssh = self.get_mediainfo(manifest, self.quality)
+            resolution, pssh = self.get_mediainfo(manifest, self.quality, subtitle)
             if self.config["filename"] == "default":
                 filename = (
                     f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
                 )
             else:
                 filename = f"{stream.name}.{resolution}p"
-
-            sub_path = save_path / f"{filename}.vtt"
-
-            if subtitle is not None:
-                r = self.client.get(url=f"{subtitle}")
-                with open(sub_path, "wb") as f:
-                    f.write(r.content)
 
         with self.console.status("Getting decryption keys..."):
             keys = (
@@ -311,7 +320,7 @@ class ITV:
             m3u8dl,
             "--key-text-file",
             self.tmp / "keys.txt",
-            manifest,
+            self.tmp / "manifest.mpd",
             "--append-url-params",
             "-H",
             f"client.headers",
@@ -338,10 +347,6 @@ class ITV:
             # "--log-level",
             # "OFF",
         ]
-
-        args.extend(
-            [f"--mux-import", f"path={sub_path}:lang=eng:name='English'"]
-        ) if subtitle is not None and _sub == "false" else None
 
         file_path = Path(save_path) / f"{filename}.{_format}"
 
