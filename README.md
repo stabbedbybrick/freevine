@@ -1,6 +1,13 @@
-### Freevine beta (180923)
+### Freevine beta (200923)
 
 #### Changelog:
+
+    #(200923):
+
+    ITV: Subtitles are now part of the manifest and properly converted to SRT
+    CTV:  Fixed error where some movie titles had different hubs
+    TUBI: Removed hardcoding for subtitles since many titles dont have any
+
 
     #(180923):
 
@@ -8,15 +15,6 @@
     ITV: Fixed attribute errors in some python versions
 
     Minor maintenance
-
-    #(170923):
-
-    Removed version label. Consider it forever beta and look at date for latest version
-
-    Downloads: added checks to skip download if file exist
-
-    STV: Updated method for fetching titles. Most titles should be working now
-    ITV: Fixed an error for standalone/behind the scenes episodes
 
 #### Features:
 
@@ -28,6 +26,8 @@
 - [x] Config file with settings for download path, file format, subtitle options etc.
 
 #### Supported services:
+
+    (Premium content on any service is not supported)
 
     ROKU:  1080p, DD5.1
     CTV:   1080p, DD5.1
