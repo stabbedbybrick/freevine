@@ -44,3 +44,25 @@ def set_range(episode: str) -> list:
         for season in range(start_season, end_season + 1)
         for episode in range(start_episode, end_episode + 1)
     ]
+
+
+def add_subtitles(soup: object, subtitle: str) -> object:
+    adaptation_set = soup.new_tag(
+        "AdaptationSet",
+        id="3",
+        group="3",
+        contentType="text",
+        mimeType="text/vtt",
+        startWithSAP="1",
+    )
+    representation = soup.new_tag("Representation", id="textstream=0", bandwidth="0")
+    base_url = soup.new_tag("BaseURL")
+    base_url.string = f"{subtitle}"
+
+    adaptation_set.append(representation)
+    representation.append(base_url)
+
+    period = soup.find("Period")
+    period.append(adaptation_set)
+
+    return soup
