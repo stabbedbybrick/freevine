@@ -95,7 +95,9 @@ class TUBITV:
                     name=episode["title"].split("-")[1],
                     year=data["year"],
                     data=episode["video_resources"][0]["manifest"]["url"],
-                    subtitle=episode["subtitles"][0].get("url"),
+                    subtitle=episode.get("subtitles")[0].get("url")
+                    if episode.get("subtitles")
+                    else None,
                     lic_url=episode["video_resources"][0]["license_server"]["url"]
                     if episode["video_resources"][0].get("license_server")
                     else None,
@@ -116,7 +118,9 @@ class TUBITV:
                     year=data["year"],
                     name=data["title"],
                     data=data["video_resources"][0]["manifest"]["url"],
-                    subtitle=data["subtitles"][0].get("url"),
+                    subtitle=data.get("subtitles")[0].get("url")
+                    if data.get("subtitles")
+                    else None,
                     lic_url=data["video_resources"][0]["license_server"]["url"]
                     if data["video_resources"][0].get("license_server")
                     else None,
