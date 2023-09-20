@@ -55,7 +55,7 @@ def add_subtitles(soup: object, subtitle: str) -> object:
         mimeType="text/vtt",
         startWithSAP="1",
     )
-    representation = soup.new_tag("Representation", id="textstream=0", bandwidth="0")
+    representation = soup.new_tag("Representation", id="English", bandwidth="0")
     base_url = soup.new_tag("BaseURL")
     base_url.string = f"{subtitle}"
 
