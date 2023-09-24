@@ -32,6 +32,7 @@ def string_cleaning(filename: str) -> str:
     filename = re.sub(r"[:;/ ]", ".", filename)
     filename = re.sub(r"[\\*!?¿,'\"()<>|$#`’]", "", filename)
     filename = re.sub(rf"[{'.'}]{{2,}}", ".", filename)
+    filename = re.sub(rf"[{'_'}]{{2,}}", "_", filename)
     return filename
 
 
