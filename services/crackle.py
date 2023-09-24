@@ -259,5 +259,5 @@ class CRACKLE:
                 raise ValueError("Download failed or was interrupted")
         else:
             info(f"{self.filename} already exist. Skipping download\n")
-            self.sub_path.unlink() if self.sub_path.exists() else None
+            self.sub_path.unlink() if self.sub_path else None
             pass
