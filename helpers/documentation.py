@@ -38,6 +38,7 @@ main_help = f"""
     \b
         --remote to get decryption keys remotely (default: local CDM)
         --titles to list all available episodes from a series
+        --info to print description and all available quality profiles from a title
         --quality to specify video quality (default: Best)
         --all-audio to include all audio tracks (default: Best)
     \b
@@ -61,6 +62,7 @@ main_help = f"""
     \b
     Examples:
         python freevine.py --episode S01E01 URL
+        python freevine.py --info --episode S01E01 URL
         python freevine.py --episode S01E01-S01E10 URL
         python freevine.py --quality 720p --season S01 URL
         python freevine.py --remote --season S01 URL
