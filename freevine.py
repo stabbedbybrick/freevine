@@ -20,6 +20,7 @@ from helpers.utilities import info
 @click.option("-c", "--complete", is_flag=True, help="Download complete series")
 @click.option("-m", "--movie", is_flag=True, help="Download movie")
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
+@click.option("-i", "--info", is_flag=True, default=False, help="Print title info")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
 def main(**kwargs) -> None:
     click.echo("")
