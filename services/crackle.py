@@ -24,9 +24,16 @@ import httpx
 from bs4 import BeautifulSoup
 from rich.console import Console
 
-from helpers.utilities import info, string_cleaning, set_range
+from helpers.utilities import (
+    info,
+    string_cleaning,
+    set_save_path,
+    print_info,
+    set_filename,
+)
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
+from helpers.args import Options, get_args
 
 
 class CRACKLE:
@@ -37,6 +44,7 @@ class CRACKLE:
         self.quality = kwargs.get("quality")
         self.remote = kwargs.get("remote")
         self.titles = kwargs.get("titles")
+        self.info = kwargs.get("info")
         self.episode = kwargs.get("episode")
         self.season = kwargs.get("season")
         self.movie = kwargs.get("movie")
@@ -59,11 +67,7 @@ class CRACKLE:
         self.season = self.season.upper() if self.season else None
         self.quality = self.quality.rstrip("p") if self.quality else None
 
-        self.list_titles() if self.titles else None
-        self.get_episode() if self.episode else None
-        self.get_season() if self.season else None
-        self.get_complete() if self.complete else None
-        self.get_movie() if self.movie else None
+        self.get_options()
 
     def get_data(self, url: str) -> json:
         self.video_id = urlparse(url).path.split("/")[2]
@@ -97,6 +101,7 @@ class CRACKLE:
                     name=episode["title"],
                     year=None,
                     data=episode["id"],
+                    description=episode.get("shortDescription"),
                 )
                 for season in seasons
                 for episode in season["data"]
@@ -119,6 +124,7 @@ class CRACKLE:
                     else None,
                     name=data["metadata"][0]["title"],
                     data=r["data"][0]["id"],
+                    synopsis=data["metadata"][0].get("longDescription"),
                 )
             ]
         )
@@ -155,9 +161,9 @@ class CRACKLE:
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         soup = BeautifulSoup(self.client.get(manifest), "xml")
         new_manifest = soup.select_one("BaseURL").text + "index.mpd"
-        soup = BeautifulSoup(self.client.get(new_manifest), "xml")
-        pssh = self.get_pssh(soup)
-        elements = soup.find_all("Representation")
+        self.soup = BeautifulSoup(self.client.get(new_manifest), "xml")
+        pssh = self.get_pssh(self.soup)
+        elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
             reverse=True,
@@ -173,98 +179,53 @@ class CRACKLE:
 
         return heights[0], pssh
 
-    def get_info(self, url: str) -> object:
-        with self.console.status("Fetching titles..."):
-            series = self.get_series(url)
-            for episode in series:
-                episode.name = episode.get_filename()
+    def get_content(self, url: str) -> object:
+        if self.movie:
+            with self.console.status("Fetching titles..."):
+                content = self.get_movies(self.url)
+                title = string_cleaning(str(content))
 
-        title = string_cleaning(str(series))
-        seasons = Counter(x.season for x in series)
-        num_seasons = len(seasons)
-        num_episodes = sum(seasons.values())
+            info(f"{str(content)}\n")
 
-        info(f"{str(series)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
+        else:
+            with self.console.status("Fetching titles..."):
+                content = self.get_series(url)
+                for episode in content:
+                    episode.name = episode.get_filename()
 
-        return series, title
+                title = string_cleaning(str(content))
+                seasons = Counter(x.season for x in content)
+                num_seasons = len(seasons)
+                num_episodes = sum(seasons.values())
 
-    def list_titles(self) -> str:
-        series, title = self.get_info(self.url)
+            info(
+                f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
+            )
 
-        for episode in series:
-            info(episode.name)
+        return content, title
 
-    def get_episode(self) -> None:
-        series, title = self.get_info(self.url)
+    def get_options(self) -> None:
+        opt = Options(self)
+        content, title = self.get_content(self.url)
 
-        if "-" in self.episode:
-            self.get_range(series, self.episode, title)
-        if "," in self.episode:
-            self.get_mix(series, self.episode, title)
+        if self.episode:
+            downloads = opt.get_episode(content)
+        if self.season:
+            downloads = opt.get_season(content)
+        if self.complete:
+            downloads = opt.get_complete(content)
+        if self.movie:
+            downloads = opt.get_movie(content)
+        if self.titles:
+            opt.list_titles(content)
 
-        target = next((i for i in series if self.episode in i.name), None)
-
-        self.download(target, title) if target else info(
-            f"{self.episode} was not found"
-        )
-
-    def get_range(self, series: object, episodes: str, title: str) -> None:
-        episode_range = set_range(episodes)
-
-        for episode in series:
-            if any(i in episode.name for i in episode_range):
-                self.download(episode, title)
-
-        shutil.rmtree(self.tmp)
-        exit(0)
-
-    def get_mix(self, series: object, episodes: str, title: str) -> None:
-        episode_mix = [x for x in episodes.split(",")]
-
-        for episode in series:
-            if any(i in episode.name for i in episode_mix):
-                self.download(episode, title)
-
-        shutil.rmtree(self.tmp)
-        exit(0)
-
-    def get_season(self) -> None:
-        series, title = self.get_info(self.url)
-
-        for episode in series:
-            if self.season in episode.name:
-                self.download(episode, title)
-
-    def get_complete(self) -> None:
-        series, title = self.get_info(self.url)
-
-        for episode in series:
-            self.download(episode, title)
-
-    def get_movie(self) -> None:
-        with self.console.status("Fetching titles..."):
-            movies = self.get_movies(self.url)
-            title = string_cleaning(str(movies))
-
-        info(f"{str(movies)}\n")
-
-        for movie in movies:
-            movie.name = movie.get_filename()
-            self.download(movie, title)
+        for download in downloads:
+            self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        downloads = Path(self.config["save_dir"])
-        save_path = downloads.joinpath(title)
-        save_path.mkdir(parents=True, exist_ok=True)
-
-        if stream.__class__.__name__ == "Episode" and self.config["seasons"] == "true":
-            _season = f"season.{stream.season:02d}"
-            save_path = save_path.joinpath(_season)
-            save_path.mkdir(parents=True, exist_ok=True)
-
         with self.console.status("Getting media info..."):
             lic_url, manifest = self.get_playlist(stream.data)
-            resolution, pssh = self.get_mediainfo(manifest, self.quality)
+            res, pssh = self.get_mediainfo(manifest, self.quality)
 
         with self.console.status("Getting decryption keys..."):
             keys = (
@@ -275,64 +236,28 @@ class CRACKLE:
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
+        self.filename = set_filename(self, stream, res, audio="AAC2.0")
+        self.save_path = set_save_path(stream, self.config, title)
+        self.manifest = manifest
+        self.key_file = self.tmp / "keys.txt"
+        self.sub_path = None
+
+        if self.info:
+            print_info(self, stream, keys)
+
         info(f"{stream.name}")
         for key in keys:
             info(f"{key}")
         click.echo("")
 
-        m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
-
-        _temp = self.config["temp_dir"]
-
-        _video = f"res='{resolution}'" if self.quality else "for=best"
-        _audio = "all" if self.all_audio else "for=best"
-
-        _threads = self.config["threads"]
-        _format = self.config["format"]
-        _muxer = self.config["muxer"]
-        _sub = self.config["skip_sub"]
-
-        if self.config["filename"] == "default":
-            filename = f"{stream.name}.{resolution}p.{stream.service}.WEB-DL.AAC2.0.H.264"
-        else:
-            filename = f"{stream.name}.{resolution}p"
-
-        args = [
-            m3u8dl,
-            "--key-text-file",
-            self.tmp / "keys.txt",
-            manifest,
-            "-sv",
-            _video,
-            "-sa",
-            _audio,
-            "-ss",
-            "all",
-            "-mt",
-            "-M",
-            f"format={_format}:muxer={_muxer}:skip_sub={_sub}",
-            "--thread-count",
-            _threads,
-            "--save-name",
-            filename,
-            "--tmp-dir",
-            _temp,
-            "--save-dir",
-            f"{save_path}",
-            "--no-log",
-            # "--log-level",
-            # "OFF",
-        ]
-
-        file_path = Path(save_path) / f"{filename}.{_format}"
+        args, file_path = get_args(self, res)
 
         if not file_path.exists():
             try:
                 subprocess.run(args, check=True)
             except:
-                raise ValueError(
-                    "Download failed. Install necessary binaries before downloading"
-                )
+                raise ValueError("Download failed or was interrupted")
         else:
-            info(f"{filename} already exist. Skipping download\n")
+            info(f"{self.filename} already exist. Skipping download\n")
+            self.sub_path.unlink() if self.sub_path.exists() else None
             pass
