@@ -19,10 +19,13 @@ muxer: mkvmerge
 # If "false", subtitles will be muxed into video file
 skip_sub: "false"
 
-# Choose file name output (default or simple)
-# "default": "Title.S01E01.Episode.Name.1080p.SERVICE.WEB-DL.AUDIO.CODEC"
-# "simple": "Title.S01E01.Episode.Name.1080p"
-filename: "default"
+# Customize filename output for series and movies
+# Empty spaces are automatically replaced by dots (.)
+# Series default: Title.S01E01.EpisodeName.1080p.SERVICE.WEB-DL.AUDIO.CODEC
+# Movies default: Title.YEAR.1080p.SERVICE.WEB-DL.AUDIO.CODEC
+filename: 
+  series: "{title}.{number}.{name}.{resolution}.{service}.WEB-DL.{audio}.H.264"
+  movies: "{title}.{year}.{resolution}.{service}.WEB-DL.{audio}.H.264"
 
 # Thread-count. Set how many concurrent fragments N_m3u8DL-RE should download
 # More threads can speed up slow downloads, but too many could potentially
@@ -31,3 +34,11 @@ threads: "16"
 
 # Set TV series to be sorted into respective season folders (true or false)
 seasons: "true"
+
+# Set video options. See "N_m3u8DL-RE --morehelp select-video" for guidance. Default: best
+# Using --quality will override this setting
+video: "for=best"
+
+# Set audio options. See "N_m3u8DL-RE --morehelp select-audio" for guidance. Default: best
+# Using --all-audio will override this setting
+audio: "for=best"
