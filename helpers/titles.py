@@ -18,6 +18,8 @@ class Episode:
         self.data = kwargs.get("data")
         self.subtitle = kwargs.get("subtitle")
         self.lic_url = kwargs.get("lic_url")
+        self.synopsis = kwargs.get("synopsis")
+        self.description = kwargs.get("description")
 
         self.title = self.title.strip()
 
@@ -67,6 +69,7 @@ class Movie:
         self.data = kwargs.get("data")
         self.subtitle = kwargs.get("subtitle")
         self.lic_url = kwargs.get("lic_url")
+        self.synopsis = kwargs.get("synopsis")
 
         self.name = self.name.strip()
 
