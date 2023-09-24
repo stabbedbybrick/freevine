@@ -1,20 +1,31 @@
-### Freevine beta (200923)
+### Freevine beta (20230924)
 
 #### Changelog:
 
-    #(200923):
+    #(20230924):
+
+    Added --info option:
+        Use --info to print video and audio profiles for single episode or movie (Pluto and Tubi not yet supported)
+        A simple info box will display description, video and audio profiles
+
+    Filename customization:
+        You can now customize your filename output in config.yaml for both series and movies
+        Use the keywords in curly brackets to remove/re-arrange however you want
+        NOTE: Any empty spaces will be automatically replaced by dots
+
+    Video and audio quality settings:
+        You can now use Video and Audio in config.yaml to set base settings for N_m3u8DL-RE
+        See "N_m3u8DL-RE --morehelp select-video" for guidance
+
+    Added functionality:
+        Ability to download a mix of full seasons with --season S01,S04,S07 (no spaces)
+        You can now use --titles along with --episode and --season to print titles per episode or season
+
+    #(20230920):
 
     ITV: Subtitles are now part of the manifest and properly converted to SRT
     CTV:  Fixed error where some movie titles had different hubs
     TUBI: Removed hardcoding for subtitles since many titles dont have any
-
-
-    #(180923):
-
-    CTV: Changed subtitles from VTT to SRT
-    ITV: Fixed attribute errors in some python versions
-
-    Minor maintenance
 
 #### Features:
 
