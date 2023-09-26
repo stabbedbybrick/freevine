@@ -70,7 +70,7 @@ class Movie:
         self.subtitle = kwargs.get("subtitle")
         self.lic_url = kwargs.get("lic_url")
         self.synopsis = kwargs.get("synopsis")
-
+        
         self.name = self.name.strip()
 
     def __str__(self) -> str:
@@ -91,4 +91,4 @@ class Movies(SortedKeyList, ABC):
     def __str__(self) -> str:
         if not self:
             return super().__str__()
-        return self[0].title + (f" ({self[0].year})" if self[0].year else "")
+        return self[0].name + (f" ({self[0].year})" if self[0].year else "")
