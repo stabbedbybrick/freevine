@@ -1,7 +1,7 @@
 ### Freevine
+Download videos from free streaming services
 
 #### Features:
-
 - [x] Movies & TV-series
 - [x] Episode selection and batch options
 - [x] Quality selection
@@ -10,7 +10,6 @@
 - [x] Config file with settings for download path, file format, subtitle options etc.
 
 #### Supported services:
-
     (Premium content on any service is not supported)
 
     ROKU:  1080p, DD5.1
@@ -26,7 +25,6 @@
 
 
 #### Required tools:
-
 * [Python 3.10+](https://www.python.org/)
 
 * [Pywidevine](https://www.mediafire.com/file/y7o57xs6pazx0rc/pywidevine.zip/)
@@ -42,14 +40,12 @@
 * [mp4decrypt](https://www.bento4.com/downloads/)
 
 #### Installation:
-
 1. Install Python (check 'Add to PATH' if on Windows)
 2. Place pywidevine folder inside Freevine folder
 3. Place N_m3u8DL-RE, ffmpeg, mkvmerge, mp4decrypt inside Freevine folder OR add to PATH
 4. Install necessary Python modules: `pip install -r requirements.txt`
 
 #### Usage:
-
     python freevine.py --help (READ THIS!)
 
     Examples:
@@ -61,7 +57,6 @@
     python freevine.py --titles URL
 
 #### Notes:
-
 > It's still in early beta. Expect bugs here and there
 
 > Free streaming services are known for having gaps in their library and odd labels
