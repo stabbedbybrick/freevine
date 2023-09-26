@@ -27,10 +27,13 @@ def main(**kwargs) -> None:
     info(f"Freevine {__version__}\n")
 
     with open("config.yaml", "r") as f:
-        config = yaml.load(f, Loader=yaml.FullLoader)
+        config = yaml.safe_load(f)
+
+    with open(Path("services") / "services.yaml", "r") as f:
+        srvc = yaml.safe_load(f)
 
     Service = get_service(kwargs.get("url"))
-    Service(config, **kwargs)
+    Service(config, srvc, **kwargs)
 
     shutil.rmtree("tmp") if Path("tmp").exists() else None
 
