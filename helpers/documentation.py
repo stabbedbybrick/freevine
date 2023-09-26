@@ -47,11 +47,12 @@ main_help = f"""
         ROKU:  1080p, DD5.1
         CTV:   1080p, DD5.1
         ALL4:  1080p, AAC2.0
+        MY5:   1080p, AAC2.0*
         UKTV:  1080p, AAC2.0
-        STV:   1080p, AAC2.0 Some titles have DRM, some do not. Both are supported
+        STV:   1080p, AAC2.0
         CRKL:  1080p, AAC2.0 
         ITV:   720p,  AAC2.0
-        TUBI:  720p,  AAC2.0 Some titles have DRM, some do not. Both are supported
+        TUBI:  720p,  AAC2.0
         PLUTO: 720p,  AAC2.0 
     \b
         Default file names follow the current P2P standard: 
@@ -59,6 +60,9 @@ main_help = f"""
     \b
         If you request a quality that's not available,
         the closest match is downloaded instead
+    \b
+        *My5 requires valid hmac and aes keys to be added to services.yaml
+        Use the tool by Diazole(https://github.com/Diazole/my5-dl) to get them
     \b
     Examples:
         python freevine.py --episode S01E01 URL
