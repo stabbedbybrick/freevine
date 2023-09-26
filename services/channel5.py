@@ -123,7 +123,7 @@ class CHANNEL5(Config):
 
         parse = urlparse(mpd_url)
         _path = parse.path.split("/")
-        _path[-1] = f"{data['id']}.mpd"
+        _path[-1] = f"{data['id']}A.mpd" if "A-tt" in _path[-1] else f"{data['id']}.mpd"
         manifest = urlunparse(parse._replace(path="/".join(_path)))
 
         return manifest, lic_url
