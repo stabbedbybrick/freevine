@@ -34,36 +34,15 @@ from helpers.utilities import (
 )
 from helpers.titles import Episode, Series, Movie, Movies
 from helpers.args import Options, get_args
+from helpers.config import Config
 
 from pywidevine.L3.decrypt.wvdecryptcustom import WvDecrypt
 from pywidevine.L3.cdm import deviceconfig
 
 
-class CHANNEL4:
-    def __init__(self, config, **kwargs) -> None:
-        self.config = config
-        self.tmp = Path("tmp")
-        self.url = kwargs.get("url")
-        self.quality = kwargs.get("quality")
-        self.remote = kwargs.get("remote")
-        self.titles = kwargs.get("titles")
-        self.info = kwargs.get("info")
-        self.episode = kwargs.get("episode")
-        self.season = kwargs.get("season")
-        self.movie = kwargs.get("movie")
-        self.complete = kwargs.get("complete")
-        self.all_audio = kwargs.get("all_audio")
-
-        self.console = Console()
-        self.client = httpx.Client(
-            headers={"user-agent": "Chrome/113.0.0.0 Safari/537.36"}
-        )
-
-        self.episode = self.episode.upper() if self.episode else None
-        self.season = self.season.upper() if self.season else None
-        self.quality = self.quality.rstrip("p") if self.quality else None
-
-        self.tmp.mkdir(parents=True, exist_ok=True)
+class CHANNEL4(Config):
+    def __init__(self, config, srvc, **kwargs):
+        super().__init__(config, srvc, **kwargs)
 
         self.get_options()
 
@@ -119,8 +98,8 @@ class CHANNEL4:
         return r.json()["license"]
 
     def decrypt_token(self, token: str) -> tuple:
-        key = "QVlESUQ4U0RGQlA0TThESA=="
-        iv = "MURDRDAzODNES0RGU0w4Mg=="
+        key = self.srvc["all4"]["key"]
+        iv = self.srvc["all4"]["iv"]
 
         if isinstance(token, str):
             token = base64.b64decode(token)
@@ -186,11 +165,13 @@ class CHANNEL4:
         )
 
     def get_playlist(self, asset_id: str) -> tuple:
-        url = f"https://ais.channel4.com/asset/{asset_id}?client=android-mod"
+        url = self.srvc["all4"]["vod"].format(asset_id=asset_id)
+
         r = self.client.get(url)
         if not r.is_success:
             shutil.rmtree(self.tmp)
             raise ValueError("Invalid assetID")
+        
         soup = BeautifulSoup(r.text, "xml")
         token = soup.select_one("token").text
         manifest = soup.select_one("uri").text

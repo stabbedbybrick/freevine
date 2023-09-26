@@ -34,38 +34,21 @@ from helpers.utilities import (
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 from helpers.args import Options, get_args
+from helpers.config import Config
 
 
-class CRACKLE:
-    def __init__(self, config, **kwargs) -> None:
-        self.config = config
-        self.tmp = Path("tmp")
-        self.url = kwargs.get("url")
-        self.quality = kwargs.get("quality")
-        self.remote = kwargs.get("remote")
-        self.titles = kwargs.get("titles")
-        self.info = kwargs.get("info")
-        self.episode = kwargs.get("episode")
-        self.season = kwargs.get("season")
-        self.movie = kwargs.get("movie")
-        self.complete = kwargs.get("complete")
-        self.all_audio = kwargs.get("all_audio")
+class CRACKLE(Config):
+    def __init__(self, config, srvc, **kwargs):
+        super().__init__(config, srvc, **kwargs)
 
-        self.console = Console()
-        self.api = "https://prod-api.crackle.com"
+        self.api = self.srvc["crkl"]["api"]
         self.client = httpx.Client(
             headers={
-                "user-agent": "Chrome/113.0.0.0 Safari/537.36",
-                "x-crackle-platform": "5FE67CCA-069A-42C6-A20F-4B47A8054D46",
+                "user-agent": "Chrome/117.0.0.0 Safari/537.36",
+                "x-crackle-platform": self.srvc["crkl"]["x-key"],
             },
             follow_redirects=True,
         )
-
-        self.tmp.mkdir(parents=True, exist_ok=True)
-
-        self.episode = self.episode.upper() if self.episode else None
-        self.season = self.season.upper() if self.season else None
-        self.quality = self.quality.rstrip("p") if self.quality else None
 
         self.get_options()
 

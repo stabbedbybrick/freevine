@@ -13,17 +13,14 @@ import subprocess
 import urllib
 import json
 import asyncio
-import shutil
 
 from urllib.parse import urlparse
-from pathlib import Path
 from collections import Counter
 
 import click
 import httpx
 
 from bs4 import BeautifulSoup
-from rich.console import Console
 
 from helpers.utilities import (
     info,
@@ -35,38 +32,13 @@ from helpers.utilities import (
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 from helpers.args import Options, get_args
+from helpers.config import Config
 
+class ROKU(Config):
+    def __init__(self, config, srvc, **kwargs):
+        super().__init__(config, srvc, **kwargs)
 
-class ROKU:
-    def __init__(self, config, **kwargs) -> None:
-        self.config = config
-        self.tmp = Path("tmp")
-        self.url = kwargs.get("url")
-        self.quality = kwargs.get("quality")
-        self.remote = kwargs.get("remote")
-        self.titles = kwargs.get("titles")
-        self.info = kwargs.get("info")
-        self.episode = kwargs.get("episode")
-        self.season = kwargs.get("season")
-        self.movie = kwargs.get("movie")
-        self.complete = kwargs.get("complete")
-        self.all_audio = kwargs.get("all_audio")
-
-        self.console = Console()
-        self.api = (
-            f"https://therokuchannel.roku.com/api/v2/homescreen/content/"
-            f"https%3A%2F%2Fcontent.sr.roku.com%2Fcontent%2Fv1%2Froku-trc%2F"
-        )
-        self.client = httpx.Client(
-            headers={"user-agent": "Chrome/113.0.0.0 Safari/537.36"}
-        )
-
-        self.tmp.mkdir(parents=True, exist_ok=True)
-
-        self.episode = self.episode.upper() if self.episode else None
-        self.season = self.season.upper() if self.season else None
-        self.quality = self.quality.rstrip("p") if self.quality else None
-
+        self.api = self.srvc["roku"]["api"]
         self.get_options()
 
     def get_data(self, url: str) -> json:
@@ -148,7 +120,7 @@ class ROKU:
             "providerId": "rokuavod",
         }
 
-        url = f"https://therokuchannel.roku.com/api/v3/playback"
+        url = self.srvc["roku"]["vod"]
 
         response = self.client.post(
             url, headers=headers, cookies=self.client.cookies, json=payload

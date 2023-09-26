@@ -19,19 +19,14 @@ Pluto's library is very spotty, so it's highly recommended to use --titles befor
 import base64
 import re
 import subprocess
-import shutil
 import uuid
-import sys
 
 from urllib.parse import urlparse
-from pathlib import Path
 from collections import Counter
 
 import click
-import httpx
 
 from bs4 import BeautifulSoup
-from rich.console import Console
 
 from helpers.utilities import (
     info,
@@ -43,40 +38,19 @@ from helpers.utilities import (
 from helpers.cdm import local_cdm, remote_cdm
 from helpers.titles import Episode, Series, Movie, Movies
 from helpers.args import Options, get_args
+from helpers.config import Config
 
 
-class PLUTO:
-    def __init__(self, config, **kwargs) -> None:
-        self.config = config
-        self.tmp = Path("tmp")
-        self.url = kwargs.get("url")
-        self.quality = kwargs.get("quality")
-        self.remote = kwargs.get("remote")
-        self.titles = kwargs.get("titles")
-        self.info = kwargs.get("info")
-        self.episode = kwargs.get("episode")
-        self.season = kwargs.get("season")
-        self.movie = kwargs.get("movie")
-        self.complete = kwargs.get("complete")
-        self.all_audio = kwargs.get("all_audio")
+class PLUTO(Config):
+    def __init__(self, config, srvc, **kwargs):
+        super().__init__(config, srvc, **kwargs)
 
         if self.info:
             info("Info feature is not yet supported on this service")
             exit(1)
 
-        self.lic_url = "https://service-concierge.clusters.pluto.tv/v1/wv/alt"
-        self.api = "https://service-vod.clusters.pluto.tv/v4/vod"
-
-        self.console = Console()
-        self.client = httpx.Client(
-            headers={"user-agent": "Chrome/113.0.0.0 Safari/537.36"}
-        )
-
-        self.tmp.mkdir(parents=True, exist_ok=True)
-
-        self.episode = self.episode.upper() if self.episode else None
-        self.season = self.season.upper() if self.season else None
-        self.quality = self.quality.rstrip("p") if self.quality else None
+        self.lic_url = self.srvc["pluto"]["lic"]
+        self.api = self.srvc["pluto"]["api"]
 
         self.get_options()
 
