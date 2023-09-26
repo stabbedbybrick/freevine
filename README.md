@@ -5,7 +5,7 @@
     #(20230926):
 
     Channel5/My5: Added service
-    Massive credit to [Diazole](https://github.com/Diazole/my5-dl) for solving its secrets
+    Massive credit to Diazole(https://github.com/Diazole/my5-dl) for solving its secrets
 
 #### Features:
 
