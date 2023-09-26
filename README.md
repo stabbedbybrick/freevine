@@ -1,4 +1,4 @@
-### Freevine v0.5.0-beta (20230926)
+### Freevine
 
 #### Features:
 
@@ -16,7 +16,7 @@
     ROKU:  1080p, DD5.1
     CTV:   1080p, DD5.1
     ALL4:  1080p, AAC2.0
-    MY5:   1080p, AAC2.0*
+    MY5:   1080p, AAC2.0
     UKTV:  1080p, AAC2.0
     STV:   1080p, AAC2.0
     CRKL:  1080p, AAC2.0
@@ -24,7 +24,6 @@
     TUBI:  720p,  AAC2.0
     PLUTO: 720p,  AAC2.0
 
-    *Read --help for more info
 
 #### Required tools:
 
