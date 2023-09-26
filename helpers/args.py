@@ -160,7 +160,8 @@ def get_args(service: object, res: str):
     threads = config["threads"]
     format = config["format"]
     muxer = config["muxer"]
-    skip = config["skip_sub"]
+    mux = config["subtitles"]["no_mux"]
+    clean = config["subtitles"]["clean"]
 
     args = [
         m3u8dl,
@@ -173,7 +174,9 @@ def get_args(service: object, res: str):
         "all",
         "-mt",
         "-M",
-        f"format={format}:muxer={muxer}:skip_sub={skip}",
+        f"format={format}:muxer={muxer}:skip_sub={mux}",
+        "--auto-subtitle-fix",
+        clean,
         "--thread-count",
         threads,
         "--save-name",
@@ -191,7 +194,7 @@ def get_args(service: object, res: str):
 
     args.extend(
         [f"--mux-import", f"path={sub_path}:lang=eng:name='English'"]
-    ) if sub_path and skip == "false" else None
+    ) if sub_path and mux == "false" else None
 
     file_path = Path(save_path) / f"{filename}.{format}"
 
