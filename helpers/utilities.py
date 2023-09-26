@@ -57,7 +57,7 @@ def set_filename(service: object, stream: object, res: str, audio: str):
     if service.movie:
         filename = service.config["filename"]["movies"].format(
             title=stream.title,
-            year=stream.year,
+            year=stream.year if stream.year else "",
             resolution=f"{res}p" if res else "",
             service=stream.service,
             audio=audio,
