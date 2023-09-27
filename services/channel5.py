@@ -39,12 +39,12 @@ from helpers.config import Config
 
 
 class CHANNEL5(Config):
-    def __init__(self, config, srvc, **kwargs):
+    def __init__(self, config, srvc, **kwargs) -> None:
         super().__init__(config, srvc, **kwargs)
 
         self.get_options()
 
-    def get_data(self, url: str) -> dict:
+    def get_data(self, url: str) -> json:
         show = urlparse(url).path.split("/")[2]
         url = self.srvc["my5"]["api"]["content"].format(show=show)
 
@@ -59,8 +59,8 @@ class CHANNEL5(Config):
                     id_=None,
                     service="MY5",
                     title=episode.get("sh_title"),
-                    season=int(episode["sea_num"]),
-                    number=int(episode["ep_num"]),
+                    season=episode.get("sea_num") or 0,
+                    number=episode.get("ep_num") or 0,
                     name=episode.get("title"),
                     year=None,
                     data=episode.get("id"),
@@ -88,7 +88,7 @@ class CHANNEL5(Config):
             ]
         )
 
-    def decrypt_data(self, media: str) -> tuple:
+    def decrypt_data(self, media: str) -> dict:
         key = base64.b64decode(self.srvc["my5"]["keys"]["aes"])
 
         r = self.client.get(media)
@@ -140,7 +140,7 @@ class CHANNEL5(Config):
         array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
         return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
 
-    def get_mediainfo(self, manifest: str, quality: str) -> str:
+    def get_mediainfo(self, manifest: str, quality: str) -> tuple:
         self.soup = BeautifulSoup(self.client.get(manifest), "xml")
         pssh = self.get_pssh(self.soup)
         elements = self.soup.find_all("Representation")
@@ -159,7 +159,7 @@ class CHANNEL5(Config):
 
         return heights[0], pssh
 
-    def get_content(self, url: str) -> object:
+    def get_content(self, url: str) -> tuple[Movies | Series, str]:
         if self.movie:
             with self.console.status("Fetching titles..."):
                 content = self.get_movies(self.url)
