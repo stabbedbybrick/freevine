@@ -7,28 +7,40 @@ from helpers.utilities import string_cleaning
 
 
 class Episode:
-    def __init__(self, **kwargs) -> None:
-        self.id = kwargs.get("id_")
-        self.service = kwargs.get("service")
-        self.title = kwargs.get("title")
-        self.season = kwargs.get("season")
-        self.number = kwargs.get("number")
-        self.name = kwargs.get("name")
-        self.year = kwargs.get("year")
-        self.data = kwargs.get("data")
-        self.subtitle = kwargs.get("subtitle")
-        self.lic_url = kwargs.get("lic_url")
-        self.synopsis = kwargs.get("synopsis")
-        self.description = kwargs.get("description")
+    def __init__(
+        self,
+        id_=None,
+        service=None,
+        title=None,
+        season=None,
+        number=None,
+        name=None,
+        year=None,
+        data=None,
+        subtitle=None,
+        lic_url=None,
+        synopsis=None,
+        description=None,
+    ) -> None:
+        if name is not None:
+            name = name.strip()
+            if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
+                name = None
+            elif name.lower() == title.lower():
+                name = None
 
-        self.title = self.title.strip()
-
-        if self.name is not None:
-            self.name = self.name.strip()
-            if re.match(r"Episode ?#?\d+", self.name, re.IGNORECASE):
-                self.name = None
-            elif self.name.lower() == self.title.lower():
-                self.name = None
+        self.id = id_
+        self.service = service
+        self.title = title
+        self.season = season
+        self.number = number
+        self.name = name
+        self.year = year
+        self.data = data
+        self.subtitle = subtitle
+        self.lic_url = lic_url
+        self.synopsis = synopsis
+        self.description = description
 
     def __str__(self) -> str:
         return "{title} S{season:02}E{number:02} {name}".format(
@@ -60,18 +72,31 @@ class Series(SortedKeyList, ABC):
 
 
 class Movie:
-    def __init__(self, **kwargs) -> None:
-        self.id = kwargs.get("id_")
-        self.service = kwargs.get("service")
-        self.title = kwargs.get("title")
-        self.name = kwargs.get("name")
-        self.year = kwargs.get("year")
-        self.data = kwargs.get("data")
-        self.subtitle = kwargs.get("subtitle")
-        self.lic_url = kwargs.get("lic_url")
-        self.synopsis = kwargs.get("synopsis")
-        
-        self.name = self.name.strip()
+    def __init__(
+        self,
+        id_=None,
+        service=None,
+        title=None,
+        name=None,
+        year=None,
+        data=None,
+        subtitle=None,
+        lic_url=None,
+        synopsis=None,
+    ) -> None:
+        if name is not None:
+            name = name.strip()
+
+        self.id = id_
+        self.service = service
+        self.title = title
+        self.name = name
+        self.year = year
+        self.data = data
+        self.subtitle = subtitle
+        self.lic_url = lic_url
+        self.synopsis = synopsis
+
 
     def __str__(self) -> str:
         if self.year:
