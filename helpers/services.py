@@ -31,7 +31,9 @@ def get_service(url: str):
     parse = urlparse(url)
     netloc = parse.netloc.split(".")
 
-    if len(netloc) == 3 and netloc[2] == "uk":
+    if len(netloc) == 4:
+        domain = netloc[1]
+    elif len(netloc) == 3 and netloc[2] == "uk":
         domain = netloc[0]
     elif len(netloc) == 3:
         domain = netloc[1]
@@ -42,7 +44,7 @@ def get_service(url: str):
 
     if any(
         re.search(pattern, parse.path)
-        for pattern in [r"\d+-\d+$", r"s\d+e\d+$", "episode"]
+        for pattern in [r"\d+-\d+$", r"s\d+e\d+$"]
     ):
         error("Wrong URL format. Use series URL, not episode URL")
         sys.exit(1)
