@@ -214,8 +214,8 @@ class BBC(Config):
                 counter = 1
                 for episode in content:
                     episode.name = episode.get_filename()
-                    if "E00" in episode.name:
-                        episode.name = episode.name.replace("E00", f"E{counter:03d}")
+                    if "S00E00" in episode.name:
+                        episode.name = episode.name.replace("E00", f"E{counter:02d}")
                         counter += 1
 
                 title = string_cleaning(str(content))
