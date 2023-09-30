@@ -37,3 +37,9 @@ roku:
 pluto:
   api: "https://service-vod.clusters.pluto.tv/v4/vod"
   lic: "https://service-concierge.clusters.pluto.tv/v1/wv/alt"
+
+bbc:
+  api: "https://graph.ibl.api.bbc.co.uk/"
+  media: "https://open.live.bbc.co.uk/mediaselector/6/select/version/2.0/mediaset/iptv-all/vpid/{vpid}/"
+  playlist: "https://www.bbc.co.uk/programmes/{pid}/playlist.json"
+  base: "b4-thdow-bbc.live.bidi.net.uk"
