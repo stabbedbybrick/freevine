@@ -64,7 +64,7 @@ class BBC(Config):
 
         return Episode(
             id_=episode["episode"]["id"],
-            service="iPLAYER",
+            service="iP",
             title=episode["episode"]["title"]["default"],
             season=season,
             number=number,
@@ -90,7 +90,7 @@ class BBC(Config):
             [
                 Movie(
                     id_=data["id"],
-                    service="iPLAYER",
+                    service="iP",
                     title=data["title"]["default"],
                     year=None, # TODO
                     name=data["title"]["default"],
