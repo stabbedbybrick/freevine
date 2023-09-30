@@ -47,6 +47,7 @@ main_help = f"""
         ROKU:  1080p, DD5.1
         CTV:   1080p, DD5.1
         ALL4:  1080p, AAC2.0
+        BBCiP: 1080p, AAC2.0
         MY5:   1080p, AAC2.0*
         UKTV:  1080p, AAC2.0
         STV:   1080p, AAC2.0
