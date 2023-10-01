@@ -20,6 +20,7 @@ from bs4 import BeautifulSoup
 
 from helpers.utilities import (
     info,
+    error,
     string_cleaning,
     set_save_path,
     print_info,
@@ -54,13 +55,12 @@ class BBC(Config):
 
     def create_episode(self, episode):
         subtitle = episode["episode"]["subtitle"]
-        title = subtitle.get("default") or subtitle.get("slice") or ""
         season_match = re.search(r"Series (\d+):", subtitle.get("default"))
         season = int(season_match.group(1)) if season_match else 0
-        number_match = re.finditer(r"(\d+)\.|Episode (\d+)|Week (\d+)", title)
-        number = int(next((m.group(1) or m.group(2) or m.group(3) for m in number_match), 0))
+        number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle.get("slice") or subtitle.get("default"))
+        number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
         name_match = re.search(r"\d+\. (.+)", subtitle.get("slice") or subtitle.get("default") or "")
-        name = name_match.group(1) if name_match else ""
+        name = name_match.group(1) if name_match else subtitle.get("slice") or ""
 
         return Episode(
             id_=episode["episode"]["id"],
@@ -135,9 +135,13 @@ class BBC(Config):
 
         subtitle = None
 
-        for item in media["media"]:
-            if item["kind"] == "video":
-                videos = item["connection"]
+        try:
+            for item in media["media"]:
+                if item["kind"] == "video" and int(item["bitrate"]) > 3500:
+                    videos = item["connection"]
+        except KeyError:
+            error("Request failed. Make sure to use a valid UK IP-address")
+            exit(1)
 
         for item in media["media"]:
             if item["kind"] == "captions":
@@ -211,12 +215,21 @@ class BBC(Config):
                 slice_id = parse.query.split("=")[1] if parse.query else None
                 content = self.get_series(pid, slice_id)
 
-                counter = 1
+                extra_counter = 1
+                special_counter = 0
+                prev_season = None
+
                 for episode in content:
+                    if episode.number == 0 and episode.season == 0:
+                        episode.number = extra_counter
+                        extra_counter += 1
+                    if episode.number == 0 and episode.season > 0:
+                        if episode.season != prev_season:
+                            special_counter = 0
+                            prev_season = episode.season
+                        episode.number = special_counter
+                        special_counter += 1
                     episode.name = episode.get_filename()
-                    if "S00E00" in episode.name:
-                        episode.name = episode.name.replace("E00", f"E{counter:02d}")
-                        counter += 1
 
                 title = string_cleaning(str(content))
                 seasons = Counter(x.season for x in content)
@@ -267,10 +280,10 @@ class BBC(Config):
                 text = tag.get_text().strip()
                 srt += f"{i+1}\n{start.replace('.', ',')} --> {end.replace('.', ',')}\n{text}\n\n"
 
-            with open(self.tmp / f"{filename}.srt", "w") as f:
+            with open(self.save_path / f"{filename}.srt", "w") as f:
                 f.write(srt)
 
-        self.sub_path = self.tmp / f"{filename}.srt"
+        self.sub_path = self.save_path / f"{filename}.srt"
 
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
