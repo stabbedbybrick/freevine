@@ -1,7 +1,9 @@
 ## USER SETTINGS:
 
-# Provide download path. Default is /downloads
-save_dir: "downloads"
+# Provide download paths. Default is /downloads
+save_dir:
+  series: "downloads"
+  movies: "downloads"
 
 # Temp folder. This is where downloading files are temporarly
 # stored while being processed. It might be a good idea to have this
@@ -20,11 +22,11 @@ subtitles:
   clean: "true" # Clean and convert subtitles. If "false", subtitles remain untouched
 
 # Customize filename output for series and movies
-# Empty spaces are automatically replaced by dots
-# Series default: Title.S01E01.EpisodeName.1080p.SERVICE.WEB-DL.AUDIO.CODEC
-# Movies default: Title.YEAR.1080p.SERVICE.WEB-DL.AUDIO.CODEC
+# Default: Title.S01E01.EpisodeName.1080p.SERVICE.WEB-DL.AUDIO.CODEC
+# NOTE: {year} is dependent on if the service API has it configured, which is hit or miss
+# Manually adding the year for each series is recommended if you need it included
 filename: 
-  series: "{title}.{number}.{name}.{resolution}.{service}.WEB-DL.{audio}.H.264"
+  series: "{title}.S{season}E{episode}.{name}.{resolution}.{service}.WEB-DL.{audio}.H.264"
   movies: "{title}.{year}.{resolution}.{service}.WEB-DL.{audio}.H.264"
 
 # Thread-count. Set how many concurrent fragments N_m3u8DL-RE should download
