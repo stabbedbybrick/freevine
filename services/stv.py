@@ -173,8 +173,6 @@ class STV(Config):
         with self.console.status("Fetching titles..."):
             data = self.get_data(url)
             content = self.get_series(data)
-            for episode in content:
-                episode.name = episode.get_filename()
 
             title = string_cleaning(str(content))
             seasons = Counter(x.season for x in content)
@@ -230,7 +228,7 @@ class STV(Config):
         if self.info:
             print_info(self, stream, keys)
 
-        info(f"{stream.name}")
+        info(f"{str(stream)}")
         info(f"{keys[0]}") if self.drm else info("No encryption found")
         click.echo("")
 

@@ -29,10 +29,11 @@ def error(text: str) -> str:
 
 def string_cleaning(filename: str) -> str:
     filename = filename.replace("&", "and")
-    filename = re.sub(r"[:;/ ]", ".", filename)
-    filename = re.sub(r"[\\*!?¿,'\"()<>|$#`’]", "", filename)
+    filename = re.sub(r"[:;/]", "", filename)
+    filename = re.sub(r"[\\*!?¿,'\"<>|$#`’]", "", filename)
     filename = re.sub(rf"[{'.'}]{{2,}}", ".", filename)
     filename = re.sub(rf"[{'_'}]{{2,}}", "_", filename)
+    filename = re.sub(rf"[{' '}]{{2,}}", " ", filename)
     return filename
 
 
@@ -57,23 +58,25 @@ def set_filename(service: object, stream: object, res: str, audio: str):
     if service.movie:
         filename = service.config["filename"]["movies"].format(
             title=stream.title,
-            year=stream.year if stream.year else "",
-            resolution=f"{res}p" if res else "",
+            year=stream.year or "",
+            resolution=f"{res}p" or "",
             service=stream.service,
             audio=audio,
         )
-        return string_cleaning(filename)
     else:
-        parts = re.split(r"(S\d+E\d+)", stream.name)
         filename = service.config["filename"]["series"].format(
-            title=parts[0].rstrip("."),
-            number=parts[1],
-            name=parts[2].lstrip(".") if parts[2] else "",
-            resolution=f"{res}p" if res else "",
+            title=stream.title,
+            year=stream.year or None,
+            season=f"{stream.season:02}",
+            episode=f"{stream.number:02}",
+            name=stream.name or "",
+            resolution=f"{res}p" or "",
             service=stream.service,
             audio=audio,
         )
-        return string_cleaning(filename)
+
+    filename = string_cleaning(filename)
+    return filename.replace(" ", ".") if filename.count(".") >= 2 else filename
 
 
 def add_subtitles(soup: object, subtitle: str) -> object:
@@ -99,12 +102,17 @@ def add_subtitles(soup: object, subtitle: str) -> object:
 
 
 def set_save_path(stream: object, config, title: str) -> Path:
-    downloads = Path(config["save_dir"])
+    downloads = (
+        Path(config["save_dir"]["movies"])
+        if stream.__class__.__name__ == "Movie"
+        else Path(config["save_dir"]["series"])
+    )
+
     save_path = downloads.joinpath(title)
     save_path.mkdir(parents=True, exist_ok=True)
 
     if stream.__class__.__name__ == "Episode" and config["seasons"] == "true":
-        _season = f"season.{stream.season:02d}"
+        _season = f"Season {stream.season:02d}"
         save_path = save_path.joinpath(_season)
         save_path.mkdir(parents=True, exist_ok=True)
 
@@ -154,7 +162,7 @@ def print_info(service: object, stream: object, keys: list):
             text += f"  {key}\n"
 
     padding = Padding(text, (1, 2))
-    title = f"[white]{stream.name}[/white]"
+    title = f"[white]{str(stream)}[/white]"
     panel = Panel(padding, title=title, width=80, style=Style(color="bright_black"))
     console.print(panel)
 

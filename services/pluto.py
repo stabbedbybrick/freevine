@@ -224,8 +224,6 @@ class PLUTO(Config):
         else:
             with self.console.status("Fetching titles..."):
                 content = self.get_series(url)
-                for episode in content:
-                    episode.name = episode.get_filename()
 
                 title = string_cleaning(str(content))
                 seasons = Counter(x.season for x in content)
@@ -280,7 +278,7 @@ class PLUTO(Config):
         self.key_file = self.tmp / "keys.txt" if pssh else None
         self.sub_path = None
 
-        info(f"{stream.name}")
+        info(f"{str(stream)}")
         click.echo("")
 
         args, file_path = get_args(self, res="")

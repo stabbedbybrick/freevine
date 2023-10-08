@@ -15,14 +15,12 @@ import sys
 import base64
 
 from urllib.parse import urlparse
-from pathlib import Path
 from collections import Counter
 
 import click
 import httpx
 
 from bs4 import BeautifulSoup
-from rich.console import Console
 
 from helpers.utilities import (
     info,
@@ -173,8 +171,6 @@ class CRACKLE(Config):
         else:
             with self.console.status("Fetching titles..."):
                 content = self.get_series(url)
-                for episode in content:
-                    episode.name = episode.get_filename()
 
                 title = string_cleaning(str(content))
                 seasons = Counter(x.season for x in content)
@@ -228,7 +224,7 @@ class CRACKLE(Config):
         if self.info:
             print_info(self, stream, keys)
 
-        info(f"{stream.name}")
+        info(f"{str(stream)}")
         for key in keys:
             info(f"{key}")
         click.echo("")

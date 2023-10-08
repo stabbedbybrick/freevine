@@ -15,7 +15,7 @@ class Options:
 
     def list_titles(self, series: object) -> str:
         for episode in series:
-            info(episode.name)
+            info(str(episode))
 
         shutil.rmtree(self.tmp)
         exit(0)
@@ -26,10 +26,10 @@ class Options:
         if "," in self.episode:
             return self.get_episode_mix(series, self.episode)
 
-        episode = next((i for i in series if self.episode in i.name), None)
+        episode = next((i for i in series if self.episode in str(i)), None)
 
         if episode is not None and self.titles:
-            info(f"{episode.name}")
+            info(f"{str(episode)}")
             shutil.rmtree(self.tmp)
             exit(0)
 
@@ -45,12 +45,12 @@ class Options:
 
         downloads = []
         for episode in series:
-            if any(i in episode.name for i in episode_range):
+            if any(i in str(episode) for i in episode_range):
                 downloads.append(episode)
 
         if self.titles:
             for episode in downloads:
-                info(f"{episode.name}")
+                info(f"{str(episode)}")
 
             shutil.rmtree(self.tmp)
             exit(0)
@@ -62,12 +62,12 @@ class Options:
 
         downloads = []
         for episode in series:
-            if any(i in episode.name for i in episode_mix):
+            if any(i in str(episode) for i in episode_mix):
                 downloads.append(episode)
 
         if self.titles:
             for episode in downloads:
-                info(f"{episode.name}")
+                info(f"{str(episode)}")
 
             shutil.rmtree(self.tmp)
             exit(0)
@@ -80,12 +80,12 @@ class Options:
 
         downloads = []
         for episode in series:
-            if self.season in episode.name:
+            if self.season in str(episode):
                 downloads.append(episode)
 
         if self.titles:
             for episode in downloads:
-                info(f"{episode.name}")
+                info(f"{str(episode)}")
 
             shutil.rmtree(self.tmp)
             exit(0)
@@ -97,12 +97,12 @@ class Options:
 
         downloads = []
         for episode in series:
-            if any(i in episode.name for i in season_mix):
+            if any(i in str(episode) for i in season_mix):
                 downloads.append(episode)
 
         if self.titles:
             for episode in downloads:
-                info(f"{episode.name}")
+                info(f"{str(episode)}")
 
             shutil.rmtree(self.tmp)
             exit(0)
@@ -117,7 +117,7 @@ class Options:
 
         if self.titles:
             for episode in downloads:
-                info(f"{episode.name}")
+                info(f"{str(episode)}")
 
             shutil.rmtree(self.tmp)
             exit(0)
@@ -128,12 +128,11 @@ class Options:
         downloads = []
 
         for movie in movies:
-            movie.name = movie.get_filename()
             downloads.append(movie)
 
         if self.titles:
             for movie in downloads:
-                info(f"{movie.name}")
+                info(f"{str(movie)}")
 
             shutil.rmtree(self.tmp)
             exit(0)

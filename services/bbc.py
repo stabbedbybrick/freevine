@@ -79,7 +79,7 @@ class BBC(Config):
         episodes = [
             self.create_episode(episode)
             for season in seasons
-            for episode in season["entities"]["results"]
+            for episode in reversed(season["entities"]["results"])
         ]
         return Series(episodes)
 
@@ -215,26 +215,30 @@ class BBC(Config):
                 slice_id = parse.query.split("=")[1] if parse.query else None
                 content = self.get_series(pid, slice_id)
 
-                extra_counter = 1
-                special_counter = 0
-                prev_season = None
-
-                for episode in content:
-                    if episode.number == 0 and episode.season == 0:
-                        episode.number = extra_counter
-                        extra_counter += 1
-                    if episode.number == 0 and episode.season > 0:
-                        if episode.season != prev_season:
-                            special_counter = 0
-                            prev_season = episode.season
-                        episode.number = special_counter
-                        special_counter += 1
-                    episode.name = episode.get_filename()
-
-                title = string_cleaning(str(content))
                 seasons = Counter(x.season for x in content)
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
+
+                episode_count = {}
+                extra_episode_number = 1
+
+                for index, episode in enumerate(content):
+                    if episode.number == 0 and episode.season == 0:
+                        episode.number = extra_episode_number
+                        extra_episode_number += 1
+
+                    if episode.season == 0 and num_seasons == 1:
+                        episode.season = 1
+
+                    if episode.number == 0 and episode.season > 0:
+                        if episode.season not in episode_count:
+                            episode_count[episode.season] = 0
+                        
+                        episode.number = episode_count[episode.season]
+                        episode_count[episode.season] += 1
+
+
+                title = string_cleaning(str(content))
 
             info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
@@ -280,7 +284,7 @@ class BBC(Config):
                 text = tag.get_text().strip()
                 srt += f"{i+1}\n{start.replace('.', ',')} --> {end.replace('.', ',')}\n{text}\n\n"
 
-            with open(self.save_path / f"{filename}.srt", "w") as f:
+            with open(self.save_path / f"{filename}.srt", "w", encoding="UTF-8") as f:
                 f.write(srt)
 
         self.sub_path = self.save_path / f"{filename}.srt"
@@ -302,7 +306,7 @@ class BBC(Config):
         if self.info:
             print_info(self, stream, keys=None)
 
-        info(f"{stream.name}")
+        info(f"{str(stream)}")
         click.echo("")
 
         args, file_path = get_args(self, res)
