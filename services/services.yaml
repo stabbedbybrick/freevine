@@ -2,8 +2,8 @@
 
 my5:
   keys:
-    hmac: "keec4EdbQjn5M3WBQZH07Q=="
-    aes: "GEpQMh9S+hayOzWxRaXeuQ=="
+    hmac: "ndeTX3rYF9CmkKo12Av27g=="
+    aes: "gkxhB5rwZXg0dIFDdxviEA=="
   api:
     base: "https://corona.channel5.com"
     content: "https://corona.channel5.com/shows/{show}/episodes.json?platform=my5desktop&friendly=1&linear=true"
