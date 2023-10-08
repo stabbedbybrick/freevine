@@ -12,17 +12,17 @@ Download videos from free streaming services
 #### Supported services:
     (Premium content on any service is not supported)
 
-    ROKU:  1080p, DD5.1
-    CTV:   1080p, DD5.1
-    ALL4:  1080p, AAC2.0
-    BBCiP: 1080p, AAC2.0
-    MY5:   1080p, AAC2.0
-    UKTV:  1080p, AAC2.0
-    STV:   1080p, AAC2.0
-    CRKL:  1080p, AAC2.0
-    ITV:   720p,  AAC2.0
-    TUBI:  720p,  AAC2.0
-    PLUTO: 720p,  AAC2.0
+    ROKU:     1080p, DD5.1
+    CTV:      1080p, DD5.1
+    ALL4:     1080p, AAC2.0
+    MY5:      1080p, AAC2.0
+    iPLAYER:  1080p, AAC2.0
+    UKTVPLAY: 1080p, AAC2.0
+    STV:      1080p, AAC2.0
+    CRACKLE:  1080p, AAC2.0
+    ITV:      720p,  AAC2.0
+    TUBI:     720p,  AAC2.0
+    PLUTO:    720p,  AAC2.0
 
 
 #### Required tools:
@@ -50,12 +50,14 @@ Download videos from free streaming services
     python freevine.py --help (READ THIS!)
 
     Examples:
+    python freevine.py --titles URL
+    python freevine.py --info --episode S01E01 URL
     python freevine.py --episode S01E01 URL
     python freevine.py --episode S01E01-S01E10 URL
     python freevine.py --episode S01E01,S03E12,S05E03 URL
+    python freevine.py --season S01,S03,S05 URL
     python freevine.py --quality 720p --season S01 URL
     python freevine.py --remote --season S01 URL
-    python freevine.py --titles URL
 
 #### Notes:
 > It's still in early beta. Expect bugs here and there
