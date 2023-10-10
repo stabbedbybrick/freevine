@@ -131,7 +131,7 @@ class STV(Config):
                     name=episode.get("title"),
                     year=None,
                     data=episode["video"]["id"],
-                    description=episode.get("summary")
+                    description=episode.get("summary"),
                 )
                 for series in data
                 for episode in series["results"]
@@ -179,26 +179,66 @@ class STV(Config):
             num_seasons = len(seasons)
             num_episodes = sum(seasons.values())
 
-        info(
-            f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
-        )
+        info(f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n")
 
         return content, title
 
+    def get_episode_from_url(self, url: str):
+        soup = BeautifulSoup(self.client.get(url), "html.parser")
+        props = soup.select_one("#__NEXT_DATA__").text
+        data = json.loads(props)
+
+        episode_id = data["props"]["pageProps"]["episodeId"]
+        content = data["props"]["initialReduxState"]["playerApiCache"][
+            f"/episodes/{episode_id}"
+        ]["results"]
+
+        self.drm = content["programme"]["drmEnabled"]
+
+        episode = Series(
+            [
+                Episode(
+                    id_=None,
+                    service="STV",
+                    title=content["programme"]["name"],
+                    season=int(content["playerSeries"]["name"].split(" ")[1])
+                    if content["playerSeries"] is not None
+                    and "movie" not in content["playerSeries"]["name"]
+                    else 0,
+                    number=content.get("number") or 0,
+                    name=content.get("title"),
+                    year=None,
+                    data=content["video"]["id"],
+                    description=content.get("summary"),
+                )
+            ]
+        )
+
+        title = string_cleaning(str(episode))
+
+        return [episode[0]], title
+
     def get_options(self) -> None:
         opt = Options(self)
-        content, title = self.get_content(self.url)
 
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            downloads, title = self.get_episode_from_url(self.url)
+
+        else:
+            content, title = self.get_content(self.url)
+
+            if self.episode:
+                downloads = opt.get_episode(content)
+            if self.season:
+                downloads = opt.get_season(content)
+            if self.complete:
+                downloads = opt.get_complete(content)
+            if self.movie:
+                downloads = opt.get_movie(content)
+            if self.titles:
+                opt.list_titles(content)
 
         for download in downloads:
             self.download(download, title)

@@ -9,6 +9,7 @@ up to 1080p
 
 import subprocess
 import re
+import json
 
 from collections import Counter
 from urllib.parse import urlparse, urlunparse
@@ -37,15 +38,14 @@ class BBC(Config):
 
         self.get_options()
 
-    def get_data(self, pid: str, slice_id:str) -> dict:
-
+    def get_data(self, pid: str, slice_id: str) -> dict:
         json_data = {
-            'id': '9fd1636abe711717c2baf00cebb668de',
-            'variables': {
-                'id': pid,
-                'perPage': 200,
-                'page': 1,
-                'sliceId': slice_id if slice_id else None,
+            "id": "9fd1636abe711717c2baf00cebb668de",
+            "variables": {
+                "id": pid,
+                "perPage": 200,
+                "page": 1,
+                "sliceId": slice_id if slice_id else None,
             },
         }
 
@@ -57,9 +57,13 @@ class BBC(Config):
         subtitle = episode["episode"]["subtitle"]
         season_match = re.search(r"Series (\d+):", subtitle.get("default"))
         season = int(season_match.group(1)) if season_match else 0
-        number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle.get("slice") or subtitle.get("default"))
+        number_match = re.finditer(
+            r"(\d+)\.|Episode (\d+)", subtitle.get("slice") or subtitle.get("default")
+        )
         number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
-        name_match = re.search(r"\d+\. (.+)", subtitle.get("slice") or subtitle.get("default") or "")
+        name_match = re.search(
+            r"\d+\. (.+)", subtitle.get("slice") or subtitle.get("default") or ""
+        )
         name = name_match.group(1) if name_match else subtitle.get("slice") or ""
 
         return Episode(
@@ -72,9 +76,11 @@ class BBC(Config):
             description=episode["episode"]["synopsis"].get("small"),
         )
 
-    def get_series(self, pid: str, slice_id:str) -> Series:
+    def get_series(self, pid: str, slice_id: str) -> Series:
         data = self.get_data(pid, slice_id)
-        seasons = [self.get_data(pid, x["id"]) for x in data["slices"] or [{"id": None}]]
+        seasons = [
+            self.get_data(pid, x["id"]) for x in data["slices"] or [{"id": None}]
+        ]
 
         episodes = [
             self.create_episode(episode)
@@ -92,25 +98,27 @@ class BBC(Config):
                     id_=data["id"],
                     service="iP",
                     title=data["title"]["default"],
-                    year=None, # TODO
+                    year=None,  # TODO
                     name=data["title"]["default"],
                     synopsis=data["synopsis"].get("small"),
                 )
             ]
         )
-    
-    def add_stream(self, soup: object, init: str) -> object:
-        representation = soup.new_tag("Representation",
-                id="video=12000000",
-                bandwidth="8490000",
-                width="1920",
-                height="1080",
-                frameRate="50",
-                codecs="avc3.640020",
-                scanType="progressive",
-            )
 
-        template = soup.new_tag("SegmentTemplate", 
+    def add_stream(self, soup: object, init: str) -> object:
+        representation = soup.new_tag(
+            "Representation",
+            id="video=12000000",
+            bandwidth="8490000",
+            width="1920",
+            height="1080",
+            frameRate="50",
+            codecs="avc3.640020",
+            scanType="progressive",
+        )
+
+        template = soup.new_tag(
+            "SegmentTemplate",
             timescale="5000",
             duration="19200",
             initialization=f"{init}-$RepresentationID$.dash",
@@ -124,14 +132,11 @@ class BBC(Config):
         return soup
 
     def get_playlist(self, pid: str) -> tuple:
-        resp = self.client.get(
-            self.srvc["bbc"]["playlist"].format(pid=pid)).json()
-    
+        resp = self.client.get(self.srvc["bbc"]["playlist"].format(pid=pid)).json()
+
         vpid = resp["defaultAvailableVersion"]["smpConfig"]["items"][0]["vpid"]
 
-        media = self.client.get(
-            self.srvc["bbc"]["media"].format(vpid=vpid)
-        ).json()
+        media = self.client.get(self.srvc["bbc"]["media"].format(vpid=vpid)).json()
 
         subtitle = None
 
@@ -146,9 +151,11 @@ class BBC(Config):
         for item in media["media"]:
             if item["kind"] == "captions":
                 captions = item["connection"]
-        
+
         for video in videos:
-            if video["supplier"] == "mf_bidi" and video["transferFormat"] == "dash": # TODO
+            if (
+                video["supplier"] == "mf_bidi" and video["transferFormat"] == "dash"
+            ):  # TODO
                 manifest = video["href"]
 
         for caption in captions:
@@ -162,11 +169,12 @@ class BBC(Config):
         _path[-1] = "dash/"
         init = _path[-2].replace(".ism", "")
 
-        base_url = urlunparse(parse._replace(
-            scheme="https", 
-            netloc=self.srvc["bbc"]["base"], 
-            path="/".join(_path), 
-            query=""
+        base_url = urlunparse(
+            parse._replace(
+                scheme="https",
+                netloc=self.srvc["bbc"]["base"],
+                path="/".join(_path),
+                query="",
             )
         )
         soup.select_one("BaseURL").string = base_url
@@ -233,10 +241,9 @@ class BBC(Config):
                     if episode.number == 0 and episode.season > 0:
                         if episode.season not in episode_count:
                             episode_count[episode.season] = 0
-                        
+
                         episode.number = episode_count[episode.season]
                         episode_count[episode.season] += 1
-
 
                 title = string_cleaning(str(content))
 
@@ -246,20 +253,62 @@ class BBC(Config):
 
         return content, title
 
+    def get_episode_from_url(self, url: str):
+        html = self.client.get(url).text
+        redux = (
+            re.search("window.__IPLAYER_REDUX_STATE__ = (.*?)</script>", html)
+            .group(1)
+            .rsplit(";")[0]
+        )
+        data = json.loads(redux)
+
+        subtitle = data["episode"]["subtitle"]
+        season_match = re.search(r"Series (\d+):", subtitle)
+        season = int(season_match.group(1)) if season_match else 0
+        number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle)
+        number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
+        name_match = re.search(r"\d+\. (.+)", subtitle)
+        name = name_match.group(1) if name_match else subtitle or ""
+
+        episode = Series(
+            [
+                Episode(
+                    id_=data["episode"]["id"],
+                    service="iP",
+                    title=data["episode"]["title"],
+                    season=season,
+                    number=number,
+                    name=name,
+                    description=data["episode"]["synopses"].get("small"),
+                )
+            ]
+        )
+
+        title = string_cleaning(str(episode))
+
+        return [episode[0]], title
+
     def get_options(self) -> None:
         opt = Options(self)
-        content, title = self.get_content(self.url)
 
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            downloads, title = self.get_episode_from_url(self.url)
+
+        else:
+            content, title = self.get_content(self.url)
+
+            if self.episode:
+                downloads = opt.get_episode(content)
+            if self.season:
+                downloads = opt.get_season(content)
+            if self.complete:
+                downloads = opt.get_complete(content)
+            if self.movie:
+                downloads = opt.get_movie(content)
+            if self.titles:
+                opt.list_titles(content)
 
         for download in downloads:
             self.download(download, title)
@@ -297,7 +346,7 @@ class BBC(Config):
         self.filename = set_filename(self, stream, res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self.config, title)
         self.manifest = self.tmp / "manifest.mpd"
-        self.key_file = None # not encrypted
+        self.key_file = None  # not encrypted
         self.sub_path = None
 
         if subtitle is not None:

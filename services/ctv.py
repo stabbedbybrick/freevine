@@ -46,14 +46,11 @@ class CTV(Config):
         self.get_options()
 
     def get_title_id(self, url: str) -> str:
-        url = url.rstrip("/")
-        parse = urlparse(url).path.split("/")
-        type = parse[1]
-        slug = parse[-1]
+        path = urlparse(url).path
 
         payload = {
             "operationName": "resolvePath",
-            "variables": {"path": f"/{type}/{slug}"},
+            "variables": {"path": f"{path}"},
             "query": """
             query resolvePath($path: String!) {
                 resolvedPath(path: $path) {
@@ -297,20 +294,76 @@ class CTV(Config):
 
         return content, title
 
+    def get_episode_from_url(self, url: str):
+        title_id = self.get_title_id(url)
+
+        payload = {
+            "operationName": "axisContent",
+            "variables": {"id": f"{title_id}"},
+            "query": """
+                query axisContent($id: ID!) {
+                    axisContent(id: $id) {
+                        axisId
+                        title
+                        description
+                        contentType
+                        seasonNumber
+                        episodeNumber
+                        axisMedia {
+                            title
+                        }
+                        axisPlaybackLanguages {
+                                language
+                                destinationCode
+                        }
+                    }
+                }
+                """,
+        }
+        
+        data = self.client.post(self.api, json=payload).json()["data"]["axisContent"]
+
+        episode = Series(
+            [
+                Episode(
+                    id_=data["axisId"],
+                    service="CTV",
+                    title=data["axisMedia"]["title"],
+                    season=int(data["seasonNumber"]),
+                    number=int(data["episodeNumber"]),
+                    name=data["title"],
+                    year=None,
+                    data=data["axisPlaybackLanguages"][0]["destinationCode"],
+                    description=data.get("description"),
+                )
+            ]
+        )
+
+        title = string_cleaning(str(episode))
+
+        return [episode[0]], title
+
     def get_options(self) -> None:
         opt = Options(self)
-        content, title = self.get_content(self.url)
 
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            downloads, title = self.get_episode_from_url(self.url)
+
+        else: 
+            content, title = self.get_content(self.url)
+
+            if self.episode:
+                downloads = opt.get_episode(content)
+            if self.season:
+                downloads = opt.get_season(content)
+            if self.complete:
+                downloads = opt.get_complete(content)
+            if self.movie:
+                downloads = opt.get_movie(content)
+            if self.titles:
+                opt.list_titles(content)
 
         for download in downloads:
             self.download(download, title)

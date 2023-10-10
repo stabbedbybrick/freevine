@@ -183,20 +183,55 @@ class CRACKLE(Config):
 
         return content, title
 
+    def get_episode_from_url(self, url: str):
+        parse = urlparse(url).path.split("/")
+        s = parse[3].replace("-", " ")
+        show = " ".join(word[0].upper() + word[1:] for word in s.split(" "))
+        episode_id = parse[2]
+        
+        data = self.client.get(f"{self.api}/content/{episode_id}").json()["data"]["metadata"][0]
+
+        episode = Series(
+            [
+                Episode(
+                    id_=None,
+                    service="CRKL",
+                    title=show,
+                    season=int(data["seasonNumber"]),
+                    number=int(data["episodeNumber"]),
+                    name=data["title"],
+                    year=None,
+                    data=episode_id,
+                    description=data.get("shortDescription"),
+                )
+            ]
+        )
+
+        title = string_cleaning(str(episode))
+
+        return [episode[0]], title
+
     def get_options(self) -> None:
         opt = Options(self)
-        content, title = self.get_content(self.url)
 
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            downloads, title = self.get_episode_from_url(self.url)
+
+        else: 
+            content, title = self.get_content(self.url)
+
+            if self.episode:
+                downloads = opt.get_episode(content)
+            if self.season:
+                downloads = opt.get_season(content)
+            if self.complete:
+                downloads = opt.get_complete(content)
+            if self.movie:
+                downloads = opt.get_movie(content)
+            if self.titles:
+                opt.list_titles(content)
 
         for download in downloads:
             self.download(download, title)

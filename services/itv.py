@@ -188,20 +188,50 @@ class ITV(Config):
 
         return content, title
 
+    def get_episode_from_url(self, url: str):
+        data = self.get_data(url)
+
+        episode = Series(
+            [
+                Episode(
+                    id_=None,
+                    service="ITV",
+                    title=data["programme"]["title"],
+                    season=data["episode"].get("series") or 0,
+                    number=data["episode"].get("episode") or 0,
+                    name=data["episode"]["episodeTitle"],
+                    year=None,
+                    data=data["episode"]["playlistUrl"],
+                    description=data["episode"].get("description"),
+                )
+            ]
+        )
+
+        title = string_cleaning(str(episode))
+
+        return [episode[0]], title
+
     def get_options(self) -> None:
         opt = Options(self)
-        content, title = self.get_content(self.url)
 
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            downloads, title = self.get_episode_from_url(self.url)
+
+        else: 
+            content, title = self.get_content(self.url)
+
+            if self.episode:
+                downloads = opt.get_episode(content)
+            if self.season:
+                downloads = opt.get_season(content)
+            if self.complete:
+                downloads = opt.get_complete(content)
+            if self.movie:
+                downloads = opt.get_movie(content)
+            if self.titles:
+                opt.list_titles(content)
 
         for download in downloads:
             self.download(download, title)

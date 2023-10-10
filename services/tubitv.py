@@ -177,20 +177,68 @@ class TUBITV(Config):
 
         return content, title
 
+    def get_episode_from_url(self, url: str):
+        with self.console.status("Fetching title..."):
+            episode_id = urlparse(url).path.split("/")[2]
+
+            content = (
+                f"https://tubitv.com/oz/videos/{episode_id}/content?"
+                f"video_resources=hlsv6_widevine_nonclearlead&video_resources=hlsv6"
+            )
+            
+            series_id = self.client.get(content).json()["series_id"]
+            content = re.sub(rf"{episode_id}", f"{series_id}", content)
+
+            data = self.client.get(content).json()
+
+        episode = Series(
+            [
+                Episode(
+                    service="TUBi",
+                    title=data["title"],
+                    season=int(season["id"]),
+                    number=int(episode["episode_number"]),
+                    name=episode["title"].split("-")[1],
+                    year=data["year"],
+                    data=episode["video_resources"][0]["manifest"]["url"],
+                    subtitle=episode.get("subtitles")[0].get("url")
+                    if episode.get("subtitles")
+                    else None,
+                    lic_url=episode["video_resources"][0]["license_server"]["url"]
+                    if episode["video_resources"][0].get("license_server")
+                    else None,
+                )
+                for season in data["children"]
+                for episode in season["children"]
+                if episode["id"] == episode_id
+            ]
+        )
+
+        title = string_cleaning(str(episode))
+
+        return [episode[0]], title
+
     def get_options(self) -> None:
         opt = Options(self)
-        content, title = self.get_content(self.url)
 
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            downloads, title = self.get_episode_from_url(self.url)
+
+        else: 
+            content, title = self.get_content(self.url)
+
+            if self.episode:
+                downloads = opt.get_episode(content)
+            if self.season:
+                downloads = opt.get_season(content)
+            if self.complete:
+                downloads = opt.get_complete(content)
+            if self.movie:
+                downloads = opt.get_movie(content)
+            if self.titles:
+                opt.list_titles(content)
 
         for download in downloads:
             self.download(download, title)

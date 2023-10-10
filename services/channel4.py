@@ -137,7 +137,7 @@ class CHANNEL4(Config):
                     name=episode["originalTitle"],
                     year=None,
                     data=episode.get("assetId"),
-                    description=episode.get("summary")
+                    description=episode.get("summary"),
                 )
                 for episode in data["brand"]["episodes"]
             ]
@@ -155,7 +155,7 @@ class CHANNEL4(Config):
                     year=data["brand"]["summary"].split(" ")[0].strip().strip("()"),
                     name=data["brand"]["title"],
                     data=movie.get("assetId"),
-                    synopsis=movie.get("summary")
+                    synopsis=movie.get("summary"),
                 )
                 for movie in data["brand"]["episodes"]
             ]
@@ -168,7 +168,7 @@ class CHANNEL4(Config):
         if not r.is_success:
             shutil.rmtree(self.tmp)
             raise ValueError("Invalid assetID")
-        
+
         soup = BeautifulSoup(r.text, "xml")
         token = soup.select_one("token").text
         manifest = soup.select_one("uri").text
@@ -228,20 +228,50 @@ class CHANNEL4(Config):
 
         return content, title
 
+    def get_episode_from_url(self, url: str):
+        brand = self.get_data(url)
+
+        episode = Series(
+            [
+                Episode(
+                    id_=None,
+                    service="ALL4",
+                    title=brand["brand"]["title"],
+                    season=brand["selectedEpisode"]["seriesNumber"] or 0,
+                    number=brand["selectedEpisode"]["episodeNumber"] or 0,
+                    name=brand["selectedEpisode"]["originalTitle"],
+                    year=None,
+                    data=brand["selectedEpisode"].get("assetId"),
+                    description=brand["selectedEpisode"].get("summary")
+                )
+            ]
+        )
+
+        title = string_cleaning(str(episode))
+
+        return [episode[0]], title
+
     def get_options(self) -> None:
         opt = Options(self)
-        content, title = self.get_content(self.url)
 
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            downloads, title = self.get_episode_from_url(self.url)
+
+        else: 
+            content, title = self.get_content(self.url)
+
+            if self.episode:
+                downloads = opt.get_episode(content)
+            if self.season:
+                downloads = opt.get_season(content)
+            if self.complete:
+                downloads = opt.get_complete(content)
+            if self.movie:
+                downloads = opt.get_movie(content)
+            if self.titles:
+                opt.list_titles(content)
 
         for download in downloads:
             self.download(download, title)

@@ -42,6 +42,11 @@ class CHANNEL5(Config):
     def __init__(self, config, srvc, **kwargs) -> None:
         super().__init__(config, srvc, **kwargs)
 
+        self.gist = self.client.get(
+            self.srvc['my5']['gist'].format(
+                timestamp=datetime.now().timestamp()
+        )).json()
+
         self.get_options()
 
     def get_data(self, url: str) -> json:
@@ -89,7 +94,7 @@ class CHANNEL5(Config):
         )
 
     def decrypt_data(self, media: str) -> dict:
-        key = base64.b64decode(self.srvc["my5"]["keys"]["aes"])
+        key = base64.b64decode(self.gist["key"])
 
         r = self.client.get(media)
         if not r.is_success:
@@ -107,7 +112,7 @@ class CHANNEL5(Config):
         return json.loads(decrypted_data)
 
     def get_playlist(self, asset_id: str) -> tuple:
-        secret = self.srvc["my5"]["keys"]["hmac"]
+        secret = self.gist["hmac"]
 
         timestamp = datetime.now().timestamp()
         vod = self.srvc["my5"]["api"]["vod"].format(
@@ -182,20 +187,61 @@ class CHANNEL5(Config):
 
         return content, title
 
+    def get_episode_from_url(self, url: str):
+        parse = urlparse(url).path.split("/")
+        show = parse[1]
+        season = parse[2]
+        episode = parse[3]
+
+        url = self.srvc["my5"]["api"]["single"].format(
+            show=show, 
+            season=season, 
+            episode=episode
+        )
+
+        data = self.client.get(url).json()
+
+        episode = Series(
+            [
+                Episode(
+                    id_=None,
+                    service="MY5",
+                    title=data.get("sh_title"),
+                    season=int(data.get("sea_num")) or 0,
+                    number=int(data.get("ep_num")) or 0,
+                    name=data.get("title"),
+                    year=None,
+                    data=data.get("id"),
+                    description=data.get("m_desc"),
+                )
+            ]
+        )
+
+        title = string_cleaning(str(episode))
+
+        return [episode[0]], title
+
     def get_options(self) -> None:
         opt = Options(self)
-        content, title = self.get_content(self.url)
 
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            downloads, title = self.get_episode_from_url(self.url)
+
+        else: 
+            content, title = self.get_content(self.url)
+
+            if self.episode:
+                downloads = opt.get_episode(content)
+            if self.season:
+                downloads = opt.get_season(content)
+            if self.complete:
+                downloads = opt.get_complete(content)
+            if self.movie:
+                downloads = opt.get_movie(content)
+            if self.titles:
+                opt.list_titles(content)
 
         for download in downloads:
             self.download(download, title)
