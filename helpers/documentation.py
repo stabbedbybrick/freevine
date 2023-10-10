@@ -31,7 +31,7 @@ main_help = f"""
         Service is found automatically and is not needed in the command
         See examples at the bottom for usage
     \b
-        Always use main page URL of series or movie, not specific episode URLs
+        Always use main URL of series for batch downloads, not episode URLs
         Use the "S01E01" format (Season 1, Episode 1) to request episodes
         Use --episode S01E01-S01E10 to request a range of episodes (from the same season)
         Use --episode S01E01,S03E07,S10E12 (no spaces!) to request a mix of episodes
@@ -57,9 +57,6 @@ main_help = f"""
         TUBI:     720p,  AAC2.0
         PLUTO:    720p,  AAC2.0 
     \b
-        *My5 requires valid hmac and aes keys to be added to services.yaml
-        Use the tool by Diazole(https://github.com/Diazole/my5-dl) to get them
-    \b
         Default file names follow the current P2P standard: 
         "Title.S01E01.Name.1080p.SERVICE.WEB-DL.AUDIO.CODEC"
     \b
@@ -75,4 +72,9 @@ main_help = f"""
         python freevine.py --episode S01E01-S01E10 URL
         python freevine.py --quality 720p --season S01 URL
         python freevine.py --remote --season S01 URL
+    \b
+    Download single episodes directly by URL:
+        python freevine.py EPISODE_URL
+        python freevine.py --quality EPISODE_URL
+        python freevine.py --info EPISODE_URL
     """

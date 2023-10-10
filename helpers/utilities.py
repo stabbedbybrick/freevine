@@ -144,7 +144,11 @@ def print_info(service: object, stream: object, keys: list):
         or "audio" in x.attrs.get("id")
     ]
 
-    text = f"{stream.description}\n\n" if service.episode else f"{stream.synopsis}\n\n"
+    text = (
+        f"{stream.description}\n\n"
+        if stream.__class__.__name__ == "Episode"
+        else f"{stream.synopsis}\n\n"
+    )
 
     text += "[white]Video:[/white]\n"
     for width, height, bandwidth in video:

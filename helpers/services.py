@@ -42,13 +42,6 @@ def get_service(url: str):
 
     services = _services(domain)
 
-    if any(
-        re.search(pattern, parse.path)
-        for pattern in [r"\d+-\d+$", r"s\d+e\d+$"]
-    ):
-        error("Wrong URL format. Use series URL, not episode URL")
-        sys.exit(1)
-
     for service in services:
         if service == domain:
             service_module = importlib.import_module("services." + service)
