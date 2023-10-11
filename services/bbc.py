@@ -33,6 +33,7 @@ from helpers.config import Config
 
 
 class BBC(Config):
+
     def __init__(self, config, srvc, **kwargs):
         super().__init__(config, srvc, **kwargs)
 
@@ -76,8 +77,8 @@ class BBC(Config):
             description=episode["episode"]["synopsis"].get("small"),
         )
 
-    def get_series(self, pid: str, slice_id: str) -> Series:
-        data = self.get_data(pid, slice_id)
+    def get_series(self, pid: str) -> Series:
+        data = self.get_data(pid, slice_id=None)
         seasons = [
             self.get_data(pid, x["id"]) for x in data["slices"] or [{"id": None}]
         ]
@@ -89,8 +90,8 @@ class BBC(Config):
         ]
         return Series(episodes)
 
-    def get_movies(self, pid: str, slice_id: str) -> Movies:
-        data = self.get_data(pid, slice_id)
+    def get_movies(self, pid: str) -> Movies:
+        data = self.get_data(pid, slice_id=None)
 
         return Movies(
             [
@@ -138,6 +139,7 @@ class BBC(Config):
 
         media = self.client.get(self.srvc["bbc"]["media"].format(vpid=vpid)).json()
 
+        captions = None
         subtitle = None
 
         try:
@@ -158,9 +160,10 @@ class BBC(Config):
             ):  # TODO
                 manifest = video["href"]
 
-        for caption in captions:
-            if caption["supplier"] == "mf_bidi" or "mf_cloudfront":
-                subtitle = caption["href"]
+        if captions:
+            for caption in captions:
+                if caption["supplier"] == "mf_bidi" or "mf_cloudfront":
+                    subtitle = caption["href"]
 
         soup = BeautifulSoup(requests.get(manifest).content, "xml")
 
@@ -205,23 +208,30 @@ class BBC(Config):
 
         return heights[0]
 
+    def parse_url(self, url: str):
+        regex = r"^(?:https?://(?:www\.)?bbc\.co\.uk/iplayer/episodes?/)?(?P<id>[a-z0-9]+)"
+
+        try:
+            pid = re.match(regex, url).group("id")
+        except AttributeError:
+            error("Improper URL format")
+            exit(1)
+
+        return pid
+
     def get_content(self, url: str) -> object:
         if self.movie:
             with self.console.status("Fetching titles..."):
-                parse = urlparse(url)
-                pid = parse.path.split("/")[3]
-                slice_id = parse.query.split("=")[1] if parse.query else None
-                content = self.get_movies(pid, slice_id)
+                pid = self.parse_url(url)
+                content = self.get_movies(pid)
                 title = string_cleaning(str(content))
 
             info(f"{str(content)}\n")
 
         else:
             with self.console.status("Fetching titles..."):
-                parse = urlparse(url)
-                pid = parse.path.split("/")[3]
-                slice_id = parse.query.split("=")[1] if parse.query else None
-                content = self.get_series(pid, slice_id)
+                pid = self.parse_url(url)
+                content = self.get_series(pid)
 
                 seasons = Counter(x.season for x in content)
                 num_seasons = len(seasons)
@@ -256,9 +266,8 @@ class BBC(Config):
     def get_episode_from_url(self, url: str):
         html = self.client.get(url).text
         redux = (
-            re.search("window.__IPLAYER_REDUX_STATE__ = (.*?)</script>", html)
+            re.search("window.__IPLAYER_REDUX_STATE__ = (.*?);</script>", html)
             .group(1)
-            .rsplit(";")[0]
         )
         data = json.loads(redux)
 
@@ -268,7 +277,9 @@ class BBC(Config):
         number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle)
         number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
         name_match = re.search(r"\d+\. (.+)", subtitle)
-        name = name_match.group(1) if name_match else subtitle or ""
+        name = name_match.group(1) if name_match else subtitle if not re.search(
+            r"Series (\d+): Episode (\d+)", subtitle
+            ) else ""
 
         episode = Series(
             [
@@ -343,6 +354,9 @@ class BBC(Config):
             soup, subtitle = self.get_playlist(stream.id)
             res = self.get_mediainfo(soup, self.quality)
 
+        if self.info:
+            print_info(self, stream, keys=None)
+
         self.filename = set_filename(self, stream, res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self.config, title)
         self.manifest = self.tmp / "manifest.mpd"
@@ -351,9 +365,6 @@ class BBC(Config):
 
         if subtitle is not None:
             self.clean_subtitles(subtitle, self.filename)
-
-        if self.info:
-            print_info(self, stream, keys=None)
 
         info(f"{str(stream)}")
         click.echo("")
