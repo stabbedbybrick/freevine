@@ -21,7 +21,7 @@ main_help = f"""
     \b
     Settings:
         Open config.yaml in your favorite text editor to change settings like
-        download path, folder structure, file names, subtitle options etc.
+        download path, folder structure, filenames, subtitle options etc.
     \b
     Instructions:
         Place blob and key file in pywidevine/L3/cdm/devices/android_generic to use local CDM
@@ -59,6 +59,8 @@ main_help = f"""
     \b
         Default file names follow the current P2P standard: 
         "Title.S01E01.Name.1080p.SERVICE.WEB-DL.AUDIO.CODEC"
+        NOTE: Soaps and certain programmes without clear labels might display
+        odd names and numbers. It's a known bug. 
     \b
         If you request a quality that's not available,
         the closest match is downloaded instead
