@@ -250,14 +250,14 @@ class CRACKLE(Config):
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
+        if self.info:
+            print_info(self, stream, keys)
+
         self.filename = set_filename(self, stream, res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self.config, title)
         self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
-
-        if self.info:
-            print_info(self, stream, keys)
 
         info(f"{str(stream)}")
         for key in keys:
