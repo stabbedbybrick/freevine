@@ -21,6 +21,7 @@ import click
 
 from bs4 import BeautifulSoup
 from Crypto.Cipher import AES
+from Crypto.Util.Padding import unpad
 
 from helpers.utilities import (
     info,
@@ -95,8 +96,13 @@ class CHANNEL4(Config):
         return r.json()["license"]
 
     def decrypt_token(self, token: str) -> tuple:
-        key = self.srvc["all4"]["key"]
-        iv = self.srvc["all4"]["iv"]
+        if self.srvc["all4"]["client"] == "android":
+            key = self.srvc["all4"]["android"]["key"]
+            iv = self.srvc["all4"]["android"]["iv"]
+
+        if self.srvc["all4"]["client"] == "web":
+            key = self.srvc["all4"]["web"]["key"]
+            iv = self.srvc["all4"]["web"]["iv"]
 
         if isinstance(token, str):
             token = base64.b64decode(token)
@@ -105,7 +111,7 @@ class CHANNEL4(Config):
                 iv=base64.b64decode(iv),
                 mode=AES.MODE_CBC,
             )
-            data = cipher.decrypt(token)[:-2]
+            data = unpad(cipher.decrypt(token), AES.block_size)
             license_api, dec_token = data.decode().split("|")
             return dec_token.strip(), license_api.strip()
 
@@ -161,17 +167,34 @@ class CHANNEL4(Config):
             ]
         )
 
-    def get_playlist(self, asset_id: str) -> tuple:
-        url = self.srvc["all4"]["vod"].format(asset_id=asset_id)
+    def get_playlist(self, asset_id: str, episode_id: str) -> tuple:
+        if self.srvc["all4"]["client"] == "android":
+            url = self.srvc["all4"]["android"]["vod"].format(asset_id=asset_id)
 
-        r = self.client.get(url)
-        if not r.is_success:
-            shutil.rmtree(self.tmp)
-            raise ValueError("Invalid assetID")
+            r = self.client.get(url)
+            if not r.is_success:
+                shutil.rmtree(self.tmp)
+                raise ValueError("Invalid assetID")
 
-        soup = BeautifulSoup(r.text, "xml")
-        token = soup.select_one("token").text
-        manifest = soup.select_one("uri").text
+            soup = BeautifulSoup(r.text, "xml")
+            token = soup.select_one("token").text
+            manifest = soup.select_one("uri").text
+
+        else:
+            url = self.srvc["all4"]["web"]["vod"].format(programmeId=episode_id)
+
+            r = self.client.get(url)
+            if not r.is_success:
+                shutil.rmtree(self.tmp)
+                raise ValueError("Invalid programmeId")
+            
+            data = json.loads(r.content)
+
+            for item in data["videoProfiles"]:
+                if item["name"] == "dashwv-dyn-stream-1":
+                    token = item["streams"][0]["token"]
+                    manifest = item["streams"][0]["uri"]
+        
         return manifest, token
 
     def get_pssh(self, soup: str) -> str:
@@ -234,7 +257,7 @@ class CHANNEL4(Config):
         episode = Series(
             [
                 Episode(
-                    id_=None,
+                    id_=brand["selectedEpisode"]["programmeId"],
                     service="ALL4",
                     title=brand["brand"]["title"],
                     season=brand["selectedEpisode"]["seriesNumber"] or 0,
@@ -278,7 +301,7 @@ class CHANNEL4(Config):
 
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
-            manifest, token = self.get_playlist(stream.data)
+            manifest, token = self.get_playlist(stream.data, stream.id)
             res, pssh = self.get_mediainfo(manifest, self.quality)
             token, license_url = self.decrypt_token(token)
 
@@ -287,14 +310,14 @@ class CHANNEL4(Config):
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
+        if self.info:
+            print_info(self, stream, keys)
+
         self.filename = set_filename(self, stream, res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self.config, title)
         self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
-
-        if self.info:
-            print_info(self, stream, keys)
 
         info(f"{str(stream)}")
         info(f"{keys[0]}")
