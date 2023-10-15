@@ -137,6 +137,31 @@ class UKTVPLAY(Config):
                 return closest_match, pssh
 
         return heights[0], pssh
+    
+    def get_content(self, url: str) -> object:
+        if self.movie:
+            with self.console.status("Fetching titles..."):
+                content = self.get_movies(self.url)
+                title = string_cleaning(str(content))
+
+            info(f"{str(content)}\n")
+
+        else:
+            with self.console.status("Fetching titles..."):
+                content = self.get_series(url)
+                for episode in content:
+                    episode.name = episode.get_filename()
+
+                title = string_cleaning(str(content))
+                seasons = Counter(x.season for x in content)
+                num_seasons = len(seasons)
+                num_episodes = sum(seasons.values())
+
+            info(
+                f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
+            )
+
+        return content, title
 
     def get_episode_from_url(self, url: str):
         html = self.client.get(url).text
