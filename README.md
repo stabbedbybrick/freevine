@@ -8,6 +8,7 @@ Download videos from free streaming services
 - [x] Automatic PSSH, manifest, and key retreival 
 - [x] Local and remote CDM options
 - [x] Config file with settings for download path, file format, subtitle options etc.
+- [x] Search option
 
 #### Supported services:
     (Premium content on any service is not supported)
