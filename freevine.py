@@ -9,10 +9,12 @@ from helpers import __version__
 from helpers.documentation import main_help
 from helpers.services import get_service
 from helpers.utilities import info
+from helpers.search import search_engine
 
 
 @click.command(help=main_help)
-@click.argument("url", type=str, required=True)
+@click.option("--search", nargs=2, type=str, help="Search service(s) for titles")
+@click.argument("url", type=str, required=False)
 @click.option("-q", "--quality", type=str, help="Specify resolution")
 @click.option("-a", "--all-audio", is_flag=True, help="Include all audio tracks")
 @click.option("-e", "--episode", type=str, help="Download episode(s)")
@@ -22,18 +24,22 @@ from helpers.utilities import info
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-i", "--info", is_flag=True, default=False, help="Print title info")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
-def main(**kwargs) -> None:
+def main(search=None, **kwargs) -> None:
     click.echo("")
     info(f"Freevine {__version__}\n")
 
-    with open("config.yaml", "r") as f:
-        config = yaml.safe_load(f)
+    if search:
+        alias, keywords = search
+        search_engine(alias, keywords)
+    else:
+        with open("config.yaml", "r") as f:
+            config = yaml.safe_load(f)
 
-    with open(Path("services") / "services.yaml", "r") as f:
-        srvc = yaml.safe_load(f)
+        with open(Path("services") / "services.yaml", "r") as f:
+            srvc = yaml.safe_load(f)
 
-    Service = get_service(kwargs.get("url"))
-    Service(config, srvc, **kwargs)
+        Service = get_service(kwargs.get("url"))
+        Service(config, srvc, **kwargs)
 
     shutil.rmtree("tmp") if Path("tmp").exists() else None
 
