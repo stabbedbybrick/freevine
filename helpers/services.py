@@ -1,6 +1,6 @@
 import sys
 import re
-import importlib
+import importlib.util
 import sys
 
 from pathlib import Path
@@ -9,42 +9,92 @@ from urllib.parse import urlparse
 from helpers.utilities import info, error
 
 
-def _services(domain: str):
-    supported_services = []
+def _services():
+    services = Path("services")
 
-    services = list(Path("services").glob("*.py"))
-    for service in services:
-        srvc = Path(service).stem
-        if len(srvc) == 0 or srvc.startswith("_"):
-            continue
-
-        supported_services.append(srvc)
-
-    if domain not in supported_services:
-        error("Service not supported")
-        sys.exit(1)
+    supported_services = {
+        "www.bbc.co.uk": {
+            "name": "BBC",
+            "alias": "BBC iPlayer",
+            "path": services / "bbc.py",
+        },
+        "www.channel4.com": {
+            "name": "CHANNEL4",
+            "alias": "ALL4",
+            "path": services / "channel4.py",
+        },
+        "www.channel5.com": {
+            "name": "CHANNEL5",
+            "alias": "My5 TV",
+            "path": services / "channel5.py",
+        },
+        "www.crackle.com": {
+            "name": "CRACKLE",
+            "alias": "CRACKLE",
+            "path": services / "crackle.py",
+        },
+        "www.ctv.ca": {
+            "name": "CTV",
+            "alias": "CTV",
+            "path": services / "ctv.py",
+        },
+        "www.itv.com": {
+            "name": "ITV",
+            "alias": "ITVX",
+            "path": services / "itv.py",
+        },
+        "pluto.tv": {
+            "name": "PLUTO",
+            "alias": "PlutoTV",
+            "path": services / "pluto.py",
+        },
+        "therokuchannel.roku.com": {
+            "name": "ROKU",
+            "alias": "The Roku Channel",
+            "path": services / "roku.py",
+        },
+        "player.stv.tv": {
+            "name": "STV",
+            "alias": "STV Player",
+            "path": services / "stv.py",
+        },
+        "tubitv.com": {
+            "name": "TUBITV",
+            "alias": "TubiTV",
+            "path": services / "tubitv.py",
+        },
+        "uktvplay.co.uk": {
+            "name": "UKTVPLAY",
+            "alias": "UKTV Play",
+            "path": services / "uktvplay.py",
+        },
+    }
 
     return supported_services
 
 
 def get_service(url: str):
-    parse = urlparse(url)
-    netloc = parse.netloc.split(".")
+    supported = _services()
 
-    if len(netloc) == 4:
-        domain = netloc[1]
-    elif len(netloc) == 3 and netloc[2] == "uk":
-        domain = netloc[0]
-    elif len(netloc) == 3:
-        domain = netloc[1]
-    else:
-        domain = netloc[0]
+    find_service = next(
+        (
+            info
+            for service, info in supported.items()
+            if service == urlparse(url).netloc
+        ),
+        None,
+    )
 
-    services = _services(domain)
+    if find_service is None:
+        error("Service is not supported")
+        sys.exit(1)
 
-    for service in services:
-        if service == domain:
-            service_module = importlib.import_module("services." + service)
-            srvc = getattr(service_module, service.upper())
-            info(srvc.__name__)
-            return srvc
+    spec = importlib.util.spec_from_file_location(
+        find_service["name"], str(find_service["path"])
+    )
+    service_module = importlib.util.module_from_spec(spec)
+    sys.modules[find_service["name"]] = service_module
+    spec.loader.exec_module(service_module)
+    srvc = getattr(service_module, find_service["name"])
+    info(find_service["alias"])
+    return srvc
