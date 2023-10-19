@@ -52,7 +52,9 @@ Download videos from free streaming services
 
     Examples:
     python freevine.py --titles URL
+    python freevine.py --movie URL
     python freevine.py --info --episode S01E01 URL
+    python freevine.py --subtitles --episode S01E01 URL
     python freevine.py --episode S01E01 URL
     python freevine.py --episode S01E01-S01E10 URL
     python freevine.py --episode S01E01,S03E12,S05E03 URL

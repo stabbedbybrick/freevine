@@ -5,11 +5,11 @@ from pathlib import Path
 import click
 import yaml
 
-from helpers import __version__
-from helpers.documentation import main_help
-from helpers.services import get_service
-from helpers.utilities import info
-from helpers.search import search_engine
+from utils import __version__
+from utils.documentation import main_help
+from utils.services import get_service
+from utils.utilities import info
+from utils.search.search import search_engine
 
 
 @click.command(help=main_help)
@@ -24,6 +24,7 @@ from helpers.search import search_engine
 @click.option("-t", "--titles", is_flag=True, default=False, help="List all titles")
 @click.option("-i", "--info", is_flag=True, default=False, help="Print title info")
 @click.option("-r", "--remote", is_flag=True, default=False, help="Use remote CDM")
+@click.option("--subtitles", is_flag=True, default=False, help="Download only subtitles")
 def main(search=None, **kwargs) -> None:
     click.echo("")
     info(f"Freevine {__version__}\n")
@@ -35,11 +36,8 @@ def main(search=None, **kwargs) -> None:
         with open("config.yaml", "r") as f:
             config = yaml.safe_load(f)
 
-        with open(Path("services") / "services.yaml", "r") as f:
-            srvc = yaml.safe_load(f)
-
         Service = get_service(kwargs.get("url"))
-        Service(config, srvc, **kwargs)
+        Service(config, **kwargs)
 
     shutil.rmtree("tmp") if Path("tmp").exists() else None
 
