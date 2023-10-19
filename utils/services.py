@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
-from helpers.utilities import info, error
+from utils.utilities import info, error
 
 
 def _services():
@@ -16,7 +16,7 @@ def _services():
         "www.bbc.co.uk": {
             "name": "BBC",
             "alias": "BBC iPlayer",
-            "path": services / "bbc.py",
+            "path": services / "bbciplayer.py",
         },
         "www.channel4.com": {
             "name": "CHANNEL4",

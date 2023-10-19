@@ -10,7 +10,6 @@ class Config:
     def __init__(
         self, 
         config: Any, 
-        srvc: Any,
         url: str,
         quality: Optional[str] = None,
         remote: Optional[bool] = None,
@@ -21,6 +20,7 @@ class Config:
         movie: Optional[bool] = None,
         complete: Optional[bool] = None,
         all_audio: Optional[bool] = None,
+        subtitles: Optional[bool] = None,
     ) -> None:
         
         if episode:
@@ -31,7 +31,6 @@ class Config:
             quality = quality.rstrip("p")
         
         self.config = config
-        self.srvc = srvc
         self.url = url
         self.quality = quality
         self.remote = remote
@@ -42,6 +41,7 @@ class Config:
         self.movie = movie
         self.complete = complete
         self.all_audio = all_audio
+        self.sub_only = subtitles
 
         self.console = Console()
 

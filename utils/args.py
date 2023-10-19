@@ -2,7 +2,7 @@ import shutil
 
 from pathlib import Path
 
-from helpers.utilities import info, set_range
+from utils.utilities import info, set_range
 
 
 class Options:
@@ -140,6 +140,33 @@ class Options:
         return downloads
 
 
+def video_settings(quality: bool, res: str, config):
+    track_config = config["video"].get("track")
+    drop_config = config["video"].get("drop")
+
+    select_video = f"res={res}" if quality else track_config
+    drop_video = drop_config if drop_config else None
+
+    return select_video, drop_video
+
+
+def audio_settings(all_audio: bool, config):
+    track_config = config["audio"].get("track")
+    drop_config = config["audio"].get("drop")
+
+    select_audio = "all" if all_audio else track_config
+    drop_audio = drop_config if drop_config else None
+
+    return select_audio, drop_audio
+
+
+def subtitle_settings(config, sub_only):
+    _mux = "true" if sub_only else config["subtitles"]["no_mux"]
+    clean_sub = config["subtitles"]["clean"]
+
+    return _mux, clean_sub
+
+
 def get_args(service: object, res: str):
     config = service.config
     manifest = service.manifest
@@ -149,33 +176,31 @@ def get_args(service: object, res: str):
     quality = service.quality
     all_audio = service.all_audio
     sub_path = service.sub_path
+    sub_only = service.sub_only
 
     m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
 
-    video = f"res='{res}'" if quality else config["video"]
-    audio = "all" if all_audio else config["audio"]
+    select_video, drop_video = video_settings(quality, res, config)
+    select_audio, drop_audio = audio_settings(all_audio, config)
+    _mux, clean_sub = subtitle_settings(config, sub_only)
 
     temp = config["temp_dir"]
     threads = config["threads"]
     format = config["format"]
     muxer = config["muxer"]
-    mux = config["subtitles"]["no_mux"]
-    clean = config["subtitles"]["clean"]
 
     args = [
         m3u8dl,
         manifest,
         "-sv",
-        video,
+        select_video,
         "-sa",
-        audio,
+        select_audio,
         "-ss",
         "all",
         "-mt",
-        "-M",
-        f"format={format}:muxer={muxer}:skip_sub={mux}",
         "--auto-subtitle-fix",
-        clean,
+        clean_sub,
         "--thread-count",
         threads,
         "--save-name",
@@ -190,10 +215,16 @@ def get_args(service: object, res: str):
     ]
 
     args.extend(["--key-text-file", key_file]) if key_file else None
+    args.extend(["-dv", drop_video]) if drop_video else None
+    args.extend(["-da", drop_audio]) if drop_audio else None
+    args.extend(["--sub-only", "true"]) if sub_only else None
 
     args.extend(
+        ["-M", f"format={format}:muxer={muxer}:skip_sub={_mux}"]
+    ) if not sub_only else None
+    args.extend(
         [f"--mux-import", f"path={sub_path}:lang=eng:name='English'"]
-    ) if sub_path and mux == "false" else None
+    ) if sub_path and _mux == "false" else None
 
     file_path = Path(save_path) / f"{filename}.{format}"
 

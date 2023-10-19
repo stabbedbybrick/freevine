@@ -1,0 +1,386 @@
+import uuid
+import re
+
+def _sanitize(title: str) -> str:
+    title = title.lower()
+    title = title.replace("&", "and")
+    title = re.sub(r"[:;/()]", "", title)
+    title = re.sub(r"[ ]", "-", title)
+    title = re.sub(r"[\\*!?¿,'\"<>|$#`’]", "", title)
+    title = re.sub(rf"[{'.'}]{{2,}}", ".", title)
+    title = re.sub(rf"[{'_'}]{{2,}}", "_", title)
+    title = re.sub(rf"[{'-'}]{{2,}}", "-", title)
+    title = re.sub(rf"[{' '}]{{2,}}", " ", title)
+    return title
+
+def _dict(keywords: str):
+    return [
+        {
+            "name": "BBC iPlayer",
+            "alias": ["BBC", "IPLAYER", "BBCIPLAYER"],
+            "url": "https://search.api.bbci.co.uk/formula/iplayer-ibl-root",
+            "params": {
+                "q": f"{keywords}",
+                "apikey": "HJ34sajBaTjACnUJtGZ2Gvsy0QeqJ5UK",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "ALL4",
+            "alias": ["ALL4", "CHANNEL4", "C4", "CH4"],
+            "url": "https://all4nav.channel4.com/v1/api/search",
+            "params": {
+                "expand": "default",
+                "q": f"{keywords}",
+                "limit": "100",
+                "offset": "0",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "My5",
+            "alias": ["MY5", "CHANNEL5", "C5", "CH5"],
+            "url": "https://corona.channel5.com/shows/search.json",
+            "params": {
+                "platform": "my5desktop",
+                "friendly": "1",
+                "query": f"{keywords}",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "CRACKLE",
+            "alias": ["CRACKLE", "CRKL"],
+            "url": f"https://prod-api.crackle.com/contentdiscovery/search/{keywords}",
+            "header": {"x-crackle-platform": "5FE67CCA-069A-42C6-A20F-4B47A8054D46"},
+            "params": {
+                "useFuzzyMatching": "false",
+                "enforcemediaRights": "true",
+                "pageNumber": "1",
+                "pageSize": "20",
+                "contentType": "Channels",
+                "searchFields": "Title,Cast",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "CTV",
+            "alias": ["CTV"],
+            "url": "https://www.ctv.ca/space-graphql/apq/graphql",
+            "payload": {
+                "operationName": "searchMedia",
+                "variables": {"title": f"{keywords}"},
+                "query": """
+                        query searchMedia($title: String!) {searchMedia(titleMatches: $title) {
+                        ... on Medias {page {items {title\npath}}}}}, """,
+            },
+            "method": "POST",
+        },
+        {
+            "name": "ITV",
+            "alias": ["ITV", "ITVX"],
+            "url": "https://textsearch.prd.oasvc.itv.com/search",
+            "params": {
+                "broadcaster": "itv",
+                "featureSet": "clearkey,outband-webvtt,hls,aes,playready,widevine,fairplay,bbts,progressive,hd,rtmpe",
+                "onlyFree": "false",
+                "platform": "dotcom",
+                "query": f"{keywords}",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "PlutoTV",
+            "alias": ["PLUTOTV", "PLUTO"],
+            "url": "https://service-media-search.clusters.pluto.tv/v1/search",
+            "params": {
+                "q": f"{keywords}",
+                "limit": "100",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "The Roku Channel",
+            "alias": ["ROKU", "ROKUCHANNEL", "THEROKUCHANNEL"],
+            "url": "https://therokuchannel.roku.com/api/v1/search",
+            "token": "https://therokuchannel.roku.com/api/v1/csrf",
+            "payload": {
+                "query": f"{keywords}",
+            },
+            "method": "POST",
+        },
+        {
+            "name": "STV Player",
+            "alias": ["STV", "STVPLAYER"],
+            "url": "https://search-api.swiftype.com/api/v1/public/engines/suggest.json",
+            "params": None,
+            "method": "POST",
+            "payload": {
+                "engine_key": "S1jgssBHdk8ZtMWngK_y",
+                "per_page": 10,
+                "page": 1,
+                "fetch_fields": {"page": ["title", "body", "resultDescriptionTx", "url"]},
+                "search_fields": {"page": ["title^3", "body"]},
+                "q": f"{keywords}",
+                "spelling": "strict",
+            },
+        },
+        {
+            "name": "TubiTV",
+            "alias": ["TUBI"],
+            "url": f"https://tubitv.com/oz/search/{keywords}",
+            "collect": {
+                "connect.sid": "s%3Al5xcbiTUygyjM1olYs6zqLwQuqEtdTuU.8Z%2B0IcWqpmn4De9thyYAkjJ7rFe9FIj%2FmHOQxtXnbxs"
+            },
+            "params": {
+                "isKidsMode": "false",
+                "useLinearHeader": "true",
+                "isMobile": "false",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "UKTV Play",
+            "alias": ["UKTV", "UKTVP", "UKTVPLAY"],
+            "url": "https://vschedules.uktv.co.uk/vod/search/",
+            "params": {
+                "q": f"{keywords}",
+            },
+            "method": "GET",
+        },
+    ]
+
+def _parse(query: dict, service: dict, client=None):
+    template = """
+    [bold]{service}[/bold]
+    Title: {title}
+    Type: {type}
+    Synopsis: {synopsis}
+    Link: {url}
+    """
+
+    results = []
+
+    if service["name"] == "BBC iPlayer":
+        if query:
+            for field in query["results"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["title"],
+                        synopsis=field["synopsis"],
+                        type="programme" if field["type"] == "brand" else field["type"],
+                        url=field["url"],
+                    )
+                )
+
+    if service["name"] == "ALL4":
+        if query:
+            for field in query["results"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["brand"]["title"],
+                        synopsis=field["brand"]["description"],
+                        type="",
+                        url=field["brand"]["href"],
+                    )
+                )
+
+    if service["name"] == "My5":
+        link = "https://www.channel5.com/show/"
+
+        if query:
+            for field in query["shows"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["title"],
+                        synopsis=field.get("s_desc"),
+                        type=field.get("genre"),
+                        url=f"{link}{field['f_name']}",
+                    )
+                )
+
+    if service["name"] == "ITV":
+        link = "https://www.itv.com/watch"
+
+        if query:
+            for field in query["results"]:
+                special = field["data"].get("specialTitle")
+                standard = field["data"].get("programmeTitle")
+                film = field["data"].get("filmTitle")
+                title = special if special else standard if standard else film
+
+                slug = _sanitize(title)
+
+                _id = field["data"]["legacyId"]["apiEncoded"]
+                _id = "_".join(_id.split("_")[:2]).replace("_", "a")
+                _id = re.sub(r"a000\d+", "", _id)
+
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=title,
+                        synopsis=field["data"]["synopsis"],
+                        type=field["entityType"],
+                        url=f"{link}/{slug}/{_id}",
+                    )
+                )
+
+    if service["name"] == "STV Player":
+        if query:
+            for field in query["records"]["page"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["title"],
+                        synopsis=field.get("resultDescriptionTx"),
+                        type="programme",
+                        url=field["url"],
+                    )
+                )
+
+    if service["name"] == "CRACKLE":
+        link = "https://www.crackle.com/details"
+
+        if query:
+            for field in query["data"]["items"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["metadata"][0]["title"],
+                        synopsis=field["metadata"][0].get("longDescription"),
+                        type=field.get("type"),
+                        url=f"{link}/{field['id']}/{field['metadata'][0]['slug']}",
+                    )
+                )
+
+    if service["name"] == "CTV":
+        link = "https://www.ctv.ca"
+
+        if query:
+            for field in query["data"]["searchMedia"]["page"]["items"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["title"],
+                        synopsis=None,
+                        type=field["path"].split("/")[1],
+                        url=f"{link}{field['path']}",
+                    )
+                )
+
+    if service["name"] == "UKTV Play":
+        link = "https://uktvplay.co.uk/shows/{slug}/watch-online"
+
+        if query:
+            for field in query:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["name"],
+                        synopsis=field.get("synopsis"),
+                        type=field.get("type"),
+                        url=link.format(slug=field["slug"]),
+                    )
+                )
+
+    if service["name"] == "PlutoTV":
+        params = {
+            "appName": "web",
+            "appVersion": "na",
+            "clientID": str(uuid.uuid1()),
+            "clientModelNumber": "na",
+        }
+        token = client.get(
+            "https://boot.pluto.tv/v4/start", 
+            params=params
+        ).json()["sessionToken"]
+
+        client.headers.update({"Authorization": f"Bearer {token}"})
+
+        query = client.get(service["url"], params=service["params"]).json()
+
+        link = "https://pluto.tv/en/on-demand/{type}/{id}/details"
+
+        for field in query["data"]:
+            if "timeline" not in field["type"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["name"],
+                        synopsis=field.get("synopsis"),
+                        type=field["type"],
+                        url=link.format(
+                            type="movies" if field["type"] == "movie" else "series",
+                            id=field["id"],
+                        ),
+                    )
+                )
+    if service["name"] == "The Roku Channel":
+        link = "https://therokuchannel.roku.com/details/{id}/{title}"
+
+        if query:
+            for field in query["view"]:
+                _desc = field["content"].get("descriptions")
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["content"]["title"],
+                        synopsis=_desc["250"]["text"] if _desc.get("250") else None,
+                        type=field["content"].get("type"),
+                        url=link.format(
+                            id=field["content"]["meta"]["id"],
+                            title=_sanitize(field["content"]["title"]),
+                        ),
+                    )
+                )
+        else:
+            results.append(
+                template.format(
+                    service=service["name"],
+                    title="US IP-address required",
+                    synopsis="",
+                    type="",
+                    url=""
+                )
+            )
+
+    if service["name"] == "TubiTV":
+        link = "https://tubitv.com/{type}/{id}/{title}"
+
+        if query:
+            for field in query:
+                type = (
+                    "series"
+                    if field["type"] == "s"
+                    else "movies"
+                    if field["type"] == "v"
+                    else field["type"]
+                )
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["title"],
+                        synopsis=field.get("description"),
+                        type=type,
+                        url=link.format(
+                            type=type,
+                            id=field["id"],
+                            title=_sanitize(field["title"]),
+                        ),
+                    )
+                )
+        else:
+            results.append(
+                template.format(
+                    service=service["name"],
+                    title="US IP-address required",
+                    synopsis="",
+                    type="",
+                    url=""
+                )
+            )
+
+    return results

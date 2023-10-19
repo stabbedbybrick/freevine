@@ -3,7 +3,7 @@ import re
 from sortedcontainers import SortedKeyList
 from abc import ABC
 
-from helpers.utilities import string_cleaning
+from utils.utilities import string_cleaning
 
 
 class Episode:
@@ -21,6 +21,7 @@ class Episode:
         lic_url=None,
         synopsis=None,
         description=None,
+        special=None,
     ) -> None:
         if name is not None:
             name = name.strip()
@@ -41,6 +42,7 @@ class Episode:
         self.lic_url = lic_url
         self.synopsis = synopsis
         self.description = description
+        self.special = special
 
     def __str__(self) -> str:
         return "{title} S{season:02}E{number:02} {name}".format(
