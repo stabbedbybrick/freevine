@@ -23,34 +23,44 @@ import uuid
 
 from urllib.parse import urlparse
 from collections import Counter
+from pathlib import Path
 
 import click
+import yaml
 
 from bs4 import BeautifulSoup
 
-from helpers.utilities import (
+from utils.utilities import (
     info,
     string_cleaning,
     set_save_path,
     # print_info,
     set_filename,
 )
-from helpers.cdm import local_cdm, remote_cdm
-from helpers.titles import Episode, Series, Movie, Movies
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.cdm import local_cdm, remote_cdm
+from utils.titles import Episode, Series, Movie, Movies
+from utils.args import Options, get_args
+from utils.config import Config
 
 
 class PLUTO(Config):
-    def __init__(self, config, srvc, **kwargs):
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         if self.info:
             info("Info feature is not yet supported on this service")
             exit(1)
+        if self.quality:
+            info("Quality option is not yet supported on this service")
+            exit(1)
 
-        self.lic_url = self.srvc["pluto"]["lic"]
-        self.api = self.srvc["pluto"]["api"]
+        with open(Path("services") / "config" / "pluto.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+
+        self.config.update(self.cfg)    
+
+        self.lic_url = self.config["lic"]
+        self.api = self.config["api"]
 
         self.get_options()
 

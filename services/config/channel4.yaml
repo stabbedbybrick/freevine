@@ -1,0 +1,35 @@
+## CLIENT SETTINGS FOR CHANNEL4
+
+# Switch client to "android" or "web" to access different streams
+client: "android"
+android:
+  key: "QVlESUQ4U0RGQlA0TThESA=="
+  iv: "MURDRDAzODNES0RGU0w4Mg=="
+  vod: "https://ais.channel4.com/asset/{asset_id}?client=android-mod"
+web:
+  key: "bjljTGllWWtxd3pOQ3F2aQ=="
+  iv: "b2R6Y1UzV2RVaVhMdWNWZA=="
+  vod: "https://www.channel4.com/vod/stream/{programmeId}"
+
+
+
+
+## SERVICE SETTINGS
+
+# Changes made here will override the global config
+
+# Set video options. See "N_m3u8DL-RE --morehelp select-video" for guidance. Default: best
+# Using --quality will override this quality setting
+video:
+  track: "for=best"
+  drop: 
+
+# Set audio options. See "N_m3u8DL-RE --morehelp select-audio" for guidance. Default: best
+audio:
+  track: "for=best"
+  drop:
+
+# Set subtitle options
+subtitles:
+  no_mux: "false" # If "true", subtitles will be stored separately
+  clean: "true" # Clean and convert subtitles. If "false", subtitles remain untouched

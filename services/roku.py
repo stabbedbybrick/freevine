@@ -13,32 +13,40 @@ import subprocess
 import urllib
 import json
 import asyncio
+import re
 
 from urllib.parse import urlparse
 from collections import Counter
+from pathlib import Path
 
 import click
 import httpx
+import yaml
 
 from bs4 import BeautifulSoup
 
-from helpers.utilities import (
+from utils.utilities import (
     info,
     string_cleaning,
     set_save_path,
     print_info,
     set_filename,
 )
-from helpers.cdm import local_cdm, remote_cdm
-from helpers.titles import Episode, Series, Movie, Movies
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.cdm import local_cdm, remote_cdm
+from utils.titles import Episode, Series, Movie, Movies
+from utils.args import Options, get_args
+from utils.config import Config
 
 class ROKU(Config):
-    def __init__(self, config, srvc, **kwargs):
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
-        self.api = self.srvc["roku"]["api"]
+        with open(Path("services") / "config" / "roku.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+
+        self.config.update(self.cfg)
+
+        self.api = self.config["api"]
         self.get_options()
 
     def get_data(self, url: str) -> json:
@@ -48,7 +56,7 @@ class ROKU(Config):
             return self.client.get(f"{self.api}{video_id}").json()
         except:
             raise KeyError(
-                "Request failed. IP-address is either blocked or content is paywalled"
+                "Request failed. IP-address is either blocked or content is premium"
             )
 
     async def fetch_titles(self, async_client: httpx.AsyncClient, id: str) -> json:
@@ -120,7 +128,7 @@ class ROKU(Config):
             "providerId": "rokuavod",
         }
 
-        url = self.srvc["roku"]["vod"]
+        url = self.config["vod"]
 
         response = self.client.post(
             url, headers=headers, cookies=self.client.cookies, json=payload
@@ -130,7 +138,7 @@ class ROKU(Config):
             videos = response["playbackMedia"]["videos"]
         except:
             raise KeyError(
-                "Request failed. IP-address is either blocked or content is paywalled"
+                "Request failed. IP-address is either blocked or content is premium"
             )
 
         lic_url = [
@@ -140,7 +148,8 @@ class ROKU(Config):
         ][0]
 
         mpd = [x["url"] for x in videos if x["streamFormat"] == "dash"][0]
-        manifest = urllib.parse.unquote(mpd).split("=")[1].split("?")[0]
+        mpd = re.sub(r"https:\/\/vod-playlist\.sr\.roku\.com\/1\.mpd\?origin=", "", mpd)
+        manifest = urllib.parse.unquote(mpd).split("?")[0]
 
         return lic_url, manifest
 

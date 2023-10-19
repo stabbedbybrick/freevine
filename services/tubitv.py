@@ -23,29 +23,33 @@ from pathlib import Path
 from collections import Counter
 
 import click
+import yaml
 
-
-from helpers.utilities import (
+from utils.utilities import (
     info,
     string_cleaning,
     set_save_path,
     # print_info,
     set_filename,
 )
-from helpers.cdm import local_cdm, remote_cdm
-from helpers.titles import Episode, Series, Movie, Movies
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.cdm import local_cdm, remote_cdm
+from utils.titles import Episode, Series, Movie, Movies
+from utils.args import Options, get_args
+from utils.config import Config
 
 
 class TUBITV(Config):
-    def __init__(self, config, srvc, **kwargs):
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         if self.info:
             info("Info feature is not yet supported on this service")
             exit(1)
 
+        with open(Path("services") / "config" / "tubitv.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+
+        self.config.update(self.cfg)
         self.get_options()
 
     def get_data(self, url: str) -> json:
@@ -54,10 +58,7 @@ class TUBITV(Config):
 
         content_id = f"0{video_id}" if type == "series" else video_id
 
-        content = (
-            f"https://tubitv.com/oz/videos/{content_id}/content?"
-            f"video_resources=hlsv6_widevine_nonclearlead&video_resources=hlsv6"
-        )
+        content = self.config["content"].format(content_id=content_id)
 
         r = self.client.get(f"{content}")
         if not r.is_success:

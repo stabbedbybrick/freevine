@@ -1,0 +1,29 @@
+## CLIENT SETTINGS FOR BBC iPLAYER
+
+api: "https://graph.ibl.api.bbc.co.uk/"
+media: "https://open.live.bbc.co.uk/mediaselector/6/select/version/2.0/mediaset/iptv-all/vpid/{vpid}/"
+playlist: "https://www.bbc.co.uk/programmes/{pid}/playlist.json"
+base: "b4-thdow-bbc.live.bidi.net.uk"
+
+
+
+
+## SERVICE SETTINGS
+
+# Changes made here will override the global config
+
+# Set video options. See "N_m3u8DL-RE --morehelp select-video" for guidance. Default: best
+# Using --quality will override this quality setting
+video:
+  track: "for=best"
+  drop:
+
+# Set audio options. See "N_m3u8DL-RE --morehelp select-audio" for guidance. Default: best
+audio:
+  track: "for=best"
+  drop:
+
+# Set subtitle options
+subtitles:
+  no_mux: "false" # If "true", subtitles will be stored separately
+  clean: "true" # Clean and convert subtitles. If "false", subtitles remain untouched

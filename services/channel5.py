@@ -18,32 +18,39 @@ import shutil
 from urllib.parse import urlparse, urlunparse
 from collections import Counter
 from datetime import datetime
+from pathlib import Path
 
 import click
+import yaml
 
 from bs4 import BeautifulSoup
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-from helpers.utilities import (
+from utils.utilities import (
     info,
     string_cleaning,
     set_save_path,
     print_info,
     set_filename,
 )
-from helpers.cdm import local_cdm, remote_cdm
-from helpers.titles import Episode, Series, Movie, Movies
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.cdm import local_cdm, remote_cdm
+from utils.titles import Episode, Series, Movie, Movies
+from utils.args import Options, get_args
+from utils.config import Config
 
 
 class CHANNEL5(Config):
-    def __init__(self, config, srvc, **kwargs) -> None:
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs) -> None:
+        super().__init__(config, **kwargs)
+
+        with open(Path("services") / "config" / "channel5.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+
+        self.config.update(self.cfg)
 
         self.gist = self.client.get(
-            self.srvc['my5']['gist'].format(
+            self.config["gist"].format(
                 timestamp=datetime.now().timestamp()
         )).json()
 
@@ -51,7 +58,7 @@ class CHANNEL5(Config):
 
     def get_data(self, url: str) -> json:
         show = urlparse(url).path.split("/")[2]
-        url = self.srvc["my5"]["api"]["content"].format(show=show)
+        url = self.config["content"].format(show=show)
 
         return self.client.get(url).json()
 
@@ -115,7 +122,7 @@ class CHANNEL5(Config):
         secret = self.gist["hmac"]
 
         timestamp = datetime.now().timestamp()
-        vod = self.srvc["my5"]["api"]["vod"].format(
+        vod = self.config["vod"].format(
             id=asset_id, timestamp=f"{timestamp}"
         )
         sig = hmac.new(base64.b64decode(secret), vod.encode(), hashlib.sha256)
@@ -193,7 +200,7 @@ class CHANNEL5(Config):
         season = parse[3] if len(parse) > 4 and parse[1] == "show" else parse[2]
         episode = parse[4] if len(parse) > 4 and parse[1] == "show" else parse[3]
 
-        url = self.srvc["my5"]["api"]["single"].format(
+        url = self.config["single"].format(
             show=show, 
             season=season, 
             episode=episode

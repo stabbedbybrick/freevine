@@ -16,11 +16,6 @@ format: mkv
 # Specify muxer (ffmpeg or mkvmerge) Default: mkvmerge
 muxer: mkvmerge
 
-# Set subtitle options
-subtitles:
-  no_mux: "false" # If "true", subtitles will be stored separately
-  clean: "true" # Clean and convert subtitles. If "false", subtitles remain untouched
-
 # Customize filename output for series and movies
 # Default file names follow the current P2P standard: Title.S01E01.EpisodeName.1080p.SERVICE.WEB-DL.AUDIO.CODEC
 # NOTE: {year} is dependent on if the service API has it configured, which is hit or miss
@@ -38,9 +33,17 @@ threads: "16"
 seasons: "true"
 
 # Set video options. See "N_m3u8DL-RE --morehelp select-video" for guidance. Default: best
-# Using --quality will override this setting
-video: "for=best"
+# Using --quality will override this quality setting
+video:
+  track: "for=best"
+  drop:
 
 # Set audio options. See "N_m3u8DL-RE --morehelp select-audio" for guidance. Default: best
-# Using --all-audio will override this setting
-audio: "for=best"
+audio:
+  track: "for=best"
+  drop:
+
+# Set subtitle options
+subtitles:
+  no_mux: "false" # If "true", subtitles will be stored separately
+  clean: "true" # Clean and convert subtitles. If "false", subtitles remain untouched

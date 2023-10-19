@@ -1,0 +1,25 @@
+## SERVICE SETTINGS FOR THE ROKU CHANNEL
+
+api: "https://therokuchannel.roku.com/api/v2/homescreen/content/https%3A%2F%2Fcontent.sr.roku.com%2Fcontent%2Fv1%2Froku-trc%2F"
+vod: "https://therokuchannel.roku.com/api/v3/playback"
+
+
+## SERVICE SETTINGS
+
+# Changes made here will override the global config
+
+# Set video options. See "N_m3u8DL-RE --morehelp select-video" for guidance. Default: best
+# Using --quality will override this quality setting
+video:
+  track: "for=best"
+  drop:
+
+# Set audio options. See "N_m3u8DL-RE --morehelp select-audio" for guidance. Default: best
+audio:
+  track: "for=best"
+  drop:
+
+# Set subtitle options
+subtitles:
+  no_mux: "false" # If "true", subtitles will be stored separately
+  clean: "true" # Clean and convert subtitles. If "false", subtitles remain untouched

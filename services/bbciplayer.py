@@ -11,15 +11,17 @@ import subprocess
 import re
 import json
 
+from pathlib import Path
 from collections import Counter
 from urllib.parse import urlparse, urlunparse
 
 import click
 import requests
+import yaml
 
 from bs4 import BeautifulSoup
 
-from helpers.utilities import (
+from utils.utilities import (
     info,
     error,
     string_cleaning,
@@ -27,16 +29,20 @@ from helpers.utilities import (
     print_info,
     set_filename,
 )
-from helpers.titles import Episode, Series, Movie, Movies
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.titles import Episode, Series, Movie, Movies
+from utils.args import Options, get_args
+from utils.config import Config
 
 
 class BBC(Config):
 
-    def __init__(self, config, srvc, **kwargs):
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
+        with open(Path("services") / "config" / "bbciplayer.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+
+        self.config.update(self.cfg)
         self.get_options()
 
     def get_data(self, pid: str, slice_id: str) -> dict:
@@ -50,35 +56,46 @@ class BBC(Config):
             },
         }
 
-        response = self.client.post(self.srvc["bbc"]["api"], json=json_data).json()
+        response = self.client.post(self.config["api"], json=json_data).json()
 
         return response["data"]["programme"]
 
     def create_episode(self, episode):
+        title = episode["episode"]["title"]["default"]
         subtitle = episode["episode"]["subtitle"]
-        season_match = re.search(r"Series (\d+):", subtitle.get("default"))
-        season = int(season_match.group(1)) if season_match else 0
-        number_match = re.finditer(
-            r"(\d+)\.|Episode (\d+)", subtitle.get("slice") or subtitle.get("default")
-        )
-        number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
-        name_match = re.search(
-            r"\d+\. (.+)", subtitle.get("slice") or subtitle.get("default") or ""
-        )
-        name = name_match.group(1) if name_match else subtitle.get("slice") or ""
+        fallback = subtitle.get("default").split(":")[0]
+        label = episode["episode"]["labels"].get("category")
+
+        series = re.finditer(r"Series (\d+):|(\d{4}/\d{2}): Episode \d+", subtitle.get("default"))
+        season_num = int(next((m.group(1) or m.group(2).replace("/", "") for m in series), 0))
+
+        number = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle.get("slice") or "")
+        ep_num = int(next((m.group(1) or m.group(2) for m in number), 0))
+
+        season_special = True if season_num == 0 else False
+        episode_special = True if ep_num == 0 else False
+
+        name = re.search(r"\d+\. (.+)", subtitle.get("slice") or "")
+        ep_name = name.group(1) if name else subtitle.get("slice") or ""
+        if season_special and label == "Entertainment":
+            ep_name += f" {fallback}"
+        if not subtitle.get("slice"):
+            ep_name = subtitle.get("default") or ""
+
 
         return Episode(
             id_=episode["episode"]["id"],
             service="iP",
-            title=episode["episode"]["title"]["default"],
-            season=season,
-            number=number,
-            name=name,
+            title=title,
+            season=season_num,
+            number=ep_num,
+            name=ep_name,
             description=episode["episode"]["synopsis"].get("small"),
         )
 
     def get_series(self, pid: str) -> Series:
         data = self.get_data(pid, slice_id=None)
+
         seasons = [
             self.get_data(pid, x["id"]) for x in data["slices"] or [{"id": None}]
         ]
@@ -133,11 +150,11 @@ class BBC(Config):
         return soup
 
     def get_playlist(self, pid: str) -> tuple:
-        resp = self.client.get(self.srvc["bbc"]["playlist"].format(pid=pid)).json()
+        resp = self.client.get(self.config["playlist"].format(pid=pid)).json()
 
         vpid = resp["defaultAvailableVersion"]["smpConfig"]["items"][0]["vpid"]
 
-        media = self.client.get(self.srvc["bbc"]["media"].format(vpid=vpid)).json()
+        media = self.client.get(self.config["media"].format(vpid=vpid)).json()
 
         captions = None
         subtitle = None
@@ -175,7 +192,7 @@ class BBC(Config):
         base_url = urlunparse(
             parse._replace(
                 scheme="https",
-                netloc=self.srvc["bbc"]["base"],
+                netloc=self.config["base"],
                 path="/".join(_path),
                 query="",
             )

@@ -15,33 +15,39 @@ import json
 import shutil
 import sys
 
+from pathlib import Path
 from collections import Counter
 
 import click
+import yaml
 
 from bs4 import BeautifulSoup
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-from helpers.utilities import (
+from utils.utilities import (
     info,
     string_cleaning,
     set_save_path,
     print_info,
     set_filename,
 )
-from helpers.titles import Episode, Series, Movie, Movies
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.titles import Episode, Series, Movie, Movies
+from utils.args import Options, get_args
+from utils.config import Config
 
 from pywidevine.L3.decrypt.wvdecryptcustom import WvDecrypt
 from pywidevine.L3.cdm import deviceconfig
 
 
 class CHANNEL4(Config):
-    def __init__(self, config, srvc, **kwargs):
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
+        with open(Path("services") / "config" / "channel4.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+         
+        self.config.update(self.cfg)
         self.get_options()
 
     def local_cdm(
@@ -96,13 +102,13 @@ class CHANNEL4(Config):
         return r.json()["license"]
 
     def decrypt_token(self, token: str) -> tuple:
-        if self.srvc["all4"]["client"] == "android":
-            key = self.srvc["all4"]["android"]["key"]
-            iv = self.srvc["all4"]["android"]["iv"]
+        if self.config["client"] == "android":
+            key = self.config["android"]["key"]
+            iv = self.config["android"]["iv"]
 
-        if self.srvc["all4"]["client"] == "web":
-            key = self.srvc["all4"]["web"]["key"]
-            iv = self.srvc["all4"]["web"]["iv"]
+        if self.config["client"] == "web":
+            key = self.config["web"]["key"]
+            iv = self.config["web"]["iv"]
 
         if isinstance(token, str):
             token = base64.b64decode(token)
@@ -168,8 +174,8 @@ class CHANNEL4(Config):
         )
 
     def get_playlist(self, asset_id: str, episode_id: str) -> tuple:
-        if self.srvc["all4"]["client"] == "android":
-            url = self.srvc["all4"]["android"]["vod"].format(asset_id=asset_id)
+        if self.config["client"] == "android":
+            url = self.config["android"]["vod"].format(asset_id=asset_id)
 
             r = self.client.get(url)
             if not r.is_success:
@@ -181,7 +187,7 @@ class CHANNEL4(Config):
             manifest = soup.select_one("uri").text
 
         else:
-            url = self.srvc["all4"]["web"]["vod"].format(programmeId=episode_id)
+            url = self.config["web"]["vod"].format(programmeId=episode_id)
 
             r = self.client.get(url)
             if not r.is_success:

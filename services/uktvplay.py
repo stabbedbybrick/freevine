@@ -16,30 +16,37 @@ import re
 
 from urllib.parse import urlparse
 from collections import Counter
+from pathlib import Path
 
 import click
+import yaml
 
 from bs4 import BeautifulSoup
 
-from helpers.utilities import (
+from utils.utilities import (
     info,
     string_cleaning,
     set_save_path,
     print_info,
     set_filename,
 )
-from helpers.cdm import local_cdm, remote_cdm
-from helpers.titles import Episode, Series
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.cdm import local_cdm, remote_cdm
+from utils.titles import Episode, Series
+from utils.args import Options, get_args
+from utils.config import Config
 
 
 class UKTVPLAY(Config):
-    def __init__(self, config, srvc, **kwargs):
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
-        self.vod = self.srvc["uktv"]["vod"]
-        self.api = self.srvc["uktv"]["api"]
+        with open(Path("services") / "config" / "uktvplay.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+
+        self.config.update(self.cfg)
+
+        self.vod = self.config["vod"]
+        self.api = self.config["api"]
 
         self.get_options()
 

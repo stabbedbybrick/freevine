@@ -16,34 +16,41 @@ import base64
 
 from urllib.parse import urlparse
 from collections import Counter
+from pathlib import Path
 
 import click
 import httpx
+import yaml
 
 from bs4 import BeautifulSoup
 
-from helpers.utilities import (
+from utils.utilities import (
     info,
     string_cleaning,
     set_save_path,
     print_info,
     set_filename,
 )
-from helpers.cdm import local_cdm, remote_cdm
-from helpers.titles import Episode, Series, Movie, Movies
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.cdm import local_cdm, remote_cdm
+from utils.titles import Episode, Series, Movie, Movies
+from utils.args import Options, get_args
+from utils.config import Config
 
 
 class CRACKLE(Config):
-    def __init__(self, config, srvc, **kwargs):
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
-        self.api = self.srvc["crkl"]["api"]
+        with open(Path("services") / "config" / "crackle.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+
+        self.config.update(self.cfg)
+
+        self.api = self.config["api"]
         self.client = httpx.Client(
             headers={
                 "user-agent": "Chrome/117.0.0.0 Safari/537.36",
-                "x-crackle-platform": self.srvc["crkl"]["x-key"],
+                "x-crackle-platform": self.config["key"],
             },
             follow_redirects=True,
         )

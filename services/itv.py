@@ -16,13 +16,15 @@ import shutil
 import sys
 
 from collections import Counter
+from pathlib import Path
 
 import click
 import requests
+import yaml
 
 from bs4 import BeautifulSoup
 
-from helpers.utilities import (
+from utils.utilities import (
     info,
     string_cleaning,
     set_save_path,
@@ -30,16 +32,20 @@ from helpers.utilities import (
     set_filename,
     add_subtitles,
 )
-from helpers.cdm import local_cdm, remote_cdm
-from helpers.titles import Episode, Series, Movie, Movies
-from helpers.args import Options, get_args
-from helpers.config import Config
+from utils.cdm import local_cdm, remote_cdm
+from utils.titles import Episode, Series, Movie, Movies
+from utils.args import Options, get_args
+from utils.config import Config
 
 
 class ITV(Config):
-    def __init__(self, config, srvc, **kwargs):
-        super().__init__(config, srvc, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
+        with open(Path("services") / "config" / "itv.yaml", "r") as f:
+            self.cfg = yaml.safe_load(f)
+            
+        self.config.update(self.cfg)
         self.get_options()
 
     def get_data(self, url: str) -> dict:
