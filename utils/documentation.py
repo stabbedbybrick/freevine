@@ -19,11 +19,15 @@ main_help = f"""
     \b
     Settings:
         Open config.yaml in your favorite text editor to configure
-        global settings for download paths, filenames, video/audio, subtitles etc.
+        global settings for download paths, filenames, muxer etc.
     \b
-        You can configure each service to have its own settings by editing the correlating
-        .yaml file in services/config. Any changes made here will override the global config for that
-        particular service, while keeping the main config for other services. 
+        Video/audio/subtitle settings for each service are in the correlating
+        .yaml file in services/config. Any changes made here will only affect that particular service.
+        Default values for all services:
+    \b
+        Video: Best available
+        Audio: Best available
+        Subtitles: Cleaned SRT muxed in with videofile 
     \b
     Instructions:
         This program has got two methods of downloading:
