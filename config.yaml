@@ -32,18 +32,6 @@ threads: "16"
 # Set TV series to be sorted into respective season folders (true or false)
 seasons: "true"
 
-# Set video options. See "N_m3u8DL-RE --morehelp select-video" for guidance. Default: best
-# Using --quality will override this quality setting
-video:
-  track: "for=best"
-  drop:
+## VIDEO/AUDIO/SUBTITLES:
 
-# Set audio options. See "N_m3u8DL-RE --morehelp select-audio" for guidance. Default: best
-audio:
-  track: "for=best"
-  drop:
-
-# Set subtitle options
-subtitles:
-  no_mux: "false" # If "true", subtitles will be stored separately
-  clean: "true" # Clean and convert subtitles. If "false", subtitles remain untouched
+# These settings are configured per service in /services/config
