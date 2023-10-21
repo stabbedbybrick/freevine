@@ -66,14 +66,24 @@ def set_filename(service: object, stream: object, res: str, audio: str):
     else:
         filename = service.config["filename"]["series"].format(
             title=stream.title,
-            year=stream.year or None,
-            season=f"{stream.season:02}",
-            episode=f"{stream.number:02}",
+            year=stream.year or "",
+            season=f"{stream.season:02}" if stream.season > 0 else "",
+            episode=f"{stream.number:02}" if stream.number > 0 else "",
             name=stream.name or "",
             resolution=f"{res}p" or "",
             service=stream.service,
             audio=audio,
         )
+
+    no_ep = r"(S\d+)E"
+    no_sea = r"S(E\d+)"
+    no_num = r"SE"
+    if stream.number == 0:
+        filename = re.sub(no_ep, r"\1", filename)
+    if stream.season == 0:
+        filename = re.sub(no_sea, r"\1", filename)
+    if stream.season == 0 and stream.number == 0:
+        filename = re.sub(no_num, "", filename)
 
     filename = string_cleaning(filename)
     return filename.replace(" ", ".") if filename.count(".") >= 2 else filename
@@ -111,7 +121,11 @@ def set_save_path(stream: object, config, title: str) -> Path:
     save_path = downloads.joinpath(title)
     save_path.mkdir(parents=True, exist_ok=True)
 
-    if stream.__class__.__name__ == "Episode" and config["seasons"] == "true":
+    if (
+        stream.__class__.__name__ == "Episode"
+        and config["seasons"] == "true"
+        and stream.season > 0
+    ):
         _season = f"Season {stream.season:02d}"
         save_path = save_path.joinpath(_season)
         save_path.mkdir(parents=True, exist_ok=True)

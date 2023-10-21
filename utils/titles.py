@@ -25,9 +25,9 @@ class Episode:
     ) -> None:
         if name is not None:
             name = name.strip()
-            if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
-                name = None
-            elif name.lower() == title.lower():
+            # if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
+                # name = None
+            if name.lower() == title.lower():
                 name = None
 
         self.id = id_
@@ -45,12 +45,28 @@ class Episode:
         self.special = special
 
     def __str__(self) -> str:
-        return "{title} S{season:02}E{number:02} {name}".format(
-            title=self.title,
-            season=self.season,
-            number=self.number,
-            name=self.name or "",
-        ).strip()
+        if self.season == 0 and self.number == 0:
+            return "{title} {name}".format(title=self.title, name=self.name).strip()
+        
+        elif self.season == 0 and self.number > 0:
+            return "{title} E{number:02} {name}".format(
+                title=self.title, 
+                number=self.number, 
+                name=self.name).strip()
+        
+        elif self.number == 0 and self.season > 0:
+            return "{title} S{season:02} {name}".format(
+                title=self.title, 
+                season=self.season, 
+                name=self.name).strip()
+    
+        else:
+            return "{title} S{season:02}E{number:02} {name}".format(
+                title=self.title,
+                season=self.season,
+                number=self.number,
+                name=self.name or "",
+            ).strip()
 
     def get_filename(self) -> str:
         name = "{title} S{season:02}E{number:02} {name}".format(

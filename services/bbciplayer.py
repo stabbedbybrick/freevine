@@ -103,7 +103,7 @@ class BBC(Config):
         episodes = [
             self.create_episode(episode)
             for season in seasons
-            for episode in reversed(season["entities"]["results"])
+            for episode in season["entities"]["results"]
         ]
         return Series(episodes)
 
@@ -253,24 +253,6 @@ class BBC(Config):
                 seasons = Counter(x.season for x in content)
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
-
-                episode_count = {}
-                extra_episode_number = 1
-
-                for index, episode in enumerate(content):
-                    if episode.number == 0 and episode.season == 0:
-                        episode.number = extra_episode_number
-                        extra_episode_number += 1
-
-                    if episode.season == 0 and num_seasons == 1:
-                        episode.season = 1
-
-                    if episode.number == 0 and episode.season > 0:
-                        if episode.season not in episode_count:
-                            episode_count[episode.season] = 0
-
-                        episode.number = episode_count[episode.season]
-                        episode_count[episode.season] += 1
 
                 title = string_cleaning(str(content))
 

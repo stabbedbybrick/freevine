@@ -26,7 +26,7 @@ class Options:
         if "," in self.episode:
             return self.get_episode_mix(series, self.episode)
 
-        episode = next((i for i in series if self.episode in str(i)), None)
+        episode = next((i for i in series if self.episode.lower() in str(i).lower()), None)
 
         if episode is not None and self.titles:
             info(f"{str(episode)}")
@@ -45,7 +45,7 @@ class Options:
 
         downloads = []
         for episode in series:
-            if any(i in str(episode) for i in episode_range):
+            if any(i.lower() in str(episode).lower() for i in episode_range):
                 downloads.append(episode)
 
         if self.titles:
@@ -62,7 +62,7 @@ class Options:
 
         downloads = []
         for episode in series:
-            if any(i in str(episode) for i in episode_mix):
+            if any(i.lower() in str(episode).lower() for i in episode_mix):
                 downloads.append(episode)
 
         if self.titles:

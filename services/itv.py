@@ -71,6 +71,7 @@ class ITV(Config):
                     description=episode.get("description"),
                 )
                 for series in data["seriesList"]
+                if "Latest episodes" not in series["seriesLabel"]
                 for episode in series["titles"]
             ]
         )
