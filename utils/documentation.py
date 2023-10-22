@@ -36,6 +36,7 @@ main_help = f"""
             Provide the series main URL and request what to download from it:
     \b
                 python freevine.py --episode  S01E01 URL
+                python freevine.py --episode  "Name of episode" URL
                 python freevine.py --season   S01 URL
                 python freevine.py --episode  S01E01-S01E10 URL
                 python freevine.py --episode  S01E01,S03E07,S10E12 URL
@@ -44,7 +45,7 @@ main_help = f"""
     \b
             NOTES:
             Always use main URL of series for this method, not episode URLs
-            Use the "S01E01" format (Season 1, Episode 1) to request episodes
+            Use the S01E01 format, or "episode name", to request episodes
             Use --episode S01E01-S01E10 to request a range of episodes (from the same season)
             Use --episode S01E01,S03E07,S10E12 (no spaces!) to request a mix of episodes
             Use --season S01,S03,S10 (no spaces!) to request a mix of seasons
