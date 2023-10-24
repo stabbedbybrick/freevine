@@ -130,12 +130,22 @@ class CHANNEL5(Config):
         vod += f"&auth={auth}"
 
         data = self.decrypt_data(vod)
-        mpd_url = [x["renditions"][0]["url"] for x in data["assets"] if x["drm"] == "widevine"][0]
-        lic_url = [x["keyserver"] for x in data["assets"] if x["drm"] == "widevine"][0]
+
+        asset = [x for x in data["assets"] if x["drm"] == "widevine"][0]
+        rendition = asset["renditions"][0]
+        mpd_url = rendition["url"]
+        lic_url = asset["keyserver"]
 
         parse = urlparse(mpd_url)
         _path = parse.path.split("/")
-        _path[-1] = f"{data['id']}A.mpd" if "A-tt" in _path[-1] else f"{data['id']}.mpd"
+
+        if asset["version"] == "A":
+            _path[-1] = f"{data['id']}.mpd"
+        if asset["version"] == "C":
+            _path[-1] = f"{data['id']}C.mpd" # SD max?
+        if "A-tt" in _path[-1]:
+            _path[-1] = f"{data['id']}A.mpd" #TODO use actual version
+        
         manifest = urlunparse(parse._replace(path="/".join(_path)))
 
         return manifest, lic_url
