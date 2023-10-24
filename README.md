@@ -3,6 +3,7 @@ Download videos from free streaming services
 
 ### Update
 Clone or download the main branch to get the most recent fixes and updates
+
 Download the releases to get the latest stable version
 
 #### Features:
