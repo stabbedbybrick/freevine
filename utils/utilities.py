@@ -75,15 +75,15 @@ def set_filename(service: object, stream: object, res: str, audio: str):
             audio=audio,
         )
 
-    no_ep = r"(S\d+)E"
-    no_sea = r"S(E\d+)"
-    no_num = r"SE"
-    if stream.number == 0:
-        filename = re.sub(no_ep, r"\1", filename)
-    if stream.season == 0:
-        filename = re.sub(no_sea, r"\1", filename)
-    if stream.season == 0 and stream.number == 0:
-        filename = re.sub(no_num, "", filename)
+        no_ep = r"(S\d+)E"
+        no_sea = r"S(E\d+)"
+        no_num = r"SE"
+        if stream.number == 0:
+            filename = re.sub(no_ep, r"\1", filename)
+        if stream.season == 0:
+            filename = re.sub(no_sea, r"\1", filename)
+        if stream.season == 0 and stream.number == 0:
+            filename = re.sub(no_num, "", filename)
 
     filename = string_cleaning(filename)
     return filename.replace(" ", ".") if filename.count(".") >= 2 else filename
