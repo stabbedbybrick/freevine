@@ -222,11 +222,6 @@ class CBC(Config):
 
         if self.xml:
             m3u8 = re.sub(r"QualityLevels", f"{base_url}QualityLevels", m3u8)
-            m3u8 = re.sub(
-                r"audio_eng_aacl,format=m3u8-aapl,filter=desktop",
-                "audio_eng_ec3,format=m3u8-aapl",
-                m3u8,
-            )
 
             indexes = self.xml.find_all("StreamIndex")
             for index in indexes:
