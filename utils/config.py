@@ -55,5 +55,6 @@ class Config:
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/118.0.0.0 Safari/537.36"
                 ),
-            }
+            },
+            timeout=10.0
         )

@@ -38,6 +38,11 @@ def _services():
             "alias": "CTV",
             "path": services / "ctv.py",
         },
+        "gem.cbc.ca": {
+            "name": "CBC",
+            "alias": "CBC Gem",
+            "path": services / "cbc.py",
+        },
         "www.itv.com": {
             "name": "ITV",
             "alias": "ITVX",

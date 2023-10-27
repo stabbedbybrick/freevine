@@ -1,6 +1,7 @@
 import uuid
 import re
 
+
 def _sanitize(title: str) -> str:
     title = title.lower()
     title = title.replace("&", "and")
@@ -12,6 +13,7 @@ def _sanitize(title: str) -> str:
     title = re.sub(rf"[{'-'}]{{2,}}", "-", title)
     title = re.sub(rf"[{' '}]{{2,}}", " ", title)
     return title
+
 
 def _dict(keywords: str):
     return [
@@ -67,7 +69,7 @@ def _dict(keywords: str):
             "name": "CTV",
             "alias": ["CTV"],
             "url": "https://www.ctv.ca/space-graphql/apq/graphql",
-            "payload": {
+            "params": {
                 "operationName": "searchMedia",
                 "variables": {"title": f"{keywords}"},
                 "query": """
@@ -75,6 +77,18 @@ def _dict(keywords: str):
                         ... on Medias {page {items {title\npath}}}}}, """,
             },
             "method": "POST",
+        },
+        {
+            "name": "CBC Gem",
+            "alias": ["CBC", "GEM"],
+            "url": "https://services.radio-canada.ca/ott/catalog/v1/gem/search",
+            "params": {
+                "device": "web",
+                "pageNumber": "1",
+                "pageSize": "20",
+                "term": f"{keywords}",
+            },
+            "method": "GET",
         },
         {
             "name": "ITV",
@@ -119,7 +133,9 @@ def _dict(keywords: str):
                 "engine_key": "S1jgssBHdk8ZtMWngK_y",
                 "per_page": 10,
                 "page": 1,
-                "fetch_fields": {"page": ["title", "body", "resultDescriptionTx", "url"]},
+                "fetch_fields": {
+                    "page": ["title", "body", "resultDescriptionTx", "url"]
+                },
                 "search_fields": {"page": ["title^3", "body"]},
                 "q": f"{keywords}",
                 "spelling": "strict",
@@ -149,6 +165,7 @@ def _dict(keywords: str):
             "method": "GET",
         },
     ]
+
 
 def _parse(query: dict, service: dict, client=None):
     template = """
@@ -271,6 +288,21 @@ def _parse(query: dict, service: dict, client=None):
                     )
                 )
 
+    if service["name"] == "CBC Gem":
+        link = "https://gem.cbc.ca/"
+
+        if query:
+            for field in query["result"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["title"],
+                        synopsis=None,
+                        type=field["type"],
+                        url=f"{link}{field['url']}",
+                    )
+                )
+
     if service["name"] == "UKTV Play":
         link = "https://uktvplay.co.uk/shows/{slug}/watch-online"
 
@@ -293,10 +325,9 @@ def _parse(query: dict, service: dict, client=None):
             "clientID": str(uuid.uuid1()),
             "clientModelNumber": "na",
         }
-        token = client.get(
-            "https://boot.pluto.tv/v4/start", 
-            params=params
-        ).json()["sessionToken"]
+        token = client.get("https://boot.pluto.tv/v4/start", params=params).json()[
+            "sessionToken"
+        ]
 
         client.headers.update({"Authorization": f"Bearer {token}"})
 
@@ -343,7 +374,7 @@ def _parse(query: dict, service: dict, client=None):
                     title="US IP-address required",
                     synopsis="",
                     type="",
-                    url=""
+                    url="",
                 )
             )
 
@@ -379,7 +410,7 @@ def _parse(query: dict, service: dict, client=None):
                     title="US IP-address required",
                     synopsis="",
                     type="",
-                    url=""
+                    url="",
                 )
             )
 
