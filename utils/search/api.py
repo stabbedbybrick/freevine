@@ -164,6 +164,25 @@ def _dict(keywords: str):
             },
             "method": "GET",
         },
+        {
+            "name": "ABC iView",
+            "alias": ["ABC", "IVIEW", "IV"],
+            "url": (
+                "https://y63q32nvdl-1.algolianet.com/1/indexes/*/queries?x-algolia-agent=Algolia"
+                "%20for%20JavaScript%20(4.9.1)%3B%20Browser%20(lite)%3B%20react%20(17.0.2)%3B%20"
+                "react-instantsearch%20(6.30.2)%3B%20JS%20Helper%20(3.10.0)&x-"
+                "algolia-api-key=bcdf11ba901b780dc3c0a3ca677fbefc&x-algolia-application-id=Y63Q32NVDL"
+            ),
+            "payload": {
+                "requests": [
+                    {
+                        "indexName": "ABC_production_iview_web",
+                        "params": f"query={keywords}&tagFilters=&userToken=anonymous-74be3cf1-1dc7-4fa1-9cff-19592162db1c",
+                    }
+                ],
+            },
+            "method": "POST",
+        },
     ]
 
 
@@ -413,5 +432,24 @@ def _parse(query: dict, service: dict, client=None):
                     url="",
                 )
             )
+
+    if service["name"] == "ABC iView":
+        link = "https://iview.abc.net.au/show/{slug}"
+
+        if query:
+            hits = [
+                x for x in query["results"][0]["hits"] 
+                if x["docType"] == "Program" 
+            ]
+            for field in hits:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["title"],
+                        synopsis=field.get("synopsis"),
+                        type=field.get("subType"),
+                        url=link.format(slug=field["slug"]),
+                    )
+                )
 
     return results

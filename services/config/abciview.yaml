@@ -1,0 +1,29 @@
+## SERVICE SETTINGS
+client: "1d4b5cba-42d2-403e-80e7-34565cdf772d"
+license: "https://wv-keyos.licensekeyserver.com/"
+jwt: "https://api.iview.abc.net.au/v3/token/jwt"
+vod: "https://api.iview.abc.net.au/v3/video/{video_id}"
+film: "https://api.iview.abc.net.au/v3/show/{slug}"
+series: "https://api.iview.abc.net.au/v3/series/{show}"
+drm: "https://api.iview.abc.net.au/v3/token/drm/{video_id}"
+
+
+## SERVICE SETTINGS
+
+# Changes made here will override the global config
+
+# Set video options. See "N_m3u8DL-RE --morehelp select-video" for guidance. Default: best
+# Using --quality will override this quality setting
+video:
+  track: "for=best"
+  drop:
+
+# Set audio options. See "N_m3u8DL-RE --morehelp select-audio" for guidance. Default: best
+audio:
+  track: "for=best"
+  drop:
+
+# Set subtitle options
+subtitles:
+  no_mux: "false" # If "true", subtitles will be stored separately
+  clean: "true" # Clean and convert subtitles. If "false", subtitles remain untouched

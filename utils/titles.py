@@ -25,9 +25,9 @@ class Episode:
     ) -> None:
         if name is not None:
             name = name.strip()
-            # if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
-                # name = None
             if name.lower() == title.lower():
+                name = None
+            if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
                 name = None
 
         self.id = id_

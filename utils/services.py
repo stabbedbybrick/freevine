@@ -13,6 +13,11 @@ def _services():
     services = Path("services")
 
     supported_services = {
+        "iview.abc.net.au": {
+            "name": "ABC",
+            "alias": "ABC iView",
+            "path": services / "abciview.py",
+        },
         "www.bbc.co.uk": {
             "name": "BBC",
             "alias": "BBC iPlayer",

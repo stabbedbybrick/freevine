@@ -56,5 +56,5 @@ class Config:
                     "Chrome/118.0.0.0 Safari/537.36"
                 ),
             },
-            timeout=10.0
+            timeout=20.0
         )
