@@ -193,7 +193,7 @@ class ABC(Config):
             if x["type"] == "program"
         ][0]
 
-        if streams["720"]:
+        if streams.get("720"):
             manifest = streams["720"].replace("720.mpd", "1080.mpd")
         else:
             manifest = streams["sd"]
