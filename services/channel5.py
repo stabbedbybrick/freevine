@@ -14,6 +14,7 @@ import json
 import hmac
 import hashlib
 import shutil
+import re
 
 from urllib.parse import urlparse, urlunparse
 from collections import Counter
@@ -29,6 +30,7 @@ from Crypto.Util.Padding import unpad
 
 from utils.utilities import (
     info,
+    error,
     string_cleaning,
     set_save_path,
     print_info,
@@ -205,32 +207,40 @@ class CHANNEL5(Config):
         return content, title
 
     def get_episode_from_url(self, url: str):
-        parse = urlparse(url).path.split("/")
-        show = parse[2] if len(parse) > 4 and parse[1] == "show" else parse[1]
-        season = parse[3] if len(parse) > 4 and parse[1] == "show" else parse[2]
-        episode = parse[4] if len(parse) > 4 and parse[1] == "show" else parse[3]
+        series_re = r"^(?:https?://(?:www\.)?channel5\.com/show/)?(?P<id>[a-z0-9-]+)"
+        episode_re = r"https?://www.channel5.com/show/+(?P<id>[^/]+)/(?P<season>[^/]+)/(?P<episode>[^/]+)"
 
-        url = self.config["single"].format(
-            show=show, 
-            season=season, 
-            episode=episode
-        )
+        series_match = re.search(series_re, url)
+        episode_match = re.search(episode_re, url)
+        
+        if series_match:
+            url = self.config["content"].format(show=series_match.group("id"))
+
+        if episode_match:
+            url = self.config["single"].format(
+                show=episode_match.group("id"), 
+                season=episode_match.group("season"), 
+                episode=episode_match.group("episode")
+            )
 
         data = self.client.get(url).json()
+
+        episodes = [data] if episode_match else data["episodes"]
 
         episode = Series(
             [
                 Episode(
                     id_=None,
                     service="MY5",
-                    title=data.get("sh_title"),
-                    season=int(data.get("sea_num")) or 0,
-                    number=int(data.get("ep_num")) or 0,
-                    name=data.get("title"),
+                    title=episode.get("sh_title"),
+                    season=int(episode.get("sea_num")) if data.get("sea_num") is not None else 0,
+                    number=int(episode.get("ep_num")) if data.get("ep_num") is not None else 0,
+                    name=episode.get("sh_title"),
                     year=None,
-                    data=data.get("id"),
-                    description=data.get("m_desc"),
+                    data=episode.get("id"),
+                    description=episode.get("m_desc"),
                 )
+                for episode in episodes
             ]
         )
 
