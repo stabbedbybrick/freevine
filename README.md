@@ -21,6 +21,7 @@ Download the releases to get the latest stable version
     ROKU:     1080p, DD5.1
     CTV:      1080p, DD5.1
     CBC GEM:  1080p, DD5.1
+    iView:    1080p, AAC2.0
     ALL4:     1080p, AAC2.0
     MY5:      1080p, AAC2.0
     iPLAYER:  1080p, AAC2.0
