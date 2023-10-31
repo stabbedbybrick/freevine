@@ -140,7 +140,7 @@ class ABC(Config):
                 .replace("-", "")
             )
         except:
-            raise AttributeError("Video unavailable outsite of Australia")
+            raise AttributeError("Video unavailable outside of Australia")
 
         array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
         array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
