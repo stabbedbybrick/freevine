@@ -141,12 +141,12 @@ class CHANNEL5(Config):
         parse = urlparse(mpd_url)
         _path = parse.path.split("/")
 
-        if asset["version"] == "A":
-            _path[-1] = f"{data['id']}.mpd"
-        if asset["version"] == "C":
-            _path[-1] = f"{data['id']}C.mpd" # SD max?
         if "A-tt" in _path[-1]:
-            _path[-1] = f"{data['id']}A.mpd" #TODO use actual version
+            _path[-1] = f"{data['id']}A.mpd"
+        elif _path[-1].endswith("C"):
+            _path[-1] = f"{data['id']}C.mpd" # TODO
+        else:
+            _path[-1] = f"{data['id']}.mpd"
         
         manifest = urlunparse(parse._replace(path="/".join(_path)))
 
