@@ -26,9 +26,9 @@ class Episode:
         if name is not None:
             name = name.strip()
             if name.lower() == title.lower():
-                name = None
+                name = ""
             if re.match(r"Episode ?#?\d+", name, re.IGNORECASE):
-                name = None
+                name = ""
 
         self.id = id_
         self.service = service
