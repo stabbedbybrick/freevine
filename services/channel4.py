@@ -152,6 +152,7 @@ class CHANNEL4(Config):
                     description=episode.get("summary"),
                 )
                 for episode in data["brand"]["episodes"]
+                if episode["showPlayLabel"] == True
             ]
         )
 
