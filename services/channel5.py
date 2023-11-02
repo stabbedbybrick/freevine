@@ -139,16 +139,10 @@ class CHANNEL5(Config):
         lic_url = asset["keyserver"]
 
         parse = urlparse(mpd_url)
-        _path = parse.path.split("/")
-
-        if "A-tt" in _path[-1]:
-            _path[-1] = f"{data['id']}A.mpd"
-        elif _path[-1].endswith("C"):
-            _path[-1] = f"{data['id']}C.mpd" # TODO
-        else:
-            _path[-1] = f"{data['id']}.mpd"
-        
-        manifest = urlunparse(parse._replace(path="/".join(_path)))
+        path = parse.path.split("/")
+        path[-1] = path[-1].split("-")[0].split("_")[0]
+        manifest = urlunparse(parse._replace(path="/".join(path)))
+        manifest += ".mpd" if not manifest.endswith("mpd") else ""
 
         return manifest, lic_url
 
