@@ -1,0 +1,5 @@
+## SERVICE SETTINGS FOR STV
+
+vod: "https://player.api.stv.tv/v1/episodes?"
+api: "https://edge.api.brightcove.com/playback/v1/accounts"
+

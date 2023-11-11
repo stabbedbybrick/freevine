@@ -1,0 +1,9 @@
+## SERVICE SETTINGS
+client: "1d4b5cba-42d2-403e-80e7-34565cdf772d"
+license: "https://wv-keyos.licensekeyserver.com/"
+jwt: "https://api.iview.abc.net.au/v3/token/jwt"
+vod: "https://api.iview.abc.net.au/v3/video/{video_id}"
+film: "https://api.iview.abc.net.au/v3/show/{slug}"
+series: "https://api.iview.abc.net.au/v3/series/{show}"
+drm: "https://api.iview.abc.net.au/v3/token/drm/{video_id}"
+

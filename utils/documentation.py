@@ -7,27 +7,29 @@ main_help = f"""
 
     \b
     Requirements:
-        Python 3.9+
-        Valid L3 CDM(place in pywidevine/L3/cdm/devices/android_generic)
+        Python 3.10+
+        Valid Widevine Device file (place in /utils/wvd)
         N_m3u8DL-RE
         ffmpeg
         mkvmerge
         mp4decrypt
+        shaka-packager (optional)
     \b
     Python packages installation:
         pip install -r requirements.txt
     \b
     Settings:
-        Open config.yaml in your favorite text editor to configure
-        global settings for download paths, filenames, muxer etc.
+        Open config.yaml in your favorite text editor to configure global settings
     \b
-        Video/audio/subtitle settings for each service are in the correlating
-        .yaml file in services/config. Any changes made here will only affect that particular service.
+        Copy config.yaml file to a service folder in order to configure that specific service
+        This config, if it exists, will override the main config
+    \b
+        Using config settings in command will override everything else (see options below for examples)
+    \b
         Default values for all services:
-    \b
-        Video: Best available
-        Audio: Best available
-        Subtitles: Cleaned SRT muxed in with videofile 
+            Video: Best available
+            Audio: Best available
+            Subtitles: Cleaned SRT muxed with final output 
     \b
     Instructions:
         This program has got two methods of downloading:
@@ -53,7 +55,7 @@ main_help = f"""
         Method 2: (singles)
             Provide URL to episode or movie to download it directly:
     \b
-                python freevine.py EPISODE_URL
+                python freevine.py --episode EPISODE_URL
                 python freevine.py --movie MOVIE_URL
     \b
             NOTES:
@@ -67,15 +69,13 @@ main_help = f"""
                 python freevine.py --info --episode URL
                 python freevine.py --info --movie URL
             Request video quality to be downloaded: (default: best)
-                python freevine.py --quality 1080p --episode/--season URL
-                python freevine.py --quality 1080p --movie URL
-            Request all audio tracks to be downloaded: (default: best)
-                python freevine.py --all-audio --episode/--season URL
-                python freevine.py --all-audio --movie URL
+                python freevine.py --select-video res=720 --episode/--season URL
+                python freevine.py --select-video res=1080 --movie URL
+            Request audio tracks to be downloaded: (default: best)
+                python freevine.py --select-audio name=English --episode/--season URL
+                python freevine.py --select-audio id=Descriptive --movie URL
             Request only subtitles from title(s):
-                python freevine.py --subtitles --epiode/--movie URL
-            Use remote CDM (ALL4 not supported):
-                python freevine.py --remote --episode/--season URL
+                python freevine.py --subtitles --episode/--movie URL
     \b
             NOTES:
             The order of the options isn't super strict, but it's recommended to follow the examples above
@@ -111,7 +111,7 @@ main_help = f"""
             PLUTO:    720p,  AAC2.0 
     \b
             *ALL4 offer different quality streams on different API endpoints
-            You can switch between them in /services/config/channel4.yaml by using "android" or "web" as client
+            You can switch between them in /services/channel4/api.yaml by using "android" or "web" as client
     \b
     Final notes:
     \b

@@ -1,0 +1,5 @@
+## SERVICE SETTINGS FOR THE ROKU CHANNEL
+
+api: "https://therokuchannel.roku.com/api/v2/homescreen/content/https%3A%2F%2Fcontent.sr.roku.com%2Fcontent%2Fv1%2Froku-trc%2F"
+vod: "https://therokuchannel.roku.com/api/v3/playback"
+

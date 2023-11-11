@@ -4,8 +4,7 @@ pyyaml
 lxml
 click
 rich
+m3u8
 sortedcontainers
-google
-protobuf==3.19.5
-pycryptodomex
-pycryptodome
+beautifulsoup4
+pywidevine

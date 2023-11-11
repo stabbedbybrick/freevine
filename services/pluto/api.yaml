@@ -1,0 +1,5 @@
+## SERVICE SETTINGS FOR PLUTO TV
+
+api: "https://service-vod.clusters.pluto.tv/v4/vod"
+lic: "https://service-concierge.clusters.pluto.tv/v1/wv/alt"
+

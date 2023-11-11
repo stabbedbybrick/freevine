@@ -1,0 +1,7 @@
+## CLIENT SETTINGS FOR BBC iPLAYER
+
+api: "https://graph.ibl.api.bbc.co.uk/"
+media: "https://open.live.bbc.co.uk/mediaselector/6/select/version/2.0/mediaset/iptv-all/vpid/{vpid}/"
+playlist: "https://www.bbc.co.uk/programmes/{pid}/playlist.json"
+base: "b4-thdow-bbc.live.bidi.net.uk"
+

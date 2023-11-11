@@ -1,0 +1,5 @@
+## SERVICE SETTINGS FOR UKTV PLAY
+
+vod: "https://vschedules.uktv.co.uk/vod/"
+api: "https://edge.api.brightcove.com/playback/v1/accounts/"
+

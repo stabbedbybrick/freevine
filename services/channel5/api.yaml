@@ -1,0 +1,8 @@
+## SERVICE SETTINGS FOR CHANNEL5
+
+base: "https://corona.channel5.com"
+content: "https://corona.channel5.com/shows/{show}/episodes.json?platform=my5desktop&friendly=1&linear=true"
+single: "https://corona.channel5.com/shows/{show}/seasons/{season}/episodes/{episode}.json?platform=my5desktop&friendly=1"
+vod: "https://cassie.channel5.com/api/v2/media/my5desktopng/{id}.json?timestamp={timestamp}"
+gist: "https://gist.githubusercontent.com/stabbedbybrick/d775a9ce07196df0e3b9ea827fb4f5f7/raw/s.txt?={timestamp}"
+

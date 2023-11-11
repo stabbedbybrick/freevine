@@ -1,4 +1,4 @@
-## USER SETTINGS:
+## Copy this config file to a service folder to set service-specific settings
 
 # Provide download paths. Default is /downloads
 save_dir:
@@ -16,6 +16,9 @@ format: mkv
 # Specify muxer (ffmpeg or mkvmerge) Default: mkvmerge
 muxer: mkvmerge
 
+# Use shaka-packager instead of mp4decrypt to decrypt (true or false)
+shakaPackager: "false"
+
 # Customize filename output for series and movies
 # Default file names follow the current P2P standard: Title.S01E01.EpisodeName.1080p.SERVICE.WEB-DL.AUDIO.CODEC
 # NOTE: {year} is dependent on if the service API has it configured, which is hit or miss
@@ -32,6 +35,19 @@ threads: "16"
 # Set TV series to be sorted into respective season folders (true or false)
 seasons: "true"
 
-## VIDEO/AUDIO/SUBTITLES:
+# Set video options. See "N_m3u8DL-RE --morehelp select-video" for guidance. Default: best
+video:
+  select: "for=best"
+  drop:
 
-# These settings are configured per service in /services/config
+# Set audio options. See "N_m3u8DL-RE --morehelp select-audio" for guidance. Default: best
+audio:
+  select: "for=best"
+  drop:
+
+# Set subtitle options. See "N_m3u8DL-RE --morehelp select-subtitle" for guidance. Default: all
+subtitles:
+  select: "all"
+  drop:
+  no_mux: "false" # If "true", subtitles will be stored separately
+  fix: "true" # Clean and convert subtitles. If "false", subtitles remain untouched

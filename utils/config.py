@@ -1,37 +1,68 @@
+import re
+
+import httpx
+import yaml
+
 from pathlib import Path
 from typing import Any, Optional
 
-import httpx
-
 from rich.console import Console
+
+from utils.utilities import is_url
 
 
 class Config:
     def __init__(
         self, 
-        config: Any, 
-        url: str,
-        quality: Optional[str] = None,
+        config: Any,
+        srvc_api: Path = None,
+        srvc_config: Path = None,
+        wvd: Path = None,
+        url: str = None,
         remote: Optional[bool] = None,
         titles: Optional[bool] = None,
         info: Optional[bool] = None,
+        quality: Optional[str] = None,
         episode: Optional[str] = None,
         season: Optional[str] = None,
         movie: Optional[bool] = None,
         complete: Optional[bool] = None,
-        all_audio: Optional[bool] = None,
-        subtitles: Optional[bool] = None,
+        sub_only: Optional[bool] = None,
+        sub_no_mux: Optional[bool] = None,
+        sub_no_fix: Optional[bool] = None,
+        select_video: Optional[str] = None,
+        select_audio: Optional[str] = None,
+        drop_video: Optional[str] = None,
+        drop_audio: Optional[str] = None,
+        select_subtitle: Optional[str] = None,
+        drop_subtitle: Optional[str] = None,
+        threads: Optional[str] = None,
+        format: Optional[str] = None,
+        muxer: Optional[str] = None,
+        use_shaka_packager: Optional[str] = None,
+        no_mux: Optional[bool] = None,
+        save_dir: Optional[str] = None,
+        save_name: Optional[str] = None,
     ) -> None:
         
-        if episode:
+        if episode and not is_url(episode):
             episode = episode.upper()
         if season:
             season = season.upper()
-        if quality:
-            quality = quality.rstrip("p")
+
+        if srvc_config.exists():
+            with open(srvc_config, "r") as f:
+                config.update(yaml.safe_load(f))
+        if "res" in config["video"]["select"]:
+            quality = re.search(r"res=(\d+)", config["video"]["select"]).group(1)
+        if "res" in select_video:
+            quality = re.search(r"res=(\d+)", select_video).group(1)
         
         self.config = config
+        self.srvc_api = srvc_api
+        self.srvc_config = srvc_config
         self.url = url
+        self.wvd = wvd
         self.quality = quality
         self.remote = remote
         self.titles = titles
@@ -40,8 +71,22 @@ class Config:
         self.season = season
         self.movie = movie
         self.complete = complete
-        self.all_audio = all_audio
-        self.sub_only = subtitles
+        self.sub_only = sub_only
+        self.sub_no_mux = sub_no_mux
+        self.sub_no_fix = sub_no_fix
+        self.select_video = select_video
+        self.select_audio = select_audio
+        self.drop_video = drop_video
+        self.drop_audio = drop_audio
+        self.select_subtitle = select_subtitle
+        self.drop_subtitle = drop_subtitle
+        self.threads = threads
+        self.format = format
+        self.muxer = muxer
+        self.shaka_packager = use_shaka_packager
+        self.no_mux = no_mux
+        self.save_dir = save_dir
+        self.save_name = save_name
 
         self.console = Console()
 

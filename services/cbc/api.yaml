@@ -1,0 +1,9 @@
+## SERVICE SETTINGS
+vod: "https://services.radio-canada.ca/ott/cbc-api/v2/assets/{video_id}"
+shows: "https://services.radio-canada.ca/ott/cbc-api/v2/shows/{show}"
+apikey: "3f4beddd-2061-49b0-ae80-6f1f2ed65b37"
+
+# LOGIN DETAILS
+email: "a.n.and.aal.len3.70@gmail.com"
+password: "a.n.and.aal.len3.70" 
+

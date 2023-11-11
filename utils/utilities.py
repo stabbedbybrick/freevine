@@ -5,10 +5,60 @@ import shutil
 from pathlib import Path
 
 import click
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.style import Style
 from rich.padding import Padding
+
+from pywidevine.device import Device
+
+
+def create_wvd(dir: Path) -> Path:
+    """
+    Check for both untouched and renamed RSA keys and identification blobs
+    Create a new WVD from key pair if available
+    """
+    private_key = None
+    client_id = None
+
+    files = dir.glob("*")
+    for file in files:
+        if file.suffix == ".pem" or file.stem == "device_private_key":
+            private_key = file
+        if file.suffix == ".bin" or file.stem == "device_client_id_blob":
+            client_id = file
+
+    if not private_key and not client_id:
+        error("Required RSA key pair not available")
+        exit(1)
+
+    device = Device(
+        type_=Device.Types["ANDROID"],
+        security_level=3,
+        flags=None,
+        private_key=private_key.read_bytes(),
+        client_id=client_id.read_bytes(),
+    )
+
+    out_path = dir / f"{device.type.name}_{device.system_id}_l{device.security_level}.wvd"
+    device.dump(out_path)
+    info("New WVD file successfully created")
+
+    return next(dir.glob("*.wvd"), None)
+
+
+def get_wvd(cwd: Path) -> Path:
+    """Get path to WVD file"""
+
+    dir = cwd / "utils" / "wvd"
+    wvd = next(dir.glob("*.wvd"), None)
+
+    if not wvd:
+        info("WVD file is missing. Attempting to create a new one...")
+        wvd = create_wvd(dir)
+
+    return wvd
 
 
 def info(text: str) -> str:
@@ -25,6 +75,13 @@ def error(text: str) -> str:
     info = click.style(f"ERROR", fg="red", underline=True)
     message = click.style(f" : {text}")
     return click.echo(f"{stamp} {info}{message}")
+
+
+def is_url(value):
+    if value is not None:
+        return True if re.match("^https?://", value, re.IGNORECASE) else False
+    else:
+        return False
 
 
 def string_cleaning(filename: str) -> str:

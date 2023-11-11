@@ -1,0 +1,5 @@
+## SERVICE SETTINGS FOR CTV.CA
+
+api: "https://api.ctv.ca/space-graphql/graphql"
+lic: "https://license.9c9media.ca/widevine"
+

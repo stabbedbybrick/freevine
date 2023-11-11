@@ -1,0 +1,15 @@
+## CLIENT SETTINGS FOR CHANNEL4
+
+# Switch client to "android" or "web" to access different streams
+client: "android"
+
+android:
+  key: "QVlESUQ4U0RGQlA0TThESA=="
+  iv: "MURDRDAzODNES0RGU0w4Mg=="
+  vod: "https://ais.channel4.com/asset/{asset_id}?client=android-mod"
+  
+web:
+  key: "bjljTGllWWtxd3pOQ3F2aQ=="
+  iv: "b2R6Y1UzV2RVaVhMdWNWZA=="
+  vod: "https://www.channel4.com/vod/stream/{programmeId}"
+
