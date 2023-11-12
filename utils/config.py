@@ -39,7 +39,7 @@ class Config:
         threads: Optional[str] = None,
         format: Optional[str] = None,
         muxer: Optional[str] = None,
-        use_shaka_packager: Optional[str] = None,
+        use_shaka_packager: Optional[bool] = None,
         no_mux: Optional[bool] = None,
         save_dir: Optional[str] = None,
         save_name: Optional[str] = None,
@@ -83,7 +83,7 @@ class Config:
         self.threads = threads
         self.format = format
         self.muxer = muxer
-        self.shaka_packager = use_shaka_packager
+        self.use_shaka_packager = use_shaka_packager
         self.no_mux = no_mux
         self.save_dir = save_dir
         self.save_name = save_name
