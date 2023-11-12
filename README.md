@@ -1,5 +1,5 @@
 <h2 align="center">Freevine</h2>
-<h3 align="center">A download utility for free streaming services</h3>
+<h4 align="center">A download utility for free streaming services</h4>
 
 ## Features:
 
@@ -13,19 +13,19 @@
 ## Supported services:
 
 ```
-ROKU:     1080p, DD5.1
-CTV:      1080p, DD5.1
-CBC GEM:  1080p, DD5.1
-iView:    1080p, AAC2.0
-ALL4:     1080p, AAC2.0
-MY5:      1080p, AAC2.0
-iPLAYER:  1080p, AAC2.0
-UKTVPLAY: 1080p, AAC2.0
-STV:      1080p, AAC2.0
-CRACKLE:  1080p, AAC2.0
-ITV:      720p,  AAC2.0
-TUBI:     720p,  AAC2.0
-PLUTO:    720p,  AAC2.0
+The Roku Channel: 1080p, DD5.1
+CBC Gem:          1080p, DD5.1
+CTV:              1080p, DD5.1
+ABC iView:        1080p, AAC2.0
+Channel4 All4:    1080p, AAC2.0
+Channel5 My5:     1080p, AAC2.0
+BBC iPlayer:      1080p, AAC2.0
+UKTVPlay:         1080p, AAC2.0
+STV Player:       1080p, AAC2.0
+Crackle:          1080p, AAC2.0
+Itv(x):           720p,  AAC2.0
+Tubi:             720p,  AAC2.0
+Pluto:            720p,  AAC2.0
 ```
 
 ## Requirements:
@@ -34,13 +34,13 @@ PLUTO:    720p,  AAC2.0
 
 * [N_m3u8DL-RE](https://github.com/nilaoda/N_m3u8DL-RE/releases/)
 
-* [ffmpeg](https://ffmpeg.org/)(needed for mp4 containers)
+* [ffmpeg](https://ffmpeg.org/)
 
-* [mkvmerge](https://mkvtoolnix.download/downloads.html)(needed for mkv containers)
+* [mkvmerge](https://mkvtoolnix.download/downloads.html)
 
 * [mp4decrypt](https://www.bento4.com/downloads/)
 
-* [shaka packager](https://github.com/shaka-project/shaka-packager)(alternative to mp4decrypt)
+* [shaka packager](https://github.com/shaka-project/shaka-packager)
 
 * Widevine Device file (.wvd)
 
@@ -48,18 +48,14 @@ PLUTO:    720p,  AAC2.0
 
 1. Install Python (check 'Add to PATH' if on Windows)
 2. Clone or download Freevine repository
-3. Place N_m3u8DL-RE, ffmpeg, mkvmerge, mp4decrypt, packager, inside Freevine folder OR add to system PATH
+3. Place required tools inside Freevine folder OR add them to system PATH (recommended)
 4. Create /utils/wvd/ folder and place either .wvd file or private_key and client blob inside
 5. Install necessary packages: `pip install -r requirements.txt`
 
 > **Note**
-> If you encounter this error:
+> As of v1.0.0, the requirements have changed
 >
-> "p = os.fspath(p)
->
-> TypeError: expected str, bytes or os.PathLike object, not NoneType"
->
-> It means that you haven't properly added N_m3u8DL-RE to PATH and is unable to be located
+> Make sure to re-run the installation if you're coming from the beta version
 
 ## Usage:
 
@@ -95,6 +91,8 @@ Available commands:
 Examples:
 
 ```
+python freevine.py --help (READ THIS!)
+
 python freevine.py --titles URL
 python freevine.py --movie URL
 python freevine.py --info --episode S01E01 URL
@@ -109,6 +107,15 @@ python freevine.py --select-video res=720 --season S01 URL
 python freevine.py --select-audio name=English --episode S01E01 URL
 
 ```
+> **Warning**
+> If you encounter this error:
+>
+> "p = os.fspath(p)
+>
+> TypeError: expected str, bytes or os.PathLike object, not NoneType"
+>
+> It means that you haven't properly added N_m3u8DL-RE to PATH and is unable to be located
+
 > **Note**
 > Commands will override equivalent settings in config files
 >
