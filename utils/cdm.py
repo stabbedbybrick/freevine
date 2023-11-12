@@ -1,7 +1,3 @@
-import base64
-
-from bs4 import BeautifulSoup
-
 from utils.utilities import info, error
 
 from pywidevine.pssh import PSSH

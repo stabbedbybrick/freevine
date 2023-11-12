@@ -12,6 +12,8 @@ from utils.utilities import is_url
 
 
 class Config:
+    """Config class that gets inherited by the service"""
+
     def __init__(
         self, 
         config: Any,

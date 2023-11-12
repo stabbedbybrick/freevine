@@ -1,5 +1,5 @@
 <h2 align="center">Freevine</h2>
-<h4 align="center">A download utility for free streaming services</h4>
+<h3 align="center">A download utility for free streaming services</h3>
 
 ## Features:
 
@@ -34,22 +34,22 @@ PLUTO:    720p,  AAC2.0
 
 * [N_m3u8DL-RE](https://github.com/nilaoda/N_m3u8DL-RE/releases/)
 
-* [ffmpeg](https://ffmpeg.org/)
+* [ffmpeg](https://ffmpeg.org/)(needed for mp4 containers)
 
-* [mkvmerge](https://mkvtoolnix.download/downloads.html)
+* [mkvmerge](https://mkvtoolnix.download/downloads.html)(needed for mkv containers)
 
 * [mp4decrypt](https://www.bento4.com/downloads/)
 
-* [shaka packager](https://github.com/shaka-project/shaka-packager)(optional)
+* [shaka packager](https://github.com/shaka-project/shaka-packager)(alternative to mp4decrypt)
 
-* Widevine Device file
+* Widevine Device file (.wvd)
 
 ## Installation:
 
 1. Install Python (check 'Add to PATH' if on Windows)
 2. Clone or download Freevine repository
-3. Place N_m3u8DL-RE, ffmpeg, mkvmerge, mp4decrypt inside Freevine folder OR add to PATH
-4. Place RSA key pair or .wvd file in /utils/wvd/ folder
+3. Place N_m3u8DL-RE, ffmpeg, mkvmerge, mp4decrypt, packager, inside Freevine folder OR add to system PATH
+4. Create /utils/wvd/ folder and place either .wvd file or private_key and client blob inside
 5. Install necessary packages: `pip install -r requirements.txt`
 
 > **Note**

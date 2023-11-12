@@ -30,7 +30,7 @@ def create_wvd(dir: Path) -> Path:
             client_id = file
 
     if not private_key and not client_id:
-        error("Required RSA key pair not available")
+        error("Required key and client ID not found")
         exit(1)
 
     device = Device(
@@ -62,6 +62,8 @@ def get_wvd(cwd: Path) -> Path:
 
 
 def info(text: str) -> str:
+    """Custom info 'logger' designed to match N_m3u8DL-RE output"""
+
     time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
     stamp = click.style(f"{time}")
     info = click.style(f"INFO", fg="green", underline=True)
@@ -70,6 +72,8 @@ def info(text: str) -> str:
 
 
 def error(text: str) -> str:
+    """Custom error 'logger' designed to match N_m3u8DL-RE output"""
+
     time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
     stamp = click.style(f"{time}")
     info = click.style(f"ERROR", fg="red", underline=True)
@@ -147,6 +151,8 @@ def set_filename(service: object, stream: object, res: str, audio: str):
 
 
 def add_subtitles(soup: object, subtitle: str) -> object:
+    """Add subtitle stream to manifest"""
+
     adaptation_set = soup.new_tag(
         "AdaptationSet",
         id="3",
@@ -191,6 +197,8 @@ def set_save_path(stream: object, config, title: str) -> Path:
 
 
 def print_info(service: object, stream: object, keys: list):
+    """Info panel that prints out description, stream ID and keys"""
+
     console = Console()
 
     elements = service.soup.find_all("Representation")

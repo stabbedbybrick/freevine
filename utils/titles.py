@@ -7,6 +7,8 @@ from utils.utilities import string_cleaning
 
 
 class Episode:
+    """Create object of each episode and store them in a list"""
+
     def __init__(
         self,
         id_=None,

@@ -81,6 +81,12 @@ def dir_settings(service: object) -> tuple:
     return temp, save_path, filename
 
 def get_args(service: object) -> tuple:
+    """
+    Set download arguments based on config settings
+
+    The hierarchy is CLI > service config > main config 
+    """
+
     manifest = service.manifest
     key_file = service.key_file
     sub_path = service.sub_path
@@ -93,7 +99,7 @@ def get_args(service: object) -> tuple:
     temp, save_path, filename = dir_settings(service)
     select_video, drop_video = video_settings(service)
     select_audio, drop_audio = audio_settings(service)
-    sub_no_mux, sub_fix, select_subtitle, drop_subtitle = subtitle_settings(service)
+    sub_no_mux, sub_fix, select_sub, drop_sub = subtitle_settings(service)
 
     args = [
         m3u8dl,
@@ -117,10 +123,10 @@ def get_args(service: object) -> tuple:
     args.extend(["--key-text-file", key_file]) if key_file else None
     args.extend(["-sv", select_video]) if select_video else None
     args.extend(["-sa", select_audio]) if select_audio else None
-    args.extend(["-ss", select_subtitle]) if select_subtitle else None
+    args.extend(["-ss", select_sub]) if select_sub else None
     args.extend(["-dv", drop_video]) if drop_video else None
     args.extend(["-da", drop_audio]) if drop_audio else None
-    args.extend(["-ds", drop_subtitle]) if drop_subtitle else None
+    args.extend(["-ds", drop_sub]) if drop_sub else None
     args.extend(["--sub-only", "true"]) if sub_only else None
     args.extend(["--use-shaka-packager"]) if packager == "true" else None
 

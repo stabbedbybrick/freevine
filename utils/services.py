@@ -10,6 +10,8 @@ from utils.utilities import info, error
 
 
 def _services():
+    """Dictionary of supported services"""
+
     services = Path("services")
 
     supported_services = {
@@ -110,6 +112,8 @@ def _services():
 
 
 def get_service(url: str):
+    """Parse URL and dynamically import any supported service"""
+
     supported = _services()
 
     find_service = next(

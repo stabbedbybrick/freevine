@@ -8,15 +8,19 @@ main_help = f"""
     \b
     Requirements:
         Python 3.10+
-        Valid Widevine Device file (place in /utils/wvd)
+        Valid Widevine Device file
         N_m3u8DL-RE
         ffmpeg
         mkvmerge
         mp4decrypt
-        shaka-packager (optional)
+        shaka-packager
     \b
-    Python packages installation:
-        pip install -r requirements.txt
+    Installation:
+        1. Install Python (check 'Add to PATH' if on Windows)
+        2. Clone or download Freevine repository
+        3. Place N_m3u8DL-RE, ffmpeg, mkvmerge, mp4decrypt, packager, inside Freevine folder OR add to system PATH
+        4. Create /utils/wvd/ folder and place either .wvd file or private_key and client blob inside
+        5. Install necessary packages: `pip install -r requirements.txt`
     \b
     Settings:
         Open config.yaml in your favorite text editor to configure global settings
