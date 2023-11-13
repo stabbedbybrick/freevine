@@ -1,4 +1,4 @@
-<h2 align="center">Freevine</h2>
+<h2 align="center">Freevine:tv:</h2>
 <h4 align="center">A download utility for free streaming services</h4>
 
 ## Features:
