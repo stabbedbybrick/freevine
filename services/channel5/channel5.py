@@ -52,9 +52,8 @@ class CHANNEL5(Config):
             self.config.update(yaml.safe_load(f))
 
         self.gist = self.client.get(
-            self.config["gist"].format(
-                timestamp=datetime.now().timestamp()
-        )).json()
+            self.config["gist"].format(timestamp=datetime.now().timestamp())
+        ).json()
 
         self.get_options()
 
@@ -138,9 +137,7 @@ class CHANNEL5(Config):
         secret = self.gist["hmac"]
 
         timestamp = datetime.now().timestamp()
-        vod = self.config["vod"].format(
-            id=asset_id, timestamp=f"{timestamp}"
-        )
+        vod = self.config["vod"].format(id=asset_id, timestamp=f"{timestamp}")
         sig = hmac.new(base64.b64decode(secret), vod.encode(), hashlib.sha256)
         auth = base64.urlsafe_b64encode(sig.digest()).decode()
         vod += f"&auth={auth}"
@@ -221,15 +218,15 @@ class CHANNEL5(Config):
 
         series_match = re.search(series_re, url)
         episode_match = re.search(episode_re, url)
-        
+
         if series_match:
             url = self.config["content"].format(show=series_match.group("id"))
 
         if episode_match:
             url = self.config["single"].format(
-                show=episode_match.group("id"), 
-                season=episode_match.group("season"), 
-                episode=episode_match.group("episode")
+                show=episode_match.group("id"),
+                season=episode_match.group("season"),
+                episode=episode_match.group("episode"),
             )
 
         if not series_match or not episode_match:
@@ -246,8 +243,12 @@ class CHANNEL5(Config):
                     id_=None,
                     service="MY5",
                     title=episode.get("sh_title"),
-                    season=int(episode.get("sea_num")) if data.get("sea_num") is not None else 0,
-                    number=int(episode.get("ep_num")) if data.get("ep_num") is not None else 0,
+                    season=int(episode.get("sea_num"))
+                    if data.get("sea_num") is not None
+                    else 0,
+                    number=int(episode.get("ep_num"))
+                    if data.get("ep_num") is not None
+                    else 0,
                     name=episode.get("sh_title"),
                     year=None,
                     data=episode.get("id"),
@@ -263,6 +264,18 @@ class CHANNEL5(Config):
 
     def get_options(self) -> None:
         opt = Options(self)
+
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            error("URL is missing an argument. See --help for more information")
+            return
+
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            error("URL is missing an argument. See --help for more information")
+            return
 
         if is_url(self.episode):
             downloads, title = self.get_episode_from_url(self.episode)
@@ -281,6 +294,10 @@ class CHANNEL5(Config):
             if self.titles:
                 opt.list_titles(content)
 
+        if not downloads:
+            error("Requested data returned empty. See --help for more information")
+            return
+            
         for download in downloads:
             self.download(download, title)
 
