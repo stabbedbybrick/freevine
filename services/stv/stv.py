@@ -243,6 +243,12 @@ class STV(Config):
     def get_options(self) -> None:
         opt = Options(self)
 
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            error("URL is missing an argument. See --help for more information")
+            return
+
         if is_url(self.episode):
             downloads, title = self.get_episode_from_url(self.episode)
 
@@ -260,6 +266,10 @@ class STV(Config):
             if self.titles:
                 opt.list_titles(content)
 
+        if not downloads:
+            error("Requested data returned empty. See --help for more information")
+            return
+            
         for download in downloads:
             self.download(download, title)
 

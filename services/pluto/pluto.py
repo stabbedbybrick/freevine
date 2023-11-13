@@ -264,6 +264,12 @@ class PLUTO(Config):
     def get_options(self) -> None:
         opt = Options(self)
 
+        if self.url and not any(
+            [self.episode, self.season, self.complete, self.movie, self.titles]
+        ):
+            error("URL is missing an argument. See --help for more information")
+            return
+
         if is_url(self.episode):
             error("Episode URL not supported. Use standard method")
             exit(1)
@@ -281,6 +287,10 @@ class PLUTO(Config):
         if self.titles:
             opt.list_titles(content)
 
+        if not downloads:
+            error("Requested data returned empty. See --help for more information")
+            return
+            
         for download in downloads:
             self.download(download, title)
 
