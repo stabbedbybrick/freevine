@@ -229,7 +229,7 @@ class CHANNEL5(Config):
                 episode=episode_match.group("episode"),
             )
 
-        if not series_match or not episode_match:
+        if not series_match and not episode_match:
             error("Invalid URL")
             exit(1)
 
@@ -264,12 +264,6 @@ class CHANNEL5(Config):
 
     def get_options(self) -> None:
         opt = Options(self)
-
-        if self.url and not any(
-            [self.episode, self.season, self.complete, self.movie, self.titles]
-        ):
-            error("URL is missing an argument. See --help for more information")
-            return
 
         if self.url and not any(
             [self.episode, self.season, self.complete, self.movie, self.titles]
