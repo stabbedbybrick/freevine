@@ -286,7 +286,7 @@ class ABC(Config):
             customdata = self.get_license_url(stream.id)
             self.client.headers.update({"customdata": customdata})
 
-        keys = self.get.keys(pssh, self.lic_url)
+        keys = self.get_keys(pssh, self.lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
