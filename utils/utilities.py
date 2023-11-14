@@ -202,6 +202,7 @@ def print_info(service: object, stream: object, keys: list):
     console = Console()
 
     elements = service.soup.find_all("Representation")
+    adaptation_sets = service.soup.find_all("AdaptationSet")
     video = sorted(
         [
             (int(x.attrs["width"]), int(x.attrs["height"]), int(x.attrs["bandwidth"]))
@@ -212,6 +213,15 @@ def print_info(service: object, stream: object, keys: list):
         ],
         reverse=True,
     )
+    video.extend(
+        [
+            (int(x.attrs["width"]), int(x.attrs["height"]), 2635743)
+            for x in adaptation_sets
+            if x.attrs.get("height")
+            and x.attrs.get("width")
+        ]
+    )
+    video.sort(reverse=True)
 
     audio = [
         (x.attrs["bandwidth"], x.attrs["id"], x.attrs.get("codecs"))

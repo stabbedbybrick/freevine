@@ -16,6 +16,10 @@ def video_settings(service: object) -> tuple:
     if service.quality and service.quality != str(service.res):
         select_video = re.sub(r"res=\d+", f"res={service.res}", select_video)
 
+    if hasattr(service, "variant") and not service.variant:
+        select_video = None
+        drop_video = None
+
     return select_video, drop_video
 
 def audio_settings(service: object) -> tuple:
@@ -26,6 +30,10 @@ def audio_settings(service: object) -> tuple:
         select_audio = service.select_audio
     if service.drop_audio != "False":
         drop_audio = service.drop_audio
+
+    if hasattr(service, "variant") and not service.variant:
+        select_audio = None
+        drop_audio = None
 
     return select_audio, drop_audio
 
@@ -46,6 +54,10 @@ def subtitle_settings(service: object) -> tuple:
         select_subtitle = service.select_subtitle
     if service.drop_subtitle != "False":
         drop_subtitle = service.drop_subtitle
+
+    if hasattr(service, "variant") and not service.variant:
+        select_subtitle = None
+        drop_subtitle = None
 
     return sub_no_mux, sub_fix, select_subtitle, drop_subtitle
 
