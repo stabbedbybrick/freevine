@@ -65,7 +65,8 @@ class BBC(Config):
         title = episode["episode"]["title"]["default"]
         subtitle = episode["episode"]["subtitle"]
         fallback = subtitle.get("default").split(":")[0]
-        label = episode["episode"]["labels"].get("category")
+        labels = episode["episode"]["labels"]
+        cetegory = labels.get("category") if labels else None
 
         series = re.finditer(r"Series (\d+):|(\d{4}/\d{2}): Episode \d+", subtitle.get("default"))
         season_num = int(next((m.group(1) or m.group(2).replace("/", "") for m in series), 0))
@@ -78,7 +79,7 @@ class BBC(Config):
 
         name = re.search(r"\d+\. (.+)", subtitle.get("slice") or "")
         ep_name = name.group(1) if name else subtitle.get("slice") or ""
-        if season_special and label == "Entertainment":
+        if season_special and cetegory == "Entertainment":
             ep_name += f" {fallback}"
         if not subtitle.get("slice"):
             ep_name = subtitle.get("default") or ""
