@@ -11,7 +11,6 @@ import re
 import base64
 
 from urllib.parse import urlparse
-from pathlib import Path
 from collections import Counter
 
 import click
@@ -43,7 +42,7 @@ class ABC(Config):
         if self.sub_only:
             info("Subtitle downloads are not supported on this service")
             exit(1)
-        
+
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
 
@@ -119,7 +118,7 @@ class ABC(Config):
 
         if isinstance(data, dict):
             data = [data]
-        
+
         episodes = [
             self.create_episode(episode)
             for season in data
@@ -179,16 +178,14 @@ class ABC(Config):
 
         if subtitle is not None:
             self.soup = add_subtitles(self.soup, subtitle)
-
-        with open(self.tmp / "manifest.mpd", "w") as f:
-            f.write(str(self.soup.prettify()))
+            with open(self.tmp / "manifest.mpd", "w") as f:
+                f.write(str(self.soup.prettify()))
 
         if quality is not None:
             if int(quality) in heights:
                 return quality, pssh
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                info(f"Resolution not available. Getting closest match:")
                 return closest_match, pssh
 
         return heights[0], pssh
@@ -200,11 +197,9 @@ class ABC(Config):
             playlist = resp["_embedded"]["playlist"]
         except:
             raise KeyError(resp["unavailableMessage"])
-        
+
         streams = [
-            x["streams"]["mpegdash"] 
-            for x in playlist 
-            if x["type"] == "program"
+            x["streams"]["mpegdash"] for x in playlist if x["type"] == "program"
         ][0]
 
         if streams.get("720"):
@@ -212,11 +207,8 @@ class ABC(Config):
         else:
             manifest = streams["sd"]
 
-        subtitle = [
-            x["captions"].get("src-vtt") 
-            for x in playlist 
-            if x["type"] == "program"
-        ][0]
+        program = [x for x in playlist if x["type"] == "program"][0]
+        subtitle = program.get("captions", {}).get("src-vtt")
 
         return manifest, subtitle
 
@@ -285,7 +277,7 @@ class ABC(Config):
         if not downloads:
             error("Requested data returned empty. See --help for more information")
             return
-            
+
         for download in downloads:
             self.download(download, title)
 
@@ -305,7 +297,7 @@ class ABC(Config):
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self.config, title)
-        self.manifest = self.tmp / "manifest.mpd"
+        self.manifest = manifest if not subtitle else self.tmp / "manifest.mpd"
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
