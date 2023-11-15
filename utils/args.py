@@ -3,6 +3,8 @@ import re
 
 from pathlib import Path
 
+from utils.utilities import info, error
+
 
 def video_settings(service: object) -> tuple:
     select_video = service.config["video"].get("select")
@@ -106,6 +108,10 @@ def get_args(service: object) -> tuple:
     no_mux = service.no_mux
 
     m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
+    if not m3u8dl:
+        error("Unable to locate N_m3u8DL-RE on your system")
+        shutil.rmtree(service.tmp)
+        exit(1)
 
     threads, format, muxer, packager = format_settings(service)
     temp, save_path, filename = dir_settings(service)
