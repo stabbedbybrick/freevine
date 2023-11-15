@@ -27,6 +27,7 @@ from pathlib import Path
 
 import click
 import yaml
+import m3u8
 
 from bs4 import BeautifulSoup
 
@@ -36,7 +37,7 @@ from utils.utilities import (
     is_url,
     string_cleaning,
     set_save_path,
-    # print_info,
+    print_info,
     set_filename,
 )
 from utils.titles import Episode, Series, Movie, Movies
@@ -52,9 +53,6 @@ class PLUTO(Config):
 
         if self.info:
             info("Info feature is not yet supported on this service")
-            exit(1)
-        if self.quality:
-            info("Quality option is not yet supported on this service")
             exit(1)
 
         with open(self.srvc_api, "r") as f:
@@ -194,14 +192,7 @@ class PLUTO(Config):
             netloc="silo-hybrik.pluto.tv.s3.amazonaws.com",
         ).geturl()
 
-        self.client.headers.pop("Authorization")
-        response = self.client.get(master).text
-
-        matches = re.findall(r"hls_(\d+).m3u8", response)
-        hls = sorted(matches, key=int, reverse=True)[0]
-
-        manifest = master.replace("master.m3u8", f"hls_{hls}.m3u8")
-        return manifest
+        return master
 
     def get_playlist(self, playlists: str) -> tuple:
         stitched = next((x for x in playlists if x.endswith(".mpd")), None)
@@ -213,6 +204,60 @@ class PLUTO(Config):
 
         if stitched.endswith(".m3u8"):
             return self.get_hls(stitched)
+        
+        if not stitched:
+            error("Unable to find manifest")
+            return
+
+    def get_dash_quality(self, soup: object, quality: str) -> str:
+        elements = soup.find_all("Representation")
+        heights = sorted(
+            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
+            reverse=True,
+        )
+
+        # 720p on Pluto is in the adaptationset rather than representation
+        adaptation_sets = soup.find_all("AdaptationSet")
+        for item in adaptation_sets:
+            if item.attrs.get("height"):
+                heights.append(int(item.attrs["height"]))
+                heights.sort(reverse=True)
+
+        if quality is not None:
+            if int(quality) in heights:
+                return quality
+            else:
+                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                return closest_match
+
+        return heights[0]
+    
+    def get_hls_quality(self, manifest: str, quality: str) -> str:
+        base = manifest.rstrip("master.m3u8")
+        self.client.headers.pop("Authorization")
+        r = self.client.get(manifest)
+        m3u8_obj = m3u8.loads(r.text)
+
+        playlists = []
+        if m3u8_obj.is_variant:
+            for playlist in m3u8_obj.playlists:
+                playlists.append((playlist.stream_info.resolution[1], playlist.uri))
+
+            heights = sorted([x[0] for x in playlists], reverse=True)
+            manifest = [base + x[1] for x in playlists if heights[0] == x[0]][0]
+            res = heights[0]
+        
+        if quality is not None:
+            for playlist in playlists:
+                if int(quality) in playlist:
+                    res = playlist[0]
+                    manifest = base + playlist[1]
+                else:
+                    res = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                    if res == playlist[0]:
+                        manifest = base + playlist[1]
+
+        return res, manifest
 
     def generate_pssh(self, kid: str):
         array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
@@ -221,9 +266,7 @@ class PLUTO(Config):
         array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
         return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
 
-    def get_pssh(self, manifest: str) -> str:
-        self.client.headers.pop("Authorization")
-        soup = BeautifulSoup(self.client.get(manifest), "xml")
+    def get_pssh(self, soup) -> str:
         tags = soup.find_all("ContentProtection")
         kids = set(
             [
@@ -235,8 +278,21 @@ class PLUTO(Config):
 
         return [self.generate_pssh(kid) for kid in kids]
 
-    def get_mediainfo(self, manifest: str) -> str:
-        return self.get_pssh(manifest) if manifest.endswith(".mpd") else None
+    def get_mediainfo(self, manifest: str, quality: str, pssh=None, hls=None) -> str:
+
+        if manifest.endswith(".mpd"):
+            self.client.headers.pop("Authorization")
+            self.soup = BeautifulSoup(self.client.get(manifest), "xml")
+            pssh = self.get_pssh(self.soup)
+            quality = self.get_dash_quality(self.soup, quality)
+            self.variant = True
+            return quality, pssh, hls
+        
+        if manifest.endswith(".m3u8"):
+            quality, hls = self.get_hls_quality(manifest, quality)
+            self.variant = False
+            return quality, pssh, hls
+
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -297,7 +353,7 @@ class PLUTO(Config):
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
             manifest = self.get_playlist(stream.data)
-            pssh = self.get_mediainfo(manifest)
+            self.res, pssh, hls = self.get_mediainfo(manifest, self.quality)
             self.client.headers.update({"Authorization": f"Bearer {self.token}"})
         
         keys = None
@@ -306,12 +362,14 @@ class PLUTO(Config):
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(key[0] for key in keys))
 
-        self.filename = set_filename(self, stream, res=None, audio="AAC2.0")
+        if self.info:
+            print_info(self, stream, keys)
+
+        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self.config, title)
-        self.manifest = manifest
+        self.manifest = hls if hls else manifest
         self.key_file = self.tmp / "keys.txt" if pssh else None
         self.sub_path = None
-        self.res = ""
 
         info(f"{str(stream)}")
         click.echo("")
