@@ -1,5 +1,5 @@
-<h2 align="center">Freevine:tv:</h2>
-<h4 align="center">A download utility for free streaming services</h4>
+<h3 align="center">Freevine<br/>
+<sup>A Download Utility for Free Streaming Services</sup></h3>
 
 ## Features:
 
@@ -16,21 +16,20 @@
 The Roku Channel: 1080p, DD5.1
 CBC Gem:          1080p, DD5.1
 CTV:              1080p, DD5.1
-ABC iView:        1080p, AAC2.0
 Channel4 All4:    1080p, AAC2.0
 Channel5 My5:     1080p, AAC2.0
 BBC iPlayer:      1080p, AAC2.0
-UKTVPlay:         1080p, AAC2.0
 STV Player:       1080p, AAC2.0
+ABC iView:        1080p, AAC2.0
+UKTVPlay:         1080p, AAC2.0
 Crackle:          1080p, AAC2.0
-Itv(x):           720p,  AAC2.0
-Tubi:             720p,  AAC2.0
 Pluto:            720p,  AAC2.0
+ITVx:             720p,  AAC2.0
+Tubi:             720p,  AAC2.0
 ```
-
 ## Requirements:
 
-* [Python 3.10+](https://www.python.org/)
+* [Python](https://www.python.org/)
 
 * [N_m3u8DL-RE](https://github.com/nilaoda/N_m3u8DL-RE/releases/)
 
@@ -42,20 +41,25 @@ Pluto:            720p,  AAC2.0
 
 * [shaka packager](https://github.com/shaka-project/shaka-packager)
 
-* Widevine Device file (.wvd)
+* Widevine Device File (.wvd)
+
+> [!NOTE]
+> Recommended Python versions are within the 3.10-11 range
+> 
+> Support for older versions can't be guaranteed
+> 
+> v3.12 is not yet supported
 
 ## Installation:
 
 1. Install Python (check 'Add to PATH' if on Windows)
-2. Clone or download Freevine repository
+2. Clone main branch or download latest version from [Releases](https://github.com/stabbedbybrick/freevine/releases)
 3. Place required tools inside Freevine folder OR add them to system PATH (recommended)
-4. Create /utils/wvd/ folder and place either .wvd file or private_key and client blob inside
+4. Create `/utils/wvd/` folder and place either .wvd file or private_key and client_id blob inside
 5. Install necessary packages: `pip install -r requirements.txt`
 
-> **Note**
-> As of v1.0.0, the requirements have changed
->
-> Make sure to re-run the installation if you're coming from the beta version
+> [!TIP]
+> Get the main branch for immediate fixes and updates
 
 ## Usage:
 
@@ -107,19 +111,8 @@ python freevine.py --select-video res=720 --season S01 URL
 python freevine.py --select-audio name=English --episode S01E01 URL
 
 ```
-> **Warning**
-> If you encounter this error:
->
-> "p = os.fspath(p)
->
-> TypeError: expected str, bytes or os.PathLike object, not NoneType"
->
-> It means that you haven't properly added N_m3u8DL-RE to PATH and is unable to be located
-
-> **Note**
-> Commands will override equivalent settings in config files
->
-> See N_m3u8DL-RE --morehelp select-video/select-audio for possible selections
+> [!TIP]
+> See "N_m3u8DL-RE --morehelp select-video/audio/subtitle" for possible selection patterns
 
 ## Disclaimer
 

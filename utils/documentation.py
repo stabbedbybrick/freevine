@@ -18,7 +18,7 @@ main_help = f"""
     Installation:
         1. Install Python (check 'Add to PATH' if on Windows)
         2. Clone or download Freevine repository
-        3. Place N_m3u8DL-RE, ffmpeg, mkvmerge, mp4decrypt, packager, inside Freevine folder OR add to system PATH
+        3. Place N_m3u8DL-RE, ffmpeg, mkvmerge, mp4decrypt, packager inside Freevine folder OR add to system PATH
         4. Create /utils/wvd/ folder and place either .wvd file or private_key and client blob inside
         5. Install necessary packages: `pip install -r requirements.txt`
     \b
@@ -79,9 +79,10 @@ main_help = f"""
                 python freevine.py --select-audio name=English --episode/--season URL
                 python freevine.py --select-audio id=Descriptive --movie URL
             Request only subtitles from title(s):
-                python freevine.py --subtitles --episode/--movie URL
+                python freevine.py --sub-only --episode/--movie URL
     \b
             NOTES:
+            See "N_m3u8DL-RE --morehelp select-video/audio/subtitle" for possible selection patterns
             The order of the options isn't super strict, but it's recommended to follow the examples above
             Combinations of options are possible as far as common sense allows
             If you request a quality that's not available, the closest match is downloaded instead
@@ -124,7 +125,6 @@ main_help = f"""
     \b
         Known bugs:
         Programmes without clear season/episode labels might display odd names and numbers
-        PlutoTV does not feature the ability to request quality at the moment and defaults to best
         TubiTV and PlutoTV does not work with --info at the moment
 
     \b
