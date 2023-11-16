@@ -6,6 +6,7 @@ from pathlib import Path
 
 import click
 
+from unidecode import unidecode
 from rich.console import Console
 from rich.panel import Panel
 from rich.style import Style
@@ -41,7 +42,9 @@ def create_wvd(dir: Path) -> Path:
         client_id=client_id.read_bytes(),
     )
 
-    out_path = dir / f"{device.type.name}_{device.system_id}_l{device.security_level}.wvd"
+    out_path = (
+        dir / f"{device.type.name}_{device.system_id}_l{device.security_level}.wvd"
+    )
     device.dump(out_path)
     info("New WVD file successfully created")
 
@@ -89,6 +92,7 @@ def is_url(value):
 
 
 def string_cleaning(filename: str) -> str:
+    filename = unidecode(filename)
     filename = filename.replace("&", "and")
     filename = re.sub(r"[:;/]", "", filename)
     filename = re.sub(r"[\\*!?¿,'\"<>|$#`’]", "", filename)
@@ -147,7 +151,11 @@ def set_filename(service: object, stream: object, res: str, audio: str):
             filename = re.sub(no_num, "", filename)
 
     filename = string_cleaning(filename)
-    return filename.replace(" ", ".") if filename.count(".") >= 2 else filename
+    return (
+        filename.replace(" ", ".").replace(".-.", ".")
+        if filename.count(".") >= 2
+        else filename
+    )
 
 
 def add_subtitles(soup: object, subtitle: str) -> object:
@@ -217,8 +225,7 @@ def print_info(service: object, stream: object, keys: list):
         [
             (int(x.attrs["width"]), int(x.attrs["height"]), 2635743)
             for x in adaptation_sets
-            if x.attrs.get("height")
-            and x.attrs.get("width")
+            if x.attrs.get("height") and x.attrs.get("width")
         ]
     )
     video.sort(reverse=True)
