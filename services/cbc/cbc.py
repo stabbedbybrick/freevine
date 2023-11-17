@@ -12,7 +12,6 @@ import subprocess
 import re
 
 from urllib.parse import urlparse
-from pathlib import Path
 from collections import Counter
 
 import click
@@ -36,8 +35,8 @@ from utils.config import Config
 
 
 class CBC(Config):
-    def __init__(self, config, **kwargs):
-        super().__init__(config, **kwargs)
+    def __init__(self, config, srvc_api, srvc_config, wvd, **kwargs):
+        super().__init__(config, srvc_api, srvc_config, wvd, **kwargs)
 
         if self.info:
             info("Info feature is not yet supported on this service")
@@ -47,10 +46,8 @@ class CBC(Config):
             info("Subtitle downloads are not supported on this service")
             exit(1)
 
-        with open(Path("services") / "config" / "cbc.yaml", "r") as f:
-            self.cfg = yaml.safe_load(f)
-
-        self.config.update(self.cfg)
+        with open(self.srvc_api, "r") as f:
+            self.config.update(yaml.safe_load(f))
 
         self.get_options()
 
@@ -177,12 +174,13 @@ class CBC(Config):
 
         resolutions.sort(key=lambda x: int(x), reverse=True)
 
-        if "ec3" in m3u8 and "best" in self.config["audio"]["track"]:
-            audio = "DDP5.1"
-        elif "ec3" in m3u8 and "ec3" in self.config["audio"]["track"]:
-            audio = "DDP5.1"
-        else:
-            audio = "AAC2.0"
+        for line in lines:
+            if "ec3" in line and "best" in self.config["audio"]["select"]:
+                audio = "DDP5.1"
+            elif "ec3" in line and "ec3" in self.config["audio"]["select"]:
+                audio = "DDP5.1"
+            else:
+                audio = "AAC2.0"
 
         if quality is not None:
             if quality in resolutions:
