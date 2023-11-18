@@ -18,7 +18,7 @@ main_help = f"""
     Installation:
         1. Install Python (check 'Add to PATH' if on Windows)
         2. Clone or download Freevine repository
-        3. Place N_m3u8DL-RE, ffmpeg, mkvmerge, mp4decrypt, packager inside Freevine folder OR add to system PATH
+        3. Place required tools inside Freevine folder OR add to system PATH(recommended)
         4. Create /utils/wvd/ folder and place either .wvd file or private_key and client blob inside
         5. Install necessary packages: `pip install -r requirements.txt`
     \b
@@ -63,6 +63,7 @@ main_help = f"""
                 python freevine.py --movie MOVIE_URL
     \b
             NOTES:
+            If the episode is a standalone, you might have more success by using --movie
             Grabbing the URLs straight from the frontpage often comes with extra
             garbage attached. It's recommended to get the URL from title page
     \b
@@ -125,7 +126,7 @@ main_help = f"""
     \b
         Known bugs:
         Programmes without clear season/episode labels might display odd names and numbers
-        TubiTV and PlutoTV does not work with --info at the moment
+        TubiTV, PlutoTV, CBC does not work with --info at the moment
 
     \b
         Free streaming services are free for a reason and usually comes with gaps and odd labels
