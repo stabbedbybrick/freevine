@@ -12,6 +12,7 @@ import base64
 
 from urllib.parse import urlparse
 from collections import Counter
+from pathlib import Path
 
 import click
 import yaml
@@ -27,6 +28,7 @@ from utils.utilities import (
     set_save_path,
     set_filename,
     add_subtitles,
+    get_wvd,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -36,8 +38,8 @@ from utils.cdm import LocalCDM
 
 
 class ABC(Config):
-    def __init__(self, config, srvc_api, srvc_config, wvd, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, wvd, **kwargs)
+    def __init__(self, config, srvc_api, srvc_config, **kwargs):
+        super().__init__(config, srvc_api, srvc_config, **kwargs)
 
         if self.sub_only:
             info("Subtitle downloads are not supported on this service")
@@ -58,7 +60,8 @@ class ABC(Config):
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(self.wvd)
+            wvd = get_wvd(Path.cwd())
+            widevine = LocalCDM(wvd)
             challenge = widevine.challenge(pssh)
             response = self.get_license(challenge, lic_url)
             return widevine.parse(response)

@@ -38,8 +38,8 @@ from utils.config import Config
 
 class BBC(Config):
 
-    def __init__(self, config, srvc_api, srvc_config, wvd, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, wvd, **kwargs)
+    def __init__(self, config, srvc_api, srvc_config, **kwargs):
+        super().__init__(config, srvc_api, srvc_config, **kwargs)
 
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
@@ -170,7 +170,7 @@ class BBC(Config):
                     self.height = item["height"]
                     info("HD stream not available, getting next best alternative")
         except KeyError:
-            error("Request failed. Make sure to use a valid UK IP-address")
+            error("Request failed. Content is not available outside of the UK")
             exit(1)
 
         for item in media["media"]:

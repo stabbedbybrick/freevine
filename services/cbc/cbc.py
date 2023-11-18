@@ -35,8 +35,8 @@ from utils.config import Config
 
 
 class CBC(Config):
-    def __init__(self, config, srvc_api, srvc_config, wvd, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, wvd, **kwargs)
+    def __init__(self, config, srvc_api, srvc_config, **kwargs):
+        super().__init__(config, srvc_api, srvc_config, **kwargs)
 
         if self.info:
             info("Info feature is not yet supported on this service")
@@ -189,7 +189,6 @@ class CBC(Config):
                 closest_match = min(
                     resolutions, key=lambda x: abs(int(x) - int(quality))
                 )
-                info(f"Resolution not available. Getting closest match")
                 return closest_match, audio
 
         return resolutions[0], audio

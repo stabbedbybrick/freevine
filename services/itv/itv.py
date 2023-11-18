@@ -16,6 +16,7 @@ import shutil
 import sys
 
 from collections import Counter
+from pathlib import Path
 
 import click
 import requests
@@ -32,6 +33,7 @@ from utils.utilities import (
     print_info,
     set_filename,
     add_subtitles,
+    get_wvd,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -41,8 +43,8 @@ from utils.cdm import LocalCDM
 
 
 class ITV(Config):
-    def __init__(self, config, srvc_api, srvc_config, wvd, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, wvd, **kwargs)
+    def __init__(self, config, srvc_api, srvc_config, **kwargs):
+        super().__init__(config, srvc_api, srvc_config, **kwargs)
 
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
@@ -58,7 +60,8 @@ class ITV(Config):
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(self.wvd)
+            wvd = get_wvd(Path.cwd())
+            widevine = LocalCDM(wvd)
             challenge = widevine.challenge(pssh)
             response = self.get_license(challenge, lic_url)
             return widevine.parse(response)
