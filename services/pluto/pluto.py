@@ -15,6 +15,7 @@ Labeling for resolution is currently missing
 Pluto's library is very spotty, so it's highly recommended to use --titles before downloading
 
 """
+from __future__ import annotations
 
 import base64
 import re

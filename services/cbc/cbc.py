@@ -7,6 +7,7 @@ Author: stabbedbybrick
 Quality: up to 1080p and DDP5.1 audio
 
 """
+from __future__ import annotations
 
 import subprocess
 import re

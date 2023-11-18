@@ -8,6 +8,7 @@ Info:
 Quality: 1080p, AAC 2.0 max
 
 """
+from __future__ import annotations
 
 import base64
 import subprocess

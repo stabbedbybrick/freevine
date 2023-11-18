@@ -5,6 +5,7 @@ Author: stabbedbybrick
 Quality: up to 1080p
 
 """
+from __future__ import annotations
 
 import subprocess
 import re

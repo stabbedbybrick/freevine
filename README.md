@@ -1,5 +1,13 @@
 <h3 align="center">Freevine<br/>
 <sup>A Download Utility for Free Streaming Services</sup></h3>
+<p align="center">
+    <a href="https://python.org">
+        <img src="https://img.shields.io/badge/python-3.9+-blue" alt="Python version">
+    </a>
+    <a href="https://docs.python.org/3/library/venv.html">
+        <img src="https://img.shields.io/badge/python-venv-blue" alt="Python virtual environments">
+    </a>
+</p>
 
 ## Features:
 
@@ -43,12 +51,8 @@ Tubi:             720p,  AAC2.0
 
 * Widevine Device File (.wvd)
 
-> [!NOTE]
-> Recommended Python versions are within the 3.10-11 range
-> 
-> Support for older versions can't be guaranteed
-> 
-> v3.12 is not yet supported
+> [!IMPORTANT]
+> Python 3.12 is not yet supported
 
 ## Installation:
 

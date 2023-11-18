@@ -8,6 +8,7 @@ Info:
 ITV L3 is 720p, AAC 2.0 max
 
 """
+from __future__ import annotations
 
 import base64
 import subprocess

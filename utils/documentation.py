@@ -7,7 +7,7 @@ main_help = f"""
 
     \b
     Requirements:
-        Python 3.10+
+        Python 3.9+
         Valid Widevine Device file
         N_m3u8DL-RE
         ffmpeg

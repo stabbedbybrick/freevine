@@ -10,6 +10,7 @@ Some titles are encrypted, some are not. Both versions are supported
 
 
 """
+from __future__ import annotations
 
 import base64
 import re

@@ -8,6 +8,7 @@ Info:
 This program will grab higher 1080p bitrate and Dolby 5.1 audio (if available)
 
 """
+from __future__ import annotations
 
 import subprocess
 import urllib

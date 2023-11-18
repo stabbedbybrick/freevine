@@ -5,6 +5,7 @@ Author: stabbedbybrick
 Quality: up to 1080p and Dolby 5.1 audio
 
 """
+from __future__ import annotations
 
 import base64
 import subprocess

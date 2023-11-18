@@ -7,6 +7,7 @@ Info:
 This program will grab higher 1080p bitrate (if available)
 
 """
+from __future__ import annotations
 
 import base64
 import re

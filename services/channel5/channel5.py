@@ -7,6 +7,7 @@ Info:
 Channel5 now offers up to 1080p
 
 """
+from __future__ import annotations
 
 import base64
 import subprocess
@@ -190,7 +191,7 @@ class CHANNEL5(Config):
 
         return heights[0], pssh
 
-    def get_content(self, url: str) -> tuple[Movies | Series, str]:
+    def get_content(self, url: str) -> tuple:
         if self.movie:
             with self.console.status("Fetching titles..."):
                 content = self.get_movies(self.url)
