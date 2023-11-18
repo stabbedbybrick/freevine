@@ -32,6 +32,7 @@ from utils.utilities import (
     set_save_path,
     print_info,
     set_filename,
+    get_wvd,
 )
 from utils.titles import Episode, Series
 from utils.options import Options
@@ -41,8 +42,8 @@ from utils.cdm import LocalCDM
 
 
 class STV(Config):
-    def __init__(self, config, srvc_api, srvc_config, wvd, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, wvd, **kwargs)
+    def __init__(self, config, srvc_api, srvc_config, **kwargs):
+        super().__init__(config, srvc_api, srvc_config, **kwargs)
 
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
@@ -61,7 +62,8 @@ class STV(Config):
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(self.wvd)
+            wvd = get_wvd(Path.cwd())
+            widevine = LocalCDM(wvd)
             challenge = widevine.challenge(pssh)
             response = self.get_license(challenge, lic_url)
             return widevine.parse(response)

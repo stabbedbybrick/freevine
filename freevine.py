@@ -8,7 +8,7 @@ import yaml
 from utils import __version__
 from utils.documentation import main_help
 from utils.services import get_service
-from utils.utilities import info, is_url, get_wvd
+from utils.utilities import info, is_url
 from utils.search.search import search_engine
 
 
@@ -45,8 +45,6 @@ def main(search=None, **kwargs) -> None:
         alias, keywords = search
         search_engine(alias, keywords)
     else:
-        wvd = get_wvd(Path.cwd())
-
         with open("config.yaml", "r") as f:
             main_config = yaml.safe_load(f)
 
@@ -57,7 +55,7 @@ def main(search=None, **kwargs) -> None:
         )
 
         Service, srvc_api, srvc_config = get_service(url)
-        Service(main_config, srvc_api, srvc_config, wvd, **kwargs)
+        Service(main_config, srvc_api, srvc_config, **kwargs)
 
     shutil.rmtree("tmp") if Path("tmp").exists() else None
 
