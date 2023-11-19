@@ -154,34 +154,33 @@ class BBC(Config):
 
     def get_playlist(self, pid: str) -> tuple:
         resp = self.client.get(self.config["playlist"].format(pid=pid)).json()
-
         vpid = resp["defaultAvailableVersion"]["smpConfig"]["items"][0]["vpid"]
+        resp = self.client.get(self.config["media"].format(vpid=vpid))
 
-        media = self.client.get(self.config["media"].format(vpid=vpid)).json()
+        if not resp.is_success:
+            error("Request failed. Content is not available outside of the UK")
+            exit(1)
 
+        media = json.loads(resp.content)
         captions = None
         subtitle = None
 
-        try:
-            for item in media["media"]:
-                if item["kind"] == "video" and int(item["bitrate"]) > 3500:
-                    videos = item["connection"]
-                elif item["kind"] == "video":
-                    videos = item["connection"]
-                    self.height = item["height"]
-                    info("HD stream not available, getting next best alternative")
-        except KeyError:
-            error("Request failed. Content is not available outside of the UK")
-            exit(1)
+        resolutions = [int(x.get("height", 0)) for x in media["media"]]
+
+        for item in media["media"]:
+            if item["kind"] == "video" and int(item["height"]) >= 720:
+                videos = item["connection"]
+            elif item["kind"] == "video" and max(resolutions) < 720:
+                videos = item["connection"]
+                self.height = item["height"]
+                info("HD stream not available")
 
         for item in media["media"]:
             if item["kind"] == "captions":
                 captions = item["connection"]
 
         for video in videos:
-            if (
-                video["supplier"] == "mf_bidi" and video["transferFormat"] == "dash"
-            ):  # TODO
+            if video["supplier"] == "mf_bidi" and video["transferFormat"] == "dash":
                 manifest = video["href"]
 
         if captions:
@@ -276,16 +275,16 @@ class BBC(Config):
             .group(1)
         )
         data = json.loads(redux)
+        subtitle = data["episode"].get("subtitle")
 
-        subtitle = data["episode"]["subtitle"]
-        season_match = re.search(r"Series (\d+):", subtitle)
-        season = int(season_match.group(1)) if season_match else 0
-        number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle)
-        number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
-        name_match = re.search(r"\d+\. (.+)", subtitle)
-        name = name_match.group(1) if name_match else subtitle if not re.search(
-            r"Series (\d+): Episode (\d+)", subtitle
-            ) else ""
+        if subtitle is not None:
+            season_match = re.search(r"Series (\d+):", subtitle)
+            season = int(season_match.group(1)) if season_match else 0
+            number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle)
+            number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
+            name_match = re.search(r"\d+\. (.+)", subtitle)
+            name = name_match.group(1) if name_match else subtitle if not re.search(
+                r"Series (\d+): Episode (\d+)", subtitle) else ""
 
         episode = Series(
             [
@@ -293,9 +292,9 @@ class BBC(Config):
                     id_=data["episode"]["id"],
                     service="iP",
                     title=data["episode"]["title"],
-                    season=season,
-                    number=number,
-                    name=name,
+                    season=season if subtitle else 0,
+                    number=number if subtitle else 0,
+                    name=name if subtitle else "",
                     description=data["episode"]["synopses"].get("small"),
                 )
             ]
