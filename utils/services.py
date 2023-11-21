@@ -106,6 +106,13 @@ def _services():
             "api": services / "uktvplay" / "api.yaml",
             "config": services / "uktvplay" / "config.yaml",
         },
+        "www.cwtv.com": {
+            "name": "CW",
+            "alias": "The CW",
+            "path": services / "cwtv" / "cwtv.py",
+            "api": services / "cwtv" / "api.yaml",
+            "config": services / "cwtv" / "config.yaml",
+        },
     }
 
     return supported_services

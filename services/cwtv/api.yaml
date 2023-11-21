@@ -1,0 +1,7 @@
+## SERVICE SETTINGS
+
+vod: "https://images.cwtv.com/feed/mobileapp/video-meta/apiversion_9/guid_{guid}"
+dash: "format=SMIL&formats=MPEG-DASH,M3U&tracking=true&mbr=false&assetType=drm|clear"
+cred: "https://images.cwtv.com/video/get-user-cred/{video_id}/?{user}"
+lic: "https://widevine.entitlement.theplatform.com/wv/web/ModularDrm/getRawWidevineLicense?form=json&schema=1.0&account=http%3A%2F%2Faccess.auth.theplatform.com%2Fdata%2FAccount%2F{acc}&releasePid={pid}&token={token}"
+
