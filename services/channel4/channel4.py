@@ -205,7 +205,6 @@ class CHANNEL4(Config):
                 return quality, pssh
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                info(f"Resolution not available. Getting closest match:")
                 return closest_match, pssh
 
         return heights[0], pssh

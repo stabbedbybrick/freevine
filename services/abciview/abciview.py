@@ -60,8 +60,8 @@ class ABC(Config):
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
+        wvd = get_wvd(Path.cwd())
         with self.console.status("Getting decryption keys..."):
-            wvd = get_wvd(Path.cwd())
             widevine = LocalCDM(wvd)
             challenge = widevine.challenge(pssh)
             response = self.get_license(challenge, lic_url)

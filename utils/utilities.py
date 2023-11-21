@@ -207,6 +207,10 @@ def set_save_path(stream: object, config, title: str) -> Path:
 def print_info(service: object, stream: object, keys: list):
     """Info panel that prints out description, stream ID and keys"""
 
+    if hasattr(service, "hls"):
+        info("Info feature is not yet supported on HLS streams")
+        exit(1)
+
     console = Console()
 
     elements = service.soup.find_all("Representation")

@@ -31,6 +31,7 @@ STV Player:       1080p, AAC2.0
 ABC iView:        1080p, AAC2.0
 UKTVPlay:         1080p, AAC2.0
 Crackle:          1080p, AAC2.0
+CWTV:             1080p, AAC2.0
 Pluto:            720p,  AAC2.0
 ITVx:             720p,  AAC2.0
 Tubi:             720p,  AAC2.0
@@ -50,9 +51,6 @@ Tubi:             720p,  AAC2.0
 * [shaka packager](https://github.com/shaka-project/shaka-packager)
 
 * Widevine Device File (.wvd)
-
-> [!IMPORTANT]
-> Python 3.12 is not yet supported
 
 ## Installation:
 

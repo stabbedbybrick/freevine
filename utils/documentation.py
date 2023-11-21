@@ -112,6 +112,7 @@ main_help = f"""
             UKTVPLAY: 1080p, AAC2.0
             STV:      1080p, AAC2.0
             CRACKLE:  1080p, AAC2.0
+            CWTV:     1080p, AAC2.0
             ITV:      720p,  AAC2.0
             TUBI:     720p,  AAC2.0
             PLUTO:    720p,  AAC2.0 

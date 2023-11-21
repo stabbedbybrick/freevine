@@ -60,8 +60,8 @@ class ROKU(Config):
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
+        wvd = get_wvd(Path.cwd())
         with self.console.status("Getting decryption keys..."):
-            wvd = get_wvd(Path.cwd())
             widevine = LocalCDM(wvd)
             challenge = widevine.challenge(pssh)
             response = self.get_license(challenge, lic_url)
@@ -187,7 +187,6 @@ class ROKU(Config):
                 return quality, audio
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                info(f"Resolution not available. Getting closest match:")
                 return closest_match, audio
 
         return heights[0], audio
