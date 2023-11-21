@@ -12,7 +12,7 @@ from rich.panel import Panel
 from rich.style import Style
 from rich.padding import Padding
 
-from pywidevine.device import Device
+from pywidevine.device import Device, DeviceTypes
 
 
 def create_wvd(dir: Path) -> Path:
@@ -35,7 +35,7 @@ def create_wvd(dir: Path) -> Path:
         exit(1)
 
     device = Device(
-        type_=Device.Types["ANDROID"],
+        type_=DeviceTypes["ANDROID"],
         security_level=3,
         flags=None,
         private_key=private_key.read_bytes(),
