@@ -183,6 +183,17 @@ def _dict(keywords: str):
             },
             "method": "POST",
         },
+        {
+            "name": "The CW",
+            "alias": ["CW", "CWTV", "THECW"],
+            "url": "https://www.cwtv.com/search/",
+            "params": {
+                "q": f"{keywords}".replace(" ", "%2520"),
+                "format": "json2",
+                "service": "t",
+            },
+            "method": "GET",
+        },
     ]
 
 
@@ -451,5 +462,20 @@ def _parse(query: dict, service: dict, client=None):
                         url=link.format(slug=field["slug"]),
                     )
                 )
+    if service["name"] == "The CW":
+        link = "https://www.cwtv.com{slug}"
+
+        if query:
+            for field in query["items"]:
+                if not field["type"] == "episodes":
+                    results.append(
+                        template.format(
+                            service=service["name"],
+                            title=field["title"],
+                            synopsis=field.get("synopsis"),
+                            type=field.get("type"),
+                            url=link.format(slug=field["link"].split("?")[0]),
+                        )
+                    )
 
     return results
