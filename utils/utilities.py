@@ -4,6 +4,7 @@ import datetime
 from pathlib import Path
 
 import click
+import requests
 
 from unidecode import unidecode
 
@@ -78,6 +79,14 @@ def error(text: str) -> str:
     message = click.style(f" : {text}")
     return click.echo(f"{stamp} {info}{message}")
 
+def notification(text: str) -> str:
+    """Custom error 'logger' designed to match N_m3u8DL-RE output"""
+
+    time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    stamp = click.style(f"{time}")
+    info = click.style(f"[!!]", fg="bright_magenta")
+    message = click.style(f" : {text}")
+    return click.echo(f"{stamp} {info}{message}")
 
 def is_url(value):
     if value is not None:
@@ -199,3 +208,10 @@ def set_save_path(stream: object, config, title: str) -> Path:
     return save_path
 
 
+def check_version(local_version: str):
+    latest_version = requests.get(
+        "https://api.github.com/repos/stabbedbybrick/freevine/releases/latest"
+    ).json()["tag_name"]
+
+    if local_version != latest_version:
+        notification(f"New version available: {latest_version}\n")
