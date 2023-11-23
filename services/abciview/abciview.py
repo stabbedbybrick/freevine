@@ -127,6 +127,7 @@ class ABC(Config):
             self.create_episode(episode)
             for season in data
             for episode in reversed(season["_embedded"]["videoEpisodes"]["items"])
+            if season.get("episodeCount")
         ]
         return Series(episodes)
 
@@ -174,11 +175,11 @@ class ABC(Config):
             reverse=True,
         )
 
-        _base = re.sub(r"(\d+.mpd)", "", manifest)
+        _base = "/".join(manifest.split("/")[:-1])
 
         base_urls = self.soup.find_all("BaseURL")
         for base in base_urls:
-            base.string = _base + base.string
+            base.string = f"{_base}/{base.string}"
 
         if subtitle is not None:
             self.soup = add_subtitles(self.soup, subtitle)
