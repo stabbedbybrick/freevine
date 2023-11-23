@@ -31,13 +31,13 @@ from utils.utilities import (
     is_url,
     string_cleaning,
     set_save_path,
-    print_info,
     set_filename,
     get_wvd,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
 from utils.args import get_args
+from utils.info import print_info
 from utils.config import Config
 from utils.cdm import LocalCDM
 

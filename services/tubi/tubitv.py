@@ -33,13 +33,13 @@ from utils.utilities import (
     is_url,
     string_cleaning,
     set_save_path,
-    # print_info,
     set_filename,
     get_wvd,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
 from utils.args import get_args
+from utils.info import print_info
 from utils.config import Config
 from utils.cdm import LocalCDM
 
@@ -47,10 +47,6 @@ from utils.cdm import LocalCDM
 class TUBITV(Config):
     def __init__(self, config, srvc_api, srvc_config, **kwargs):
         super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        if self.info:
-            info("Info feature is not yet supported on this service")
-            exit(1)
 
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
@@ -181,6 +177,7 @@ class TUBITV(Config):
                     if res == playlist[0]:
                         manifest = base + playlist[1]
 
+        self.hls = m3u8_obj
         return manifest, res
         
 
@@ -291,6 +288,9 @@ class TUBITV(Config):
             keys = self.get_keys(pssh, stream.lic_url)
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
+
+        if self.info:
+            print_info(self, stream, keys)
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self.config, title)
