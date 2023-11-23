@@ -8,7 +8,7 @@ import yaml
 from utils import __version__
 from utils.documentation import main_help
 from utils.services import get_service
-from utils.utilities import info, is_url
+from utils.utilities import info, is_url, check_version
 from utils.search.search import search_engine
 
 
@@ -40,6 +40,7 @@ from utils.search.search import search_engine
 def main(search=None, **kwargs) -> None:
     click.echo("")
     info(f"Freevine {__version__}\n")
+    check_version(__version__)
 
     if search:
         alias, keywords = search
