@@ -10,8 +10,6 @@ Quality: 720p, AAC 2.0 max
 Some titles are encrypted, some are not. Both versions are supported
 
 Notes:
-While functional, it's still considered in beta
-Labeling for resolution is currently missing
 Pluto's library is very spotty, so it's highly recommended to use --titles before downloading
 
 """
@@ -38,13 +36,13 @@ from utils.utilities import (
     is_url,
     string_cleaning,
     set_save_path,
-    print_info,
     set_filename,
     get_wvd,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
 from utils.args import get_args
+from utils.info import print_info
 from utils.config import Config
 from utils.cdm import LocalCDM
 
@@ -52,10 +50,6 @@ from utils.cdm import LocalCDM
 class PLUTO(Config):
     def __init__(self, config, srvc_api, srvc_config, **kwargs):
         super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        if self.info:
-            info("Info feature is not yet supported on this service")
-            exit(1)
 
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f)) 
@@ -260,6 +254,7 @@ class PLUTO(Config):
                     if res == playlist[0]:
                         manifest = base + playlist[1]
 
+        self.hls = m3u8_obj
         return res, manifest
 
     def generate_pssh(self, kid: str):

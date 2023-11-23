@@ -25,7 +25,6 @@ from utils.utilities import (
     error,
     is_url,
     string_cleaning,
-    print_info,
     set_save_path,
     set_filename,
     add_subtitles,
@@ -34,6 +33,7 @@ from utils.utilities import (
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
 from utils.args import get_args
+from utils.info import print_info
 from utils.config import Config
 from utils.cdm import LocalCDM
 

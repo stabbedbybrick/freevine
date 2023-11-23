@@ -28,12 +28,12 @@ from utils.utilities import (
     error,
     string_cleaning,
     set_save_path,
-    print_info,
     set_filename,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
 from utils.args import get_args
+from utils.info import print_info
 from utils.config import Config
 
 

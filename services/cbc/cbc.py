@@ -17,6 +17,7 @@ from collections import Counter
 
 import click
 import yaml
+import m3u8
 
 from bs4 import BeautifulSoup
 
@@ -25,23 +26,19 @@ from utils.utilities import (
     error,
     is_url,
     string_cleaning,
-    # print_info,
     set_save_path,
     set_filename,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
 from utils.args import get_args
+from utils.info import print_info
 from utils.config import Config
 
 
 class CBC(Config):
     def __init__(self, config, srvc_api, srvc_config, **kwargs):
         super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        if self.info:
-            info("Info feature is not yet supported on this service")
-            exit(1)
 
         if self.sub_only:
             info("Subtitle downloads are not supported on this service")
@@ -214,7 +211,7 @@ class CBC(Config):
             'URI="{uri}QualityLevels({bitrate})/Manifest({codec},format=m3u8-aapl)"'
         )
 
-        m3u8 = self.client.get(url).text
+        m3u8_text = self.client.get(url).text
 
         try:
             self.xml = BeautifulSoup(self.client.get(smooth), "xml")
@@ -222,7 +219,7 @@ class CBC(Config):
             self.xml = None
 
         if self.xml:
-            m3u8 = re.sub(r"QualityLevels", f"{base_url}QualityLevels", m3u8)
+            m3u8_text = re.sub(r"QualityLevels", f"{base_url}QualityLevels", m3u8_text)
 
             indexes = self.xml.find_all("StreamIndex")
             for index in indexes:
@@ -231,7 +228,7 @@ class CBC(Config):
                         if not level.attrs.get("Bitrate"):
                             continue
 
-                        m3u8 += (
+                        m3u8_text += (
                             video_stream.format(
                                 bandwidth=level.attrs.get("Bitrate", 0),
                                 width=level.attrs.get("MaxWidth", 0),
@@ -245,7 +242,7 @@ class CBC(Config):
                 if index.attrs.get("Type") == "audio":
                     levels = index.find_all("QualityLevel")
                     for level in levels:
-                        m3u8 += (
+                        m3u8_text += (
                             audio_stream.format(
                                 id=index.attrs.get("Name"),
                                 bandwidth=level.attrs.get("Bitrate", 0),
@@ -259,9 +256,10 @@ class CBC(Config):
                         )
 
             with open(self.tmp / "manifest.m3u8", "w") as f:
-                f.write(m3u8)
+                f.write(m3u8_text)
 
-        return url, m3u8
+        self.hls = m3u8.loads(m3u8_text)
+        return url, m3u8_text
 
     def get_playlist(self, playsession: str) -> tuple:
         response = self.client.get(playsession).json()
@@ -333,8 +331,8 @@ class CBC(Config):
             mpd_url, m3u8 = self.get_playlist(stream.data)
             self.res, audio = self.get_mediainfo(self.quality, m3u8)
 
-        # if self.info:
-        #     print_info(self, stream, keys)
+        if self.info:
+            print_info(self, stream)
 
         self.filename = set_filename(self, stream, self.res, audio)
         self.save_path = set_save_path(stream, self.config, title)

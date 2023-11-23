@@ -1,16 +1,11 @@
 import re
 import datetime
-import shutil
 
 from pathlib import Path
 
 import click
 
 from unidecode import unidecode
-from rich.console import Console
-from rich.panel import Panel
-from rich.style import Style
-from rich.padding import Padding
 
 from pywidevine.device import Device, DeviceTypes
 
@@ -204,71 +199,3 @@ def set_save_path(stream: object, config, title: str) -> Path:
     return save_path
 
 
-def print_info(service: object, stream: object, keys: list):
-    """Info panel that prints out description, stream ID and keys"""
-
-    if hasattr(service, "hls"):
-        info("Info feature is not yet supported on HLS streams")
-        exit(1)
-
-    console = Console()
-
-    elements = service.soup.find_all("Representation")
-    adaptation_sets = service.soup.find_all("AdaptationSet")
-    video = sorted(
-        [
-            (int(x.attrs["width"]), int(x.attrs["height"]), int(x.attrs["bandwidth"]))
-            for x in elements
-            if x.attrs.get("height")
-            and x.attrs.get("width")
-            and x.attrs.get("bandwidth")
-        ],
-        reverse=True,
-    )
-    video.extend(
-        [
-            (int(x.attrs["width"]), int(x.attrs["height"]), 2635743)
-            for x in adaptation_sets
-            if x.attrs.get("height") and x.attrs.get("width")
-        ]
-    )
-    video.sort(reverse=True)
-
-    audio = [
-        (x.attrs["bandwidth"], x.attrs["id"], x.attrs.get("codecs"))
-        for x in elements
-        if x.attrs.get("mimeType") == "audio/mp4"
-        or x.attrs.get("codecs") == "mp4a.40.2"
-        or x.attrs.get("codecs") == "mp4a.40.5"
-        or x.attrs.get("codecs") == "ac-3"
-        or "audio" in x.attrs.get("id")
-    ]
-
-    text = (
-        f"{stream.description}\n\n"
-        if stream.__class__.__name__ == "Episode"
-        else f"{stream.synopsis}\n\n"
-    )
-
-    text += "[white]Video:[/white]\n"
-    for width, height, bandwidth in video:
-        bitrate = bandwidth // 1000
-        text += f"  {width}x{height} @ {bitrate} kb/s\n"
-
-    text += "\n[white]Audio:[/white]\n"
-    for bandwidth, id, codec in audio:
-        bitrate = int(bandwidth) // 1000
-        text += f"  {id} @ {bitrate} kb/s\n"
-
-    if keys is not None:
-        text += "\n[white]Keys:[/white]\n"
-        for key in keys:
-            text += f"  {key}\n"
-
-    padding = Padding(text, (1, 2))
-    title = f"[white]{str(stream)}[/white]"
-    panel = Panel(padding, title=title, width=80, style=Style(color="bright_black"))
-    console.print(panel)
-
-    shutil.rmtree(service.tmp)
-    exit(0)
