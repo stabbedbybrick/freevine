@@ -379,7 +379,7 @@ class BBC(Config):
             print_info(self, stream, keys=None)
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
-        self.save_path = set_save_path(stream, self.config, title)
+        self.save_path = set_save_path(stream, self, title)
         self.manifest = self.tmp / "manifest.mpd"
         self.key_file = None  # not encrypted
         self.sub_path = None

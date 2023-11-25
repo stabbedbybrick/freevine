@@ -293,7 +293,7 @@ class TUBITV(Config):
             print_info(self, stream, keys)
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
-        self.save_path = set_save_path(stream, self.config, title)
+        self.save_path = set_save_path(stream, self, title)
         self.manifest = stream.data
         self.key_file = self.tmp / "keys.txt" if stream.lic_url else None
         self.sub_path = None

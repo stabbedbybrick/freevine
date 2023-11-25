@@ -186,24 +186,29 @@ def add_subtitles(soup: object, subtitle: str) -> object:
     return soup
 
 
-def set_save_path(stream: object, config, title: str) -> Path:
-    downloads = (
-        Path(config["save_dir"]["movies"])
-        if stream.__class__.__name__ == "Movie"
-        else Path(config["save_dir"]["series"])
-    )
-
-    save_path = downloads.joinpath(title)
-    save_path.mkdir(parents=True, exist_ok=True)
-
-    if (
-        stream.__class__.__name__ == "Episode"
-        and config["seasons"] == "true"
-        and stream.season > 0
-    ):
-        _season = f"Season {stream.season:02d}"
-        save_path = save_path.joinpath(_season)
+def set_save_path(stream: object, service: object, title: str) -> Path:
+    if service.save_dir != "False":
+        save_path = Path(service.save_dir)
         save_path.mkdir(parents=True, exist_ok=True)
+
+    else:
+        downloads = (
+            Path(service.config["save_dir"]["movies"])
+            if stream.__class__.__name__ == "Movie"
+            else Path(service.config["save_dir"]["series"])
+        )
+
+        save_path = downloads.joinpath(title)
+        save_path.mkdir(parents=True, exist_ok=True)
+
+        if (
+            stream.__class__.__name__ == "Episode"
+            and service.config["seasons"] == "true"
+            and stream.season > 0
+        ):
+            _season = f"Season {stream.season:02d}"
+            save_path = save_path.joinpath(_season)
+            save_path.mkdir(parents=True, exist_ok=True)
 
     return save_path
 

@@ -364,7 +364,7 @@ class PLUTO(Config):
             print_info(self, stream, keys)
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
-        self.save_path = set_save_path(stream, self.config, title)
+        self.save_path = set_save_path(stream, self, title)
         self.manifest = hls if hls else manifest
         self.key_file = self.tmp / "keys.txt" if pssh else None
         self.sub_path = None

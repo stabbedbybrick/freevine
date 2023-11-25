@@ -335,7 +335,7 @@ class CBC(Config):
             print_info(self, stream)
 
         self.filename = set_filename(self, stream, self.res, audio)
-        self.save_path = set_save_path(stream, self.config, title)
+        self.save_path = set_save_path(stream, self, title)
         self.manifest = self.tmp / "manifest.m3u8" if self.xml else mpd_url
         self.key_file = None  # Not encrypted
         self.sub_path = None
