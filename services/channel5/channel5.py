@@ -310,7 +310,7 @@ class CHANNEL5(Config):
             print_info(self, stream, keys)
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
-        self.save_path = set_save_path(stream, self.config, title)
+        self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
