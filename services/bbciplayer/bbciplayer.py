@@ -38,13 +38,12 @@ from utils.config import Config
 
 
 class BBC(Config):
-
     def __init__(self, config, srvc_api, srvc_config, **kwargs):
         super().__init__(config, srvc_api, srvc_config, **kwargs)
 
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
-        
+
         self.get_options()
 
     def get_data(self, pid: str, slice_id: str) -> dict:
@@ -69,8 +68,12 @@ class BBC(Config):
         labels = episode["episode"]["labels"]
         cetegory = labels.get("category") if labels else None
 
-        series = re.finditer(r"Series (\d+):|(\d{4}/\d{2}): Episode \d+", subtitle.get("default"))
-        season_num = int(next((m.group(1) or m.group(2).replace("/", "") for m in series), 0))
+        series = re.finditer(
+            r"Series (\d+):|(\d{4}/\d{2}): Episode \d+", subtitle.get("default")
+        )
+        season_num = int(
+            next((m.group(1) or m.group(2).replace("/", "") for m in series), 0)
+        )
 
         number = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle.get("slice") or "")
         ep_num = int(next((m.group(1) or m.group(2) for m in number), 0))
@@ -84,7 +87,6 @@ class BBC(Config):
             ep_name += f" {fallback}"
         if not subtitle.get("slice"):
             ep_name = subtitle.get("default") or ""
-
 
         return Episode(
             id_=episode["episode"]["id"],
@@ -152,30 +154,37 @@ class BBC(Config):
 
         return soup
 
-    def get_playlist(self, pid: str) -> tuple:
-        resp = self.client.get(self.config["playlist"].format(pid=pid)).json()
-        vpid = resp["defaultAvailableVersion"]["smpConfig"]["items"][0]["vpid"]
-        resp = self.client.get(self.config["media"].format(vpid=vpid))
-
-        if not resp.is_success:
-            error("Request failed. Content is not available outside of the UK")
+    def get_version_content(self, vpid: str) -> list:
+        r = self.client.get(self.config["media"].format(vpid=vpid))
+        if not r.is_success:
+            error("Request failed. Content is not available outside of UK")
             exit(1)
 
-        media = json.loads(resp.content)
+        return r.json()["media"]
+
+    def get_playlist(self, pid: str) -> tuple:
+        r = self.client.get(self.config["playlist"].format(pid=pid)).json()
+        versions = [
+            x["smpConfig"]["items"][0]["vpid"]
+            for x in r["allAvailableVersions"]
+        ]
+
+        for version in versions:
+            media = self.get_version_content(version)
+            if max([int(x.get("height", 0)) for x in media]) >= 720:
+                break
+
+        for item in media:
+            if item["kind"] == "video" and int(item["height"]) >= 720:
+                videos = item["connection"]
+            elif item["kind"] == "video" and max([int(x.get("height", 0)) for x in media]) < 720:
+                videos = item["connection"]
+                self.height = item["height"]
+
         captions = None
         subtitle = None
 
-        resolutions = [int(x.get("height", 0)) for x in media["media"]]
-
-        for item in media["media"]:
-            if item["kind"] == "video" and int(item["height"]) >= 720:
-                videos = item["connection"]
-            elif item["kind"] == "video" and max(resolutions) < 720:
-                videos = item["connection"]
-                self.height = item["height"]
-                info("HD stream not available")
-
-        for item in media["media"]:
+        for item in media:
             if item["kind"] == "captions":
                 captions = item["connection"]
 
@@ -232,7 +241,9 @@ class BBC(Config):
         return self.height if not heights else heights[0]
 
     def parse_url(self, url: str):
-        regex = r"^(?:https?://(?:www\.)?bbc\.co\.uk/iplayer/episodes?/)?(?P<id>[a-z0-9]+)"
+        regex = (
+            r"^(?:https?://(?:www\.)?bbc\.co\.uk/iplayer/episodes?/)?(?P<id>[a-z0-9]+)"
+        )
 
         try:
             pid = re.match(regex, url).group("id")
@@ -270,10 +281,9 @@ class BBC(Config):
 
     def get_episode_from_url(self, url: str):
         html = self.client.get(url).text
-        redux = (
-            re.search("window.__IPLAYER_REDUX_STATE__ = (.*?);</script>", html)
-            .group(1)
-        )
+        redux = re.search(
+            "window.__IPLAYER_REDUX_STATE__ = (.*?);</script>", html
+        ).group(1)
         data = json.loads(redux)
         subtitle = data["episode"].get("subtitle")
 
@@ -283,8 +293,13 @@ class BBC(Config):
             number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle)
             number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
             name_match = re.search(r"\d+\. (.+)", subtitle)
-            name = name_match.group(1) if name_match else subtitle if not re.search(
-                r"Series (\d+): Episode (\d+)", subtitle) else ""
+            name = (
+                name_match.group(1)
+                if name_match
+                else subtitle
+                if not re.search(r"Series (\d+): Episode (\d+)", subtitle)
+                else ""
+            )
 
         episode = Series(
             [
@@ -333,7 +348,7 @@ class BBC(Config):
         if not downloads:
             error("Requested data returned empty. See --help for more information")
             return
-            
+
         for download in downloads:
             self.download(download, title)
 
@@ -365,7 +380,9 @@ class BBC(Config):
                     text = tag.get_text().strip()
                     srt += f"{i+1}\n{start.replace('.', ',')} --> {end.replace('.', ',')}\n{text}\n\n"
 
-                with open(self.save_path / f"{filename}.srt", "w", encoding="UTF-8") as f:
+                with open(
+                    self.save_path / f"{filename}.srt", "w", encoding="UTF-8"
+                ) as f:
                     f.write(srt)
 
             self.sub_path = self.save_path / f"{filename}.srt"
