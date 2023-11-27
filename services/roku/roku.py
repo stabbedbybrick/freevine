@@ -34,6 +34,8 @@ from utils.utilities import (
     set_save_path,
     set_filename,
     get_wvd,
+    geo_error,
+    premium_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -70,12 +72,11 @@ class ROKU(Config):
     def get_data(self, url: str) -> json:
         video_id = urlparse(url).path.split("/")[2]
 
-        try:
-            return self.client.get(f"{self.api}{video_id}").json()
-        except:
-            raise KeyError(
-                "Request failed. IP-address is either blocked or content requires subscription"
-            )
+        r = self.client.get(f"{self.api}{video_id}")
+        if not r.is_success:
+            geo_error(r.status_code, None, location="US")
+        
+        return r.json()
 
     async def fetch_titles(self, async_client: httpx.AsyncClient, id: str) -> json:
         response = await async_client.get(f"{self.api}{id}")
@@ -148,16 +149,11 @@ class ROKU(Config):
 
         url = self.config["vod"]
 
-        response = self.client.post(
-            url, headers=headers, cookies=self.client.cookies, json=payload
-        ).json()
+        r = self.client.post(url, headers=headers, cookies=self.client.cookies, json=payload)
+        if not r.is_success:
+            premium_error(r.status_code)
 
-        try:
-            videos = response["playbackMedia"]["videos"]
-        except:
-            raise KeyError(
-                "Request failed. IP-address is either blocked or content requires subscription"
-            )
+        videos = r.json()["playbackMedia"]["videos"]
 
         lic_url = [
             x["drmParams"]["licenseServerURL"]

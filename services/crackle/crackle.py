@@ -32,7 +32,9 @@ from utils.utilities import (
     string_cleaning,
     set_save_path,
     set_filename,
+    kid_to_pssh,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -80,9 +82,7 @@ class CRACKLE(Config):
 
         r = self.client.get(f"{self.api}/content/{self.video_id}")
         if not r.is_success:
-            print(f"\nError! {r.status_code}\n{r.json()['error']['message']}")
-            shutil.rmtree(self.tmp)
-            sys.exit(1)
+            geo_error(r.status_code, r.json()["error"]["message"], location="US")
 
         return r.json()["data"]
 
@@ -152,23 +152,11 @@ class CRACKLE(Config):
 
         return lic_url, manifest
 
-    def get_pssh(self, soup: str) -> str:
-        kid = (
-            soup.select_one("ContentProtection")
-            .attrs.get("cenc:default_KID")
-            .replace("-", "")
-        )
-        array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
-        array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
-        array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
-        array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
-        return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         soup = BeautifulSoup(self.client.get(manifest), "xml")
         new_manifest = soup.select_one("BaseURL").text + "index.mpd"
         self.soup = BeautifulSoup(self.client.get(new_manifest), "xml")
-        pssh = self.get_pssh(self.soup)
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -177,12 +165,12 @@ class CRACKLE(Config):
 
         if quality is not None:
             if int(quality) in heights:
-                return quality, pssh
+                return quality
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, pssh
+                return closest_match
 
-        return heights[0], pssh
+        return heights[0]
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -271,7 +259,8 @@ class CRACKLE(Config):
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
             lic_url, manifest = self.get_playlist(stream.data)
-            self.res, pssh = self.get_mediainfo(manifest, self.quality)
+            self.res = self.get_mediainfo(manifest, self.quality)
+            pssh = kid_to_pssh(self.soup)
 
         keys = self.get_keys(pssh, lic_url)
         with open(self.tmp / "keys.txt", "w") as file:

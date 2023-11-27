@@ -31,6 +31,7 @@ from utils.utilities import (
     set_save_path,
     set_filename,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -68,8 +69,7 @@ class CW(Config):
     def get_data(self, url: str) -> dict:
         r = self.client.get(url)
         if not r.is_success:
-            error(f"Response: {r.status_code}")
-            exit(1)
+            geo_error(r.status_code, None, location="US")
 
         soup = BeautifulSoup(r.text, "html.parser")
         container = soup.find("div", id="video-thumbs-container")

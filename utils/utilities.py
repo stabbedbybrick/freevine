@@ -1,5 +1,7 @@
 import re
 import datetime
+import shutil
+import base64
 
 from pathlib import Path
 
@@ -79,6 +81,7 @@ def error(text: str) -> str:
     message = click.style(f" : {text}")
     return click.echo(f"{stamp} {info}{message}")
 
+
 def notification(text: str) -> str:
     """Custom error 'logger' designed to match N_m3u8DL-RE output"""
 
@@ -87,6 +90,7 @@ def notification(text: str) -> str:
     info = click.style(f"[!!]", fg="bright_magenta")
     message = click.style(f" : {text}")
     return click.echo(f"{stamp} {info}{message}")
+
 
 def is_url(value):
     if value is not None:
@@ -186,6 +190,41 @@ def add_subtitles(soup: object, subtitle: str) -> object:
     return soup
 
 
+def kid_to_pssh(soup: object) -> str:
+    kid = (
+        soup.select_one("ContentProtection")
+        .attrs.get("cenc:default_KID")
+        .replace("-", "")
+    )
+
+    array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
+    array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
+    array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
+    array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
+    return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
+
+
+def construct_pssh(soup: object) -> str:
+    kid = (
+        soup.select_one("ContentProtection")
+        .attrs.get("cenc:default_KID")
+        .replace("-", "")
+    )
+    version = "3870737368"
+    system_id = "EDEF8BA979D64ACEA3C827DCD51D21ED"
+    data = "48E3DC959B06"
+    s = f"000000{version}00000000{system_id}000000181210{kid}{data}"
+    return base64.b64encode(bytes.fromhex(s)).decode()
+
+
+def pssh_from_init(path: Path) -> str:
+    raw = Path(path).read_bytes()
+    wv = raw.rfind(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
+    if wv == -1:
+        return None
+    return base64.b64encode(raw[wv - 12 : wv - 12 + raw[wv - 9]]).decode("utf-8")
+
+
 def set_save_path(stream: object, service: object, title: str) -> Path:
     if service.save_dir != "False":
         save_path = Path(service.save_dir)
@@ -214,9 +253,35 @@ def set_save_path(stream: object, service: object, title: str) -> Path:
 
 
 def check_version(local_version: str):
-    latest_version = requests.get(
+    r = requests.get(
         "https://api.github.com/repos/stabbedbybrick/freevine/releases/latest"
-    ).json()["tag_name"]
+    )
+    if not r.ok:
+        return
 
-    if local_version != latest_version:
+    latest_version = r.json().get("tag_name")
+
+    if latest_version and local_version != latest_version:
         notification(f"New version available: {latest_version}\n")
+
+
+def general_error(message: str) -> str:
+    click.echo("\n")
+    error(f"{message}")
+    shutil.rmtree("tmp") if Path("tmp").exists() else None
+    exit(1)
+
+
+def geo_error(status: int, message: str = None, location: str = None) -> str:
+    msg = message if message is not None else f"Content unavailable outside {location}"
+    click.echo("\n")
+    error(f"<Response [{status}]> {msg}")
+    shutil.rmtree("tmp") if Path("tmp").exists() else None
+    exit(1)
+
+
+def premium_error(status: int) -> str:
+    click.echo("\n")
+    error(f"<Response [{status}]> Content requires subscription and is not supported")
+    shutil.rmtree("tmp") if Path("tmp").exists() else None
+    exit(1)

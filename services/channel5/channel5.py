@@ -14,7 +14,6 @@ import subprocess
 import json
 import hmac
 import hashlib
-import shutil
 import re
 
 from urllib.parse import urlparse, urlunparse
@@ -36,7 +35,9 @@ from utils.utilities import (
     string_cleaning,
     set_save_path,
     set_filename,
+    kid_to_pssh,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -123,9 +124,7 @@ class CHANNEL5(Config):
 
         r = self.client.get(media)
         if not r.is_success:
-            print(f"{r}\n{r.content}")
-            shutil.rmtree(self.tmp)
-            exit(1)
+            geo_error(r.status_code, r.json().get("message"), location="UK")
 
         content = r.json()
 
@@ -160,21 +159,9 @@ class CHANNEL5(Config):
 
         return manifest, lic_url
 
-    def get_pssh(self, soup: str) -> str:
-        kid = (
-            soup.select_one("ContentProtection")
-            .attrs.get("cenc:default_KID")
-            .replace("-", "")
-        )
-        array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
-        array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
-        array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
-        array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
-        return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
 
     def get_mediainfo(self, manifest: str, quality: str) -> tuple:
         self.soup = BeautifulSoup(self.client.get(manifest), "xml")
-        pssh = self.get_pssh(self.soup)
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -183,12 +170,12 @@ class CHANNEL5(Config):
 
         if quality is not None:
             if int(quality) in heights:
-                return quality, pssh
+                return quality
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, pssh
+                return closest_match
 
-        return heights[0], pssh
+        return heights[0]
 
     def get_content(self, url: str) -> tuple:
         if self.movie:
@@ -300,7 +287,8 @@ class CHANNEL5(Config):
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
             manifest, lic_url = self.get_playlist(stream.data)
-            self.res, pssh = self.get_mediainfo(manifest, self.quality)
+            self.res = self.get_mediainfo(manifest, self.quality)
+            pssh = kid_to_pssh(self.soup)
 
         keys = self.get_keys(pssh, lic_url)
         with open(self.tmp / "keys.txt", "w") as file:

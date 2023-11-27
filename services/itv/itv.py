@@ -33,7 +33,10 @@ from utils.utilities import (
     set_save_path,
     set_filename,
     add_subtitles,
+    construct_pssh,
     get_wvd,
+    geo_error,
+    premium_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -49,7 +52,7 @@ class ITV(Config):
 
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
-        
+
         self.get_options()
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
@@ -126,9 +129,11 @@ class ITV(Config):
 
         r = self.client.post(playlist, json=payload)
         if not r.is_success:
-            click.echo(f"\n\nError! {r.status_code}\n{r.content}")
-            shutil.rmtree(self.tmp)
-            sys.exit(1)
+            premium_error(
+                r.status_code
+            ) if "UserTokenValidationFailed" in r.text else geo_error(
+                r.status_code, None, location="UK"
+            )
 
         data = r.json()
 
@@ -141,17 +146,6 @@ class ITV(Config):
 
         return mpd_url, lic_url, subtitle
 
-    def get_pssh(self, soup: str) -> str:
-        kid = (
-            soup.select_one("ContentProtection")
-            .attrs.get("cenc:default_KID")
-            .replace("-", "")
-        )
-        version = "3870737368"
-        system_id = "EDEF8BA979D64ACEA3C827DCD51D21ED"
-        data = "48E3DC959B06"
-        s = f"000000{version}00000000{system_id}000000181210{kid}{data}"
-        return base64.b64encode(bytes.fromhex(s)).decode()
 
     def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
         r = requests.get(manifest)
@@ -160,7 +154,6 @@ class ITV(Config):
             sys.exit(1)
 
         self.soup = BeautifulSoup(r.content, "xml")
-        pssh = self.get_pssh(self.soup)
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -184,12 +177,12 @@ class ITV(Config):
 
         if quality is not None:
             if int(quality) in heights:
-                return quality, pssh
+                return quality
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, pssh
+                return closest_match
 
-        return heights[0], pssh
+        return heights[0]
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -249,7 +242,7 @@ class ITV(Config):
         if is_url(self.episode):
             downloads, title = self.get_episode_from_url(self.episode)
 
-        else: 
+        else:
             content, title = self.get_content(self.url)
 
             if self.episode:
@@ -266,14 +259,15 @@ class ITV(Config):
         if not downloads:
             error("Requested data returned empty. See --help for more information")
             return
-            
+
         for download in downloads:
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
             manifest, lic_url, subtitle = self.get_playlist(stream.data)
-            self.res, pssh = self.get_mediainfo(manifest, self.quality, subtitle)
+            self.res = self.get_mediainfo(manifest, self.quality, subtitle)
+            pssh = construct_pssh(self.soup)
 
         keys = self.get_keys(pssh, lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
