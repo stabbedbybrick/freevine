@@ -69,7 +69,7 @@ def _dict(keywords: str):
             "name": "CTV",
             "alias": ["CTV"],
             "url": "https://www.ctv.ca/space-graphql/apq/graphql",
-            "params": {
+            "payload": {
                 "operationName": "searchMedia",
                 "variables": {"title": f"{keywords}"},
                 "query": """
