@@ -28,7 +28,9 @@ from utils.utilities import (
     set_save_path,
     set_filename,
     add_subtitles,
+    kid_to_pssh,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -150,25 +152,13 @@ class ABC(Config):
             ]
         )
 
-    def get_pssh(self, soup: str) -> str:
-        try:
-            kid = (
-                soup.select_one("ContentProtection")
-                .attrs.get("cenc:default_KID")
-                .replace("-", "")
-            )
-        except:
-            raise AttributeError("Video unavailable outside of Australia")
-
-        array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
-        array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
-        array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
-        array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
-        return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
 
     def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
-        self.soup = BeautifulSoup(self.client.get(manifest), "xml")
-        pssh = self.get_pssh(self.soup)
+        r = self.client.get(manifest)
+        if not r.is_success:
+            geo_error(r.status_code, None, location="AU")
+
+        self.soup = BeautifulSoup(r, "xml")
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -188,21 +178,19 @@ class ABC(Config):
 
         if quality is not None:
             if int(quality) in heights:
-                return quality, pssh
+                return quality
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, pssh
+                return closest_match
 
-        return heights[0], pssh
+        return heights[0]
 
     def get_playlist(self, video_id: str) -> tuple:
-        resp = self.client.get(self.config["vod"].format(video_id=video_id)).json()
-
-        try:
-            playlist = resp["_embedded"]["playlist"]
-        except:
-            raise KeyError(resp["unavailableMessage"])
-
+        r = self.client.get(self.config["vod"].format(video_id=video_id)).json()
+        if not r.get("playable"):
+            geo_error(404, r.get("unavailableMessage"), location="AU")
+        
+        playlist = r["_embedded"]["playlist"]
         streams = [
             x["streams"]["mpegdash"] for x in playlist if x["type"] == "program"
         ][0]
@@ -289,7 +277,8 @@ class ABC(Config):
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
             manifest, subtitle = self.get_playlist(stream.id)
-            self.res, pssh = self.get_mediainfo(manifest, self.quality, subtitle)
+            self.res = self.get_mediainfo(manifest, self.quality, subtitle)
+            pssh = kid_to_pssh(self.soup)
             customdata = self.get_license_url(stream.id)
             self.client.headers.update({"customdata": customdata})
 

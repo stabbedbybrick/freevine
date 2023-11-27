@@ -13,7 +13,6 @@ import base64
 import re
 import subprocess
 import json
-import shutil
 import sys
 
 from pathlib import Path
@@ -33,7 +32,9 @@ from utils.utilities import (
     string_cleaning,
     set_save_path,
     set_filename,
+    kid_to_pssh,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -60,17 +61,17 @@ class CHANNEL4(Config):
             "request_id": asset,
             "video": {"type": "ondemand", "url": manifest},
         }
-    
+
         r = self.client.post(lic_url, json=payload)
         if not r.is_success:
             error(f"License request failed: {r.json()['status']['type']}")
             sys.exit(1)
-            
+
         return r.json()["license"]
 
     def get_keys(self, pssh: str, lic_url: str, assets: tuple):
+        wvd = get_wvd(Path.cwd())
         with self.console.status("Getting decryption keys..."):
-            wvd = get_wvd(Path.cwd())
             widevine = LocalCDM(wvd)
             challenge = widevine.challenge(pssh)
             response = self.get_license(challenge, lic_url, assets)
@@ -153,12 +154,12 @@ class CHANNEL4(Config):
         if self.config["client"] == "android":
             url = self.config["android"]["vod"].format(asset_id=asset_id)
 
-            r = self.client.get(url)
-            if not r.is_success:
-                shutil.rmtree(self.tmp)
-                raise ValueError("Invalid assetID")
+            soup = BeautifulSoup(self.client.get(url).text, "xml")
+            status = soup.find("serviceReport").get("returnCode")
+            desc = soup.find("description").text
+            if status != "200":
+                geo_error(status, desc, location="UK")
 
-            soup = BeautifulSoup(r.text, "xml")
             token = soup.select_one("token").text
             manifest = soup.select_one("uri").text
 
@@ -167,33 +168,20 @@ class CHANNEL4(Config):
 
             r = self.client.get(url)
             if not r.is_success:
-                shutil.rmtree(self.tmp)
-                raise ValueError("Invalid programmeId")
-            
+                geo_error(r.status_code, r.json().get("message"), location="UK")
+
             data = json.loads(r.content)
 
             for item in data["videoProfiles"]:
                 if item["name"] == "dashwv-dyn-stream-1":
                     token = item["streams"][0]["token"]
                     manifest = item["streams"][0]["uri"]
-        
+
         return manifest, token
 
-    def get_pssh(self, soup: str) -> str:
-        kid = (
-            soup.select_one("ContentProtection")
-            .attrs.get("cenc:default_KID")
-            .replace("-", "")
-        )
-        array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
-        array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
-        array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
-        array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
-        return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         self.soup = BeautifulSoup(self.client.get(manifest), "xml")
-        pssh = self.get_pssh(self.soup)
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -202,12 +190,12 @@ class CHANNEL4(Config):
 
         if quality is not None:
             if int(quality) in heights:
-                return quality, pssh
+                return quality
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, pssh
+                return closest_match
 
-        return heights[0], pssh
+        return heights[0]
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -246,7 +234,7 @@ class CHANNEL4(Config):
                     name=brand["selectedEpisode"]["originalTitle"],
                     year=None,
                     data=brand["selectedEpisode"].get("assetId"),
-                    description=brand["selectedEpisode"].get("summary")
+                    description=brand["selectedEpisode"].get("summary"),
                 )
             ]
         )
@@ -267,7 +255,7 @@ class CHANNEL4(Config):
         if is_url(self.episode):
             downloads, title = self.get_episode_from_url(self.episode)
 
-        else: 
+        else:
             content, title = self.get_content(self.url)
 
             if self.episode:
@@ -284,14 +272,15 @@ class CHANNEL4(Config):
         if not downloads:
             error("Requested data returned empty. See --help for more information")
             return
-            
+
         for download in downloads:
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
             manifest, token = self.get_playlist(stream.data, stream.id)
-            self.res, pssh = self.get_mediainfo(manifest, self.quality)
+            self.res = self.get_mediainfo(manifest, self.quality)
+            pssh = kid_to_pssh(self.soup)
             token, lic_url = self.decrypt_token(token)
             assets = manifest, token, stream.data
 

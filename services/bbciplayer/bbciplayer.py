@@ -12,7 +12,6 @@ import subprocess
 import re
 import json
 
-from pathlib import Path
 from collections import Counter
 from urllib.parse import urlparse, urlunparse
 
@@ -29,6 +28,7 @@ from utils.utilities import (
     string_cleaning,
     set_save_path,
     set_filename,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -157,8 +157,7 @@ class BBC(Config):
     def get_version_content(self, vpid: str) -> list:
         r = self.client.get(self.config["media"].format(vpid=vpid))
         if not r.is_success:
-            error("Request failed. Content is not available outside of UK")
-            exit(1)
+            geo_error(r.status_code, r.json().get("result"), location="UK")
 
         return r.json()["media"]
 

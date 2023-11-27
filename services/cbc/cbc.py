@@ -28,6 +28,8 @@ from utils.utilities import (
     string_cleaning,
     set_save_path,
     set_filename,
+    geo_error,
+    premium_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -264,8 +266,11 @@ class CBC(Config):
     def get_playlist(self, playsession: str) -> tuple:
         response = self.client.get(playsession).json()
 
+        if response["errorCode"] == 1:
+            geo_error(403, None, location="CA")
+
         if response["errorCode"] == 35:
-            raise ValueError("Premium content - subscription required")
+            premium_error(403)
 
         return self.get_hls(response.get("url"))
 
@@ -304,7 +309,7 @@ class CBC(Config):
 
         if is_url(self.episode):
             error("Episode URL not supported. Use standard method")
-            exit(1)
+            return
 
         content, title = self.get_content(self.url)
 

@@ -13,8 +13,6 @@ from __future__ import annotations
 import base64
 import subprocess
 import json
-import shutil
-import sys
 import urllib.parse
 
 from collections import Counter
@@ -32,7 +30,9 @@ from utils.utilities import (
     string_cleaning,
     set_save_path,
     set_filename,
+    construct_pssh,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series
 from utils.options import Options
@@ -70,7 +70,11 @@ class STV(Config):
             return widevine.parse(response)
 
     def get_data(self, url: str) -> tuple:
-        soup = BeautifulSoup(self.client.get(url), "html.parser")
+        r = self.client.get(url)
+        if not r.is_success:
+            geo_error(r.status_code, None, location="UK")
+
+        soup = BeautifulSoup(r.text, "html.parser")
         props = soup.select_one("#__NEXT_DATA__").text
         data = json.loads(props)
         data = data["props"]["pageProps"]["data"]
@@ -117,9 +121,7 @@ class STV(Config):
 
         r = self.client.get(url, headers=headers)
         if not r.is_success:
-            print(f"\nError! {r.status_code}")
-            shutil.rmtree(self.tmp)
-            sys.exit(1)
+            geo_error(r.status_code, r.json()[0].get("error_code"), location="UK")
 
         data = r.json()
 
@@ -163,21 +165,9 @@ class STV(Config):
             ]
         )
 
-    def get_pssh(self, soup: str) -> str:
-        kid = (
-            soup.select_one("ContentProtection")
-            .attrs.get("cenc:default_KID")
-            .replace("-", "")
-        )
-        version = "3870737368"
-        system_id = "EDEF8BA979D64ACEA3C827DCD51D21ED"
-        data = "48E3DC959B06"
-        s = f"000000{version}00000000{system_id}000000181210{kid}{data}"
-        return base64.b64encode(bytes.fromhex(s)).decode()
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         self.soup = BeautifulSoup(self.client.get(manifest), "xml")
-        pssh = self.get_pssh(self.soup) if self.drm else None
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -186,12 +176,12 @@ class STV(Config):
 
         if quality is not None:
             if int(quality) in heights:
-                return quality, pssh
+                return quality
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, pssh
+                return closest_match
 
-        return heights[0], pssh
+        return heights[0]
 
     def get_content(self, url: str) -> object:
         with self.console.status("Fetching titles..."):
@@ -278,7 +268,8 @@ class STV(Config):
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
             manifest, lic_url = self.get_playlist(stream.data)
-            self.res, pssh = self.get_mediainfo(manifest, self.quality)
+            self.res = self.get_mediainfo(manifest, self.quality)
+            pssh = construct_pssh(self.soup) if self.drm else None
 
         keys = None
         if self.drm:
@@ -292,7 +283,7 @@ class STV(Config):
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest
-        self.key_file = self.tmp / "keys.txt" if self.drm else None
+        self.key_file = self.tmp / "keys.txt" if keys else None
         self.sub_path = None
 
         info(f"{str(stream)}")

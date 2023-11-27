@@ -38,6 +38,7 @@ from utils.utilities import (
     set_save_path,
     set_filename,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -108,7 +109,11 @@ class PLUTO(Config):
         self.client.headers.update({"Authorization": f"Bearer {self.token}"})
         self.client.params = params
 
-        return self.client.get(info).json()
+        r = self.client.get(info)
+        if not r.is_success:
+            geo_error(r.status_code, r.json().get("message"))
+
+        return r.json()
 
     def get_series(self, url: str) -> Series:
         data = self.get_data(url)

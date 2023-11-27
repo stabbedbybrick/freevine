@@ -16,8 +16,6 @@ import base64
 import re
 import subprocess
 import json
-import shutil
-import sys
 
 from urllib.parse import urlparse
 from pathlib import Path
@@ -34,7 +32,9 @@ from utils.utilities import (
     string_cleaning,
     set_save_path,
     set_filename,
+    pssh_from_init,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -78,9 +78,7 @@ class TUBITV(Config):
 
         r = self.client.get(f"{content}")
         if not r.is_success:
-            print(f"\nError! {r.status_code}")
-            shutil.rmtree(self.tmp)
-            sys.exit(1)
+            geo_error(r.status_code, None, location="NA")
 
         return r.json()
 
@@ -130,7 +128,7 @@ class TUBITV(Config):
             ]
         )
 
-    def get_pssh(self, mpd: str) -> str:
+    def get_init(self, mpd: str) -> str:
         r = self.client.get(mpd)
         url = re.search('#EXT-X-MAP:URI="(.*?)"', r.text).group(1)
 
@@ -140,11 +138,7 @@ class TUBITV(Config):
         with open(self.tmp / "init.mp4", "wb") as f:
             f.write(response.read())
 
-        raw = Path(self.tmp / "init.mp4").read_bytes()
-        wv = raw.rfind(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
-        if wv == -1:
-            return None
-        return base64.b64encode(raw[wv - 12 : wv - 12 + raw[wv - 9]]).decode("utf-8")
+        return pssh_from_init(Path(self.tmp / "init.mp4"))
     
 
     def get_mediainfo(self, manifest: str, quality: str, res=""):
@@ -284,7 +278,7 @@ class TUBITV(Config):
 
         keys = None
         if stream.lic_url:
-            pssh = self.get_pssh(manifest)
+            pssh = self.get_init(manifest)
             keys = self.get_keys(pssh, stream.lic_url)
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
@@ -295,7 +289,7 @@ class TUBITV(Config):
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = stream.data
-        self.key_file = self.tmp / "keys.txt" if stream.lic_url else None
+        self.key_file = self.tmp / "keys.txt" if keys else None
         self.sub_path = None
 
         if stream.subtitle is not None:
@@ -305,7 +299,7 @@ class TUBITV(Config):
                 f.write(r.content)
 
         info(f"{str(stream)}")
-        info(f"{keys[0]}") if stream.lic_url else None
+        info(f"{keys[0]}") if keys else None
         click.echo("")
 
         args, file_path = get_args(self)

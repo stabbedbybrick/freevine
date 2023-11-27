@@ -32,7 +32,9 @@ from utils.utilities import (
     set_save_path,
     add_subtitles,
     set_filename,
+    pssh_from_init,
     get_wvd,
+    geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
 from utils.options import Options
@@ -230,11 +232,8 @@ class CTV(Config):
         subtitle = f"{base}/{id}/contentPackages/{pkg_id}/manifest.vtt"
         return manifest, subtitle
 
-    def get_pssh(self, soup):
-        try:
-            base = soup.select_one("BaseURL").text
-        except AttributeError:
-            raise AttributeError("Failed to fetch manifest. Possible GEO block")
+    def get_init(self, soup):
+        base = soup.select_one("BaseURL").text
 
         rep_id = soup.select_one("Representation").attrs.get("id")
         template = (
@@ -248,16 +247,14 @@ class CTV(Config):
         with open(self.tmp / "init.mp4", "wb") as f:
             f.write(r.content)
 
-        path = Path(self.tmp / "init.mp4")
-        raw = Path(path).read_bytes()
-        wv = raw.rfind(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
-        if wv == -1:
-            return None
-        return base64.b64encode(raw[wv - 12 : wv - 12 + raw[wv - 9]]).decode("utf-8")
+        return pssh_from_init(Path(self.tmp / "init.mp4"))
 
     def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
-        soup = BeautifulSoup(self.client.get(manifest), "xml")
-        pssh = self.get_pssh(soup)
+        r = self.client.get(manifest)
+        if not r.is_success:
+            geo_error(r.status_code, r.json().get("Message"), location="CA")
+
+        soup = BeautifulSoup(r.text, "xml")
 
         soup.find("AdaptationSet", {"contentType": "video"}).append(
             soup.new_tag(
@@ -287,12 +284,12 @@ class CTV(Config):
 
         if quality is not None:
             if int(quality) in heights:
-                return quality, pssh, audio
+                return quality, audio
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, pssh, audio
+                return closest_match, audio
 
-        return heights[0], pssh, audio
+        return heights[0], audio
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -402,7 +399,8 @@ class CTV(Config):
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
             manifest, subtitle = self.get_playlist(stream.data, stream.id)
-            self.res, pssh, audio = self.get_mediainfo(manifest, self.quality, subtitle)
+            self.res, audio = self.get_mediainfo(manifest, self.quality, subtitle)
+            pssh = self.get_init(self.soup)
 
         keys = self.get_keys(pssh, self.lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
