@@ -28,6 +28,7 @@ from utils.utilities import (
     string_cleaning,
     set_save_path,
     set_filename,
+    is_title_match,
     geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
@@ -44,6 +45,8 @@ class BBC(Config):
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
 
+        self.series_re = r"^(?:https?://(?:www\.)?bbc\.co\.uk/(?:iplayer/episodes|programmes)/)(?P<id>[a-z0-9]+)"
+        self.episode_re = r"^(?:https?://(?:www\.)?bbc\.co\.uk/(iplayer/episode)/)(?P<id>[a-z0-9]+)"
         self.get_options()
 
     def get_data(self, pid: str, slice_id: str) -> dict:
@@ -164,8 +167,7 @@ class BBC(Config):
     def get_playlist(self, pid: str) -> tuple:
         r = self.client.get(self.config["playlist"].format(pid=pid)).json()
         versions = [
-            x["smpConfig"]["items"][0]["vpid"]
-            for x in r["allAvailableVersions"]
+            x["smpConfig"]["items"][0]["vpid"] for x in r["allAvailableVersions"]
         ]
 
         for version in versions:
@@ -176,7 +178,10 @@ class BBC(Config):
         for item in media:
             if item["kind"] == "video" and int(item["height"]) >= 720:
                 videos = item["connection"]
-            elif item["kind"] == "video" and max([int(x.get("height", 0)) for x in media]) < 720:
+            elif (
+                item["kind"] == "video"
+                and max([int(x.get("height", 0)) for x in media]) < 720
+            ):
                 videos = item["connection"]
                 self.height = item["height"]
 
@@ -240,17 +245,8 @@ class BBC(Config):
         return self.height if not heights else heights[0]
 
     def parse_url(self, url: str):
-        regex = (
-            r"^(?:https?://(?:www\.)?bbc\.co\.uk/iplayer/episodes?/)?(?P<id>[a-z0-9]+)"
-        )
-
-        try:
-            pid = re.match(regex, url).group("id")
-        except AttributeError:
-            error("Improper URL format")
-            exit(1)
-
-        return pid
+        if is_title_match(url, self.series_re):
+            return re.match(self.series_re, url).group("id")
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -279,9 +275,12 @@ class BBC(Config):
         return content, title
 
     def get_episode_from_url(self, url: str):
-        html = self.client.get(url).text
+        r = self.client.get(url)
+        if not r.is_success:
+            geo_error(r.status_code, None, location="UK")
+
         redux = re.search(
-            "window.__IPLAYER_REDUX_STATE__ = (.*?);</script>", html
+            "window.__IPLAYER_REDUX_STATE__ = (.*?);</script>", r.text
         ).group(1)
         data = json.loads(redux)
         subtitle = data["episode"].get("subtitle")
@@ -327,7 +326,7 @@ class BBC(Config):
             error("URL is missing an argument. See --help for more information")
             return
 
-        if is_url(self.episode):
+        if is_url(self.episode) and is_title_match(self.episode, self.episode_re):
             downloads, title = self.get_episode_from_url(self.episode)
 
         else:
