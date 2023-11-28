@@ -32,7 +32,7 @@ from utils.utilities import (
     premium_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
-from utils.options import Options
+from utils.options import get_downloads
 from utils.args import get_args
 from utils.info import print_info
 from utils.config import Config
@@ -42,9 +42,17 @@ class CBC(Config):
     def __init__(self, config, srvc_api, srvc_config, **kwargs):
         super().__init__(config, srvc_api, srvc_config, **kwargs)
 
+        if self.info:
+            error("Info feature is currently not supported")
+            return
+
+        if is_url(self.episode):
+            error("Episode URL not supported. Use standard method")
+            return
+
         if self.sub_only:
             info("Subtitle downloads are not supported on this service")
-            exit(1)
+            return
 
         with open(self.srvc_api, "r") as f:
             self.config.update(yaml.safe_load(f))
@@ -299,35 +307,8 @@ class CBC(Config):
 
 
     def get_options(self) -> None:
-        opt = Options(self)
+        downloads, title = get_downloads(self)
 
-        if self.url and not any(
-            [self.episode, self.season, self.complete, self.movie, self.titles]
-        ):
-            error("URL is missing an argument. See --help for more information")
-            return
-
-        if is_url(self.episode):
-            error("Episode URL not supported. Use standard method")
-            return
-
-        content, title = self.get_content(self.url)
-
-        if self.episode:
-            downloads = opt.get_episode(content)
-        if self.season:
-            downloads = opt.get_season(content)
-        if self.complete:
-            downloads = opt.get_complete(content)
-        if self.movie:
-            downloads = opt.get_movie(content)
-        if self.titles:
-            opt.list_titles(content)
-
-        if not downloads:
-            error("Requested data returned empty. See --help for more information")
-            return
-            
         for download in downloads:
             self.download(download, title)
 

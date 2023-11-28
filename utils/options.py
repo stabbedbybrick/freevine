@@ -1,6 +1,13 @@
 import shutil
+import re
 
-from utils.utilities import info, set_range
+from utils.utilities import (
+    info,
+    set_range,
+    is_url,
+    is_title_match,
+    general_error,
+)
 
 
 class Options:
@@ -138,3 +145,38 @@ class Options:
             exit(0)
 
         return downloads
+
+
+def get_downloads(stream: object) -> tuple:
+    if stream.url and not any(
+        [stream.episode, stream.season, stream.complete, stream.movie, stream.titles]
+    ):
+        general_error("URL is missing an argument. See --help for more information")
+
+    if (
+        hasattr(stream, "episode_re")
+        and is_url(stream.episode)
+        and is_title_match(stream.episode, stream.episode_re)
+    ):
+        downloads, title = stream.get_episode_from_url(stream.episode)
+    elif is_url(stream.episode):
+        downloads, title = stream.get_episode_from_url(stream.episode)
+    else:
+        options = Options(stream)
+        content, title = stream.get_content(stream.url)
+
+        if stream.episode:
+            downloads = options.get_episode(content)
+        if stream.season:
+            downloads = options.get_season(content)
+        if stream.complete:
+            downloads = options.get_complete(content)
+        if stream.movie:
+            downloads = options.get_movie(content)
+        if stream.titles:
+            options.list_titles(content)
+
+    if not downloads:
+        general_error("Requested data returned empty. See --help for more information")
+
+    return downloads, title

@@ -23,7 +23,6 @@ from bs4 import BeautifulSoup
 
 from utils.utilities import (
     info,
-    is_url,
     error,
     string_cleaning,
     set_save_path,
@@ -32,7 +31,7 @@ from utils.utilities import (
     geo_error,
 )
 from utils.titles import Episode, Series, Movie, Movies
-from utils.options import Options
+from utils.options import get_downloads
 from utils.args import get_args
 from utils.info import print_info
 from utils.config import Config
@@ -318,34 +317,7 @@ class BBC(Config):
         return [episode[0]], title
 
     def get_options(self) -> None:
-        opt = Options(self)
-
-        if self.url and not any(
-            [self.episode, self.season, self.complete, self.movie, self.titles]
-        ):
-            error("URL is missing an argument. See --help for more information")
-            return
-
-        if is_url(self.episode) and is_title_match(self.episode, self.episode_re):
-            downloads, title = self.get_episode_from_url(self.episode)
-
-        else:
-            content, title = self.get_content(self.url)
-
-            if self.episode:
-                downloads = opt.get_episode(content)
-            if self.season:
-                downloads = opt.get_season(content)
-            if self.complete:
-                downloads = opt.get_complete(content)
-            if self.movie:
-                downloads = opt.get_movie(content)
-            if self.titles:
-                opt.list_titles(content)
-
-        if not downloads:
-            error("Requested data returned empty. See --help for more information")
-            return
+        downloads, title = get_downloads(self)
 
         for download in downloads:
             self.download(download, title)
