@@ -99,6 +99,13 @@ def is_url(value):
         return False
 
 
+def is_title_match(string: str, title: re):
+    if re.match(title, string, re.IGNORECASE):
+        return True
+    else:
+        general_error("Title URL is incorrect. See --help for more information")
+
+
 def string_cleaning(filename: str) -> str:
     filename = unidecode(filename)
     filename = filename.replace("&", "and")
