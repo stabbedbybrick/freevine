@@ -229,7 +229,29 @@ class CW(Config):
         return content, title
 
     def get_episode_from_url(self, url: str):
-        episode = self.get_series(url)
+        id = url.split("=")[1]
+        r = self.client.get(self.config["vod"].format(guid=id))
+        if not r.is_success:
+            geo_error(r.status_code, None, location="US")
+        
+        data = r.json().get("video")
+
+        episode = Series(
+            [
+                Episode(
+                    id_=None,
+                    service="CW",
+                    title=data.get("series_name"),
+                    season=int(data.get("season")) or 0,
+                    number=int(data.get("episode")[1:]) or 0,
+                    name=data.get("title"),
+                    year=None,
+                    data=data.get("mpx_url"),
+                    description=data.get("description_long"),
+                )
+            ]
+        )
+
         title = string_cleaning(str(episode))
 
         return [episode[0]], title
