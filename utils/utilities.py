@@ -266,10 +266,14 @@ def check_version(local_version: str):
     if not r.ok:
         return
 
-    latest_version = r.json().get("tag_name")
+    version = r.json().get("tag_name")
 
-    if latest_version and local_version != latest_version:
-        notification(f"New version available: {latest_version}\n")
+    if version:
+        local_version = int(re.sub(r"[v.]", "", local_version))
+        latest_version = int(re.sub(r"[v.]", "", version))
+
+    if latest_version and local_version < latest_version:
+        notification(f"New version available! {version}\n")
 
 
 def general_error(message: str) -> str:

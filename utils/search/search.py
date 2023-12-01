@@ -72,7 +72,8 @@ def search_post(search: object, service: dict):
         return None
 
 
-def search_engine(alias: str, keywords: str):
+def search_engine(search: tuple):
+    alias, keywords = search
     cfg = Config(alias, keywords)
 
     services = [
