@@ -149,18 +149,53 @@ class CHANNEL4(Config):
             ]
         )
 
-    def get_playlist(self, asset_id: str, episode_id: str) -> tuple:
+    def authenticate(self):
+        login = self.config["login"]
+
+        headers = {
+            "authorization": f"Basic {self.config['android']['auth']}",
+            "x-c4-platform-name": "android",
+            "x-c4-device-type": "mobile",
+            "x-c4-app-version": "android_app:9.4.2",
+            "x-c4-device-name": "Sony C6903 (C6903)",
+            "x-c4-optimizely-datafile": "2908",
+        }
+
+        data = {
+            "grant_type": "password",
+            "username": "ol.ivea.gu.ilar.4.1.2@gmail.com",
+            "password": "Ol.ivea.gu.ilar.4.1.2",
+        }
+
+        r = self.client.post(login, headers=headers, data=data)
+        if not r.is_success:
+            error(f"{r} {r.text}")
+            sys.exit(1)
+
+        return r.json()["accessToken"]
+
+    def get_playlist(self, episode_id: str) -> tuple:
         if self.config["client"] == "android":
-            url = self.config["android"]["vod"].format(asset_id=asset_id)
+            url = self.config["android"]["vod"].format(episode_id=episode_id)
 
-            soup = BeautifulSoup(self.client.get(url).text, "xml")
-            status = soup.find("serviceReport").get("returnCode")
-            desc = soup.find("description").text
-            if status != "200":
-                geo_error(status, desc, location="UK")
+            token = self.authenticate()
 
-            token = soup.select_one("token").text
-            manifest = soup.select_one("uri").text
+            headers = {
+                "authorization": f"Bearer {token}",
+                "x-c4-platform-name": "android",
+                "x-c4-device-type": "mobile",
+                "x-c4-app-version": '"android_app:9.4.2"',
+                "x-c4-device-name": "Sony C6903 (C6903)",
+                "x-c4-optimizely-datafile": "2908",
+            }
+
+            r = self.client.get(url=url, headers=headers)
+            if not r.is_success:
+                error(f"{r} {r.text}")
+                sys.exit(1)
+
+            manifest = r.json()["videoProfiles"][0]["streams"][0]["uri"]
+            token = r.json()["videoProfiles"][0]["streams"][0]["token"]
 
         else:
             url = self.config["web"]["vod"].format(programmeId=episode_id)
@@ -177,7 +212,6 @@ class CHANNEL4(Config):
                     manifest = item["streams"][0]["uri"]
 
         return manifest, token
-
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         self.soup = BeautifulSoup(self.client.get(manifest), "xml")
@@ -250,7 +284,7 @@ class CHANNEL4(Config):
 
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
-            manifest, token = self.get_playlist(stream.data, stream.id)
+            manifest, token = self.get_playlist(stream.id)
             self.res = self.get_mediainfo(manifest, self.quality)
             pssh = kid_to_pssh(self.soup)
             token, lic_url = self.decrypt_token(token)
