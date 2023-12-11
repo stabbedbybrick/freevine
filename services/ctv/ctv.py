@@ -53,7 +53,7 @@ class CTV(Config):
 
         self.lic_url = self.config["lic"]
         self.api = self.config["api"]
-        
+
         self.get_options()
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
@@ -255,11 +255,14 @@ class CTV(Config):
             geo_error(r.status_code, r.json().get("Message"), location="CA")
 
         soup = BeautifulSoup(r.text, "xml")
+        elements = soup.find_all("Representation")
+
+        init = elements[0].attrs["id"].rsplit("-", 1)[0]
 
         soup.find("AdaptationSet", {"contentType": "video"}).append(
             soup.new_tag(
                 "Representation",
-                id="h264-ffa6v1-30p-primary-7200000",
+                id=f"{init}-7200000",
                 codecs="avc1.64001f",
                 mimeType="video/mp4",
                 width="1920",
@@ -268,7 +271,6 @@ class CTV(Config):
             )
         )
 
-        elements = soup.find_all("Representation")
         codecs = [x.attrs["codecs"] for x in elements if x.attrs.get("codecs")]
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -340,7 +342,7 @@ class CTV(Config):
                 }
                 """,
         }
-        
+
         data = self.client.post(self.api, json=payload).json()["data"]["axisContent"]
 
         episode = Series(
