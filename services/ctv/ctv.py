@@ -255,14 +255,15 @@ class CTV(Config):
             geo_error(r.status_code, r.json().get("Message"), location="CA")
 
         soup = BeautifulSoup(r.text, "xml")
-        elements = soup.find_all("Representation")
+        tags = soup.find_all("Representation")
 
-        init = elements[0].attrs["id"].rsplit("-", 1)[0]
+        video_id = [x.attrs["id"] for x in tags if x.attrs.get("mimeType") == "video/mp4"][-1]
+        id_base = video_id.rsplit("-", 1)[0]
 
         soup.find("AdaptationSet", {"contentType": "video"}).append(
             soup.new_tag(
                 "Representation",
-                id=f"{init}-7200000",
+                id=f"{id_base}-7200000",
                 codecs="avc1.64001f",
                 mimeType="video/mp4",
                 width="1920",
@@ -271,9 +272,10 @@ class CTV(Config):
             )
         )
 
-        codecs = [x.attrs["codecs"] for x in elements if x.attrs.get("codecs")]
+        tags = soup.find_all("Representation") # TODO
+        codecs = [x.attrs["codecs"] for x in tags if x.attrs.get("codecs")]
         heights = sorted(
-            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
+            [int(x.attrs["height"]) for x in tags if x.attrs.get("height")],
             reverse=True,
         )
 
