@@ -10,49 +10,39 @@ Channel5 now offers up to 1080p
 from __future__ import annotations
 
 import base64
-import subprocess
-import json
-import hmac
 import hashlib
+import hmac
+import json
 import re
-
-from urllib.parse import urlparse, urlunparse
+import subprocess
+import sys
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse, urlunparse
 
 import click
-import yaml
-
 from bs4 import BeautifulSoup
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    kid_to_pssh,
-    get_wvd,
-    geo_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
 from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    get_wvd,
+    kid_to_pssh,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class CHANNEL5(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.gist = self.client.get(
             self.config["gist"].format(timestamp=datetime.now().timestamp())
@@ -62,18 +52,15 @@ class CHANNEL5(Config):
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_data(self, url: str) -> json:
         show = urlparse(url).path.split("/")[2]
@@ -123,8 +110,9 @@ class CHANNEL5(Config):
         key = base64.b64decode(self.gist["key"])
 
         r = self.client.get(media)
-        if not r.is_success:
-            geo_error(r.status_code, r.json().get("message"), location="UK")
+        if not r.ok:
+            self.log.error(r.json().get("message"))
+            sys.exit(1)
 
         content = r.json()
 
@@ -159,9 +147,11 @@ class CHANNEL5(Config):
 
         return manifest, lic_url
 
-
     def get_mediainfo(self, manifest: str, quality: str) -> tuple:
-        self.soup = BeautifulSoup(self.client.get(manifest), "xml")
+        r = self.client.get(manifest)
+        r.raise_for_status()
+
+        self.soup = BeautifulSoup(r.text, "xml")
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -179,14 +169,14 @@ class CHANNEL5(Config):
 
     def get_content(self, url: str) -> tuple:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -194,58 +184,59 @@ class CHANNEL5(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        url = url.lower()
-        series_re = r"^(?:https?://(?:www\.)?channel5\.com/show/)?(?P<id>[a-z0-9-]+)"
-        episode_re = r"https?://www.channel5.com/(?:show/)?(?P<id>[^/]+)/(?P<season>[^/]+)/(?P<episode>[^/]+)"
+        with self.console.status("Getting episode from URL..."):
+            url = url.lower()
+            series_re = r"^(?:https?://(?:www\.)?channel5\.com/show/)?(?P<id>[a-z0-9-]+)"
+            episode_re = r"https?://www.channel5.com/(?:show/)?(?P<id>[^/]+)/(?P<season>[^/]+)/(?P<episode>[^/]+)"
 
-        series_match = re.search(series_re, url)
-        episode_match = re.search(episode_re, url)
+            series_match = re.search(series_re, url)
+            episode_match = re.search(episode_re, url)
 
-        if series_match:
-            url = self.config["content"].format(show=series_match.group("id"))
+            if series_match:
+                url = self.config["content"].format(show=series_match.group("id"))
 
-        if episode_match:
-            url = self.config["single"].format(
-                show=episode_match.group("id"),
-                season=episode_match.group("season"),
-                episode=episode_match.group("episode"),
-            )
-
-        if not series_match and not episode_match:
-            error("Invalid URL")
-            exit(1)
-
-        data = self.client.get(url).json()
-
-        episodes = [data] if episode_match else data["episodes"]
-
-        episode = Series(
-            [
-                Episode(
-                    id_=None,
-                    service="MY5",
-                    title=episode.get("sh_title"),
-                    season=int(episode.get("sea_num"))
-                    if data.get("sea_num") is not None
-                    else 0,
-                    number=int(episode.get("ep_num"))
-                    if data.get("ep_num") is not None
-                    else 0,
-                    name=episode.get("sh_title"),
-                    year=None,
-                    data=episode.get("id"),
-                    description=episode.get("m_desc"),
+            if episode_match:
+                url = self.config["single"].format(
+                    show=episode_match.group("id"),
+                    season=episode_match.group("season"),
+                    episode=episode_match.group("episode"),
                 )
-                for episode in episodes
-            ]
-        )
+
+            if not series_match and not episode_match:
+                self.log.error("Invalid URL")
+                sys.exit(1)
+
+            data = self.client.get(url).json()
+
+            episodes = [data] if episode_match else data["episodes"]
+
+            episode = Series(
+                [
+                    Episode(
+                        id_=None,
+                        service="MY5",
+                        title=episode.get("sh_title"),
+                        season=int(episode.get("sea_num"))
+                        if data.get("sea_num") is not None
+                        else 0,
+                        number=int(episode.get("ep_num"))
+                        if data.get("ep_num") is not None
+                        else 0,
+                        name=episode.get("sh_title"),
+                        year=None,
+                        data=episode.get("id"),
+                        description=episode.get("m_desc"),
+                    )
+                    for episode in episodes
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -267,28 +258,25 @@ class CHANNEL5(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         for key in keys:
-            info(f"{key}")
+            self.log.info(f"{key}")
         click.echo("")
 
         args, file_path = get_args(self)
 
-        if not file_path.exists():
+        if file_path.exists():
+            self.log.info(f"{self.filename} already exists - skipping download\n")
+            self.sub_path.unlink() if self.sub_path else None
+            pass
+        else:
             try:
                 subprocess.run(args, check=True)
             except Exception as e:
                 raise ValueError(f"{e}")
-        else:
-            info(f"{self.filename} already exist. Skipping download\n")
-            self.sub_path.unlink() if self.sub_path else None
-            pass

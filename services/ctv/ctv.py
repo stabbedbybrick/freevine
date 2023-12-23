@@ -7,49 +7,36 @@ Quality: up to 1080p and Dolby 5.1 audio
 """
 from __future__ import annotations
 
-import base64
-import subprocess
-import json
 import asyncio
-import shutil
-import sys
-
-from urllib.parse import urlparse
-from pathlib import Path
+import json
+import subprocess
 from collections import Counter
+from pathlib import Path
+from urllib.parse import urlparse
 
 import click
 import httpx
-import yaml
-
 from bs4 import BeautifulSoup
 
-from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    add_subtitles,
-    set_filename,
-    pssh_from_init,
-    get_wvd,
-    geo_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
 from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    add_subtitles,
+    from_mpd,
+    get_wvd,
+    pssh_from_init,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class CTV(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.lic_url = self.config["lic"]
         self.api = self.config["api"]
@@ -58,18 +45,15 @@ class CTV(Config):
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_title_id(self, url: str) -> str:
         path = urlparse(url).path
@@ -220,15 +204,12 @@ class CTV(Config):
         base = f"https://capi.9c9media.com/destinations/{hub}/platforms/desktop"
 
         r = self.client.get(f"{base}/contents/{id}/contentPackages")
-        if not r.is_success:
-            print(f"\nError! {r.status_code}")
-            shutil.rmtree(self.tmp)
-            sys.exit(1)
+        r.raise_for_status()
 
         pkg_id = r.json()["Items"][0]["Id"]
         base += "/playback/contents"
 
-        manifest = f"{base}/{id}/contentPackages/{pkg_id}/manifest.mpd?filter=fe&mca=true&mta=true"
+        manifest = f"{base}/{id}/contentPackages/{pkg_id}/manifest.mpd?filter="
         subtitle = f"{base}/{id}/contentPackages/{pkg_id}/manifest.vtt"
         return manifest, subtitle
 
@@ -243,36 +224,45 @@ class CTV(Config):
         )
 
         r = self.client.get(f"{base}{template}")
+        r.raise_for_status()
 
         with open(self.tmp / "init.mp4", "wb") as f:
             f.write(r.content)
 
         return pssh_from_init(Path(self.tmp / "init.mp4"))
 
+    async def fetch_manifests(self, async_client: httpx.AsyncClient, url: str):
+        try:
+            response = await async_client.get(url)
+            response.raise_for_status()
+        except httpx.HTTPStatusError:
+            pass
+
+        return from_mpd(response.text, url)
+
+    async def parse_manifests(self, data: dict) -> list:
+        async with httpx.AsyncClient() as async_client:
+            tasks = [self.fetch_manifests(async_client, x) for x in data]
+            return await asyncio.gather(*tasks)
+
     def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
-        r = self.client.get(manifest)
-        if not r.is_success:
-            geo_error(r.status_code, r.json().get("Message"), location="CA")
-
-        soup = BeautifulSoup(r.text, "xml")
-        tags = soup.find_all("Representation")
-
-        video_id = [x.attrs["id"] for x in tags if x.attrs.get("mimeType") == "video/mp4"][-1]
-        id_base = video_id.rsplit("-", 1)[0]
-
-        soup.find("AdaptationSet", {"contentType": "video"}).append(
-            soup.new_tag(
-                "Representation",
-                id=f"{id_base}-7200000",
-                codecs="avc1.64001f",
-                mimeType="video/mp4",
-                width="1920",
-                height="1080",
-                bandwidth="7200000",
-            )
+        content = asyncio.run(
+            self.parse_manifests([manifest + num for num in ["14", "3", "25"]])
         )
 
-        tags = soup.find_all("Representation") # TODO
+        for streams in content:
+            for track in streams:
+                height = track.get("height", "")
+
+                if "1080" in height or "720" in height:
+                    manifest = streams[0].get("url")
+                else:
+                    manifest = manifest
+
+        r = self.client.get(manifest)
+        self.soup = BeautifulSoup(r.text, "xml")
+
+        tags = self.soup.find_all("Representation")
         codecs = [x.attrs["codecs"] for x in tags if x.attrs.get("codecs")]
         heights = sorted(
             [int(x.attrs["height"]) for x in tags if x.attrs.get("height")],
@@ -281,7 +271,7 @@ class CTV(Config):
 
         audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
 
-        self.soup = add_subtitles(soup, subtitle)
+        self.soup = add_subtitles(self.soup, subtitle)
 
         with open(self.tmp / "manifest.mpd", "w") as f:
             f.write(str(self.soup.prettify()))
@@ -297,14 +287,14 @@ class CTV(Config):
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -312,56 +302,57 @@ class CTV(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        title_id = self.get_title_id(url)
+        with self.console.status("Getting episode from URL..."):
+            title_id = self.get_title_id(url)
 
-        payload = {
-            "operationName": "axisContent",
-            "variables": {"id": f"{title_id}"},
-            "query": """
-                query axisContent($id: ID!) {
-                    axisContent(id: $id) {
-                        axisId
-                        title
-                        description
-                        contentType
-                        seasonNumber
-                        episodeNumber
-                        axisMedia {
+            payload = {
+                "operationName": "axisContent",
+                "variables": {"id": f"{title_id}"},
+                "query": """
+                    query axisContent($id: ID!) {
+                        axisContent(id: $id) {
+                            axisId
                             title
-                        }
-                        axisPlaybackLanguages {
-                                language
-                                destinationCode
+                            description
+                            contentType
+                            seasonNumber
+                            episodeNumber
+                            axisMedia {
+                                title
+                            }
+                            axisPlaybackLanguages {
+                                    language
+                                    destinationCode
+                            }
                         }
                     }
-                }
-                """,
-        }
+                    """,
+            }
 
-        data = self.client.post(self.api, json=payload).json()["data"]["axisContent"]
+            data = self.client.post(self.api, json=payload).json()["data"]["axisContent"]
 
-        episode = Series(
-            [
-                Episode(
-                    id_=data["axisId"],
-                    service="CTV",
-                    title=data["axisMedia"]["title"],
-                    season=int(data["seasonNumber"]),
-                    number=int(data["episodeNumber"]),
-                    name=data["title"],
-                    year=None,
-                    data=data["axisPlaybackLanguages"][0]["destinationCode"],
-                    description=data.get("description"),
-                )
-            ]
-        )
+            episode = Series(
+                [
+                    Episode(
+                        id_=data["axisId"],
+                        service="CTV",
+                        title=data["axisMedia"]["title"],
+                        season=int(data["seasonNumber"]),
+                        number=int(data["episodeNumber"]),
+                        name=data["title"],
+                        year=None,
+                        data=data["axisPlaybackLanguages"][0]["destinationCode"],
+                        description=data.get("description"),
+                    )
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -383,18 +374,15 @@ class CTV(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio)
         self.save_path = set_save_path(stream, self, title)
         self.manifest = self.tmp / "manifest.mpd"
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         for key in keys:
-            info(f"{key}")
+            self.log.info(f"{key}")
         click.echo("")
 
         args, file_path = get_args(self)
@@ -405,6 +393,6 @@ class CTV(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

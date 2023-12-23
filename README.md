@@ -17,25 +17,8 @@
 - [x] Automatic PSSH, manifest, and key retreival 
 - [x] Config file with customized settings
 - [x] Search option
+- [x] Option to add login credentials
 
-## Supported services:
-
-```
-The Roku Channel: 1080p, DD5.1
-CBC Gem:          1080p, DD5.1
-CTV:              1080p, DD5.1
-Channel4 All4:    1080p, AAC2.0
-Channel5 My5:     1080p, AAC2.0
-BBC iPlayer:      1080p, AAC2.0
-STV Player:       1080p, AAC2.0
-ABC iView:        1080p, AAC2.0
-UKTVPlay:         1080p, AAC2.0
-Crackle:          1080p, AAC2.0
-CWTV:             1080p, AAC2.0
-Pluto:            720p,  AAC2.0
-ITVx:             720p,  AAC2.0
-Tubi:             720p,  AAC2.0
-```
 ## Requirements:
 
 * [Python](https://www.python.org/)
@@ -65,52 +48,56 @@ Tubi:             720p,  AAC2.0
 
 ## Usage:
 
-Available commands:
+Available arguments:
 
 ```
-  --help                  Help documentation
-
-  --search                Search service(s) for titles
-  --threads               Concurrent download fragments
-  --format                Specify file format
-  --muxer                 Select muxer
-  --no-mux                Choose to not mux files
-  --save-name             Name of saved file
-  --save-dir              Save directory
-  --sub-only              Download only subtitles
-  --sub-no-mux            Choose to not mux subtitles
-  --sub-no-fix            Leave subtitles untouched
-  --use-shaka-packager    Use shaka-packager to decrypt
-  -e, --episode           Download episode(s)
-  -s, --season            Download complete season
-  -c, --complete          Download complete series
-  -m, --movie             Download movie
-  -t, --titles            List all titles
-  -i, --info              Print title info
-  -sv, --select-video     Select video stream
-  -sa, --select-audio     Select audio stream
-  -dv, --drop-video       Drop video stream
-  -da, --drop-audio       Drop audio stream
-  -ss, --select-subtitle  Select subtitle
-  -ds, --drop-subtitle    Drop subtitle
+  --threads TEXT               Concurrent download fragments
+  --format TEXT                Specify file format
+  --muxer TEXT                 Select muxer
+  --no-mux                     Choose to not mux files
+  --save-name TEXT             Name of saved file
+  --save-dir TEXT              Save directory
+  --sub-only                   Download only subtitles
+  --sub-no-mux                 Choose to not mux subtitles
+  --sub-no-fix                 Leave subtitles untouched
+  --use-shaka-packager         Use shaka-packager to decrypt
+  --add-command TEXT           Add extra command to N_m3u8DL-RE
+  -e, --episode TEXT           Download episode(s)
+  -s, --season TEXT            Download complete season
+  -c, --complete               Download complete series
+  -m, --movie                  Download movie
+  -t, --titles                 List all titles
+  -i, --info                   Print title info
+  -sv, --select-video TEXT     Select video stream
+  -sa, --select-audio TEXT     Select audio stream
+  -ss, --select-subtitle TEXT  Select subtitle
+  -dv, --drop-video TEXT       Drop video stream
+  -da, --drop-audio TEXT       Drop audio stream
+  -ds, --drop-subtitle TEXT    Drop subtitle
 ```
 Examples:
 
 ```
-python freevine.py --help (READ THIS!)
+freevine.py get --help (READ THIS!)
 
-python freevine.py --titles URL
-python freevine.py --movie URL
-python freevine.py --info --episode S01E01 URL
-python freevine.py --subtitles --episode S01E01 URL
-python freevine.py --episode S01E01 URL
-python freevine.py --episode "name of episode" URL
-python freevine.py --episode EPISODE_URL
-python freevine.py --episode S01E01-S01E10 URL
-python freevine.py --episode S01E01,S03E12,S05E03 URL
-python freevine.py --season S01,S03,S05 URL
-python freevine.py --select-video res=720 --season S01 URL
-python freevine.py --select-audio name=English --episode S01E01 URL
+freevine.py get --titles URL
+freevine.py get --movie URL
+freevine.py get --info --episode S01E01 URL
+freevine.py get --subtitles --episode S01E01 URL
+freevine.py get --episode S01E01 URL
+freevine.py get --episode "name of episode" URL
+freevine.py get --episode EPISODE_URL
+freevine.py get --episode S01E01-S01E10 URL
+freevine.py get --episode S01E01,S03E12,S05E03 URL
+freevine.py get --season S01,S03,S05 URL
+freevine.py get --select-video res=720 --season S01 URL
+freevine.py get --select-audio name=English --episode S01E01 URL
+
+freevine.py profile --help
+freevine.py profile --username "username" --password "password" --service "service"
+
+freevine.py search --help
+freevine.py search iplayer "KEYWORDS"
 
 ```
 > [!TIP]

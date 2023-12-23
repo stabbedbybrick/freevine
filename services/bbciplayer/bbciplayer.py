@@ -8,44 +8,37 @@ up to 1080p
 """
 from __future__ import annotations
 
-import subprocess
-import re
 import json
-
+import re
+import subprocess
+import sys
 from collections import Counter
-from urllib.parse import urlparse, urlunparse
 
 import click
-import requests
-import yaml
-
+import m3u8
 from bs4 import BeautifulSoup
 
-from utils.utilities import (
-    info,
-    error,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    is_title_match,
-    geo_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
 from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    is_title_match,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class BBC(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+        self.series_re = r"^(?:https?://(?:www\.)?bbc\.co\.uk/(?:iplayer/episodes?|programmes?)/)(?P<id>[a-z0-9]+)"
+        self.episode_re = (
+            r"^(?:https?://(?:www\.)?bbc\.co\.uk/(iplayer/episode)/)(?P<id>[a-z0-9]+)"
+        )
 
-        self.series_re = r"^(?:https?://(?:www\.)?bbc\.co\.uk/(?:iplayer/episodes|programmes)/)(?P<id>[a-z0-9]+)"
-        self.episode_re = r"^(?:https?://(?:www\.)?bbc\.co\.uk/(iplayer/episode)/)(?P<id>[a-z0-9]+)"
         self.get_options()
 
     def get_data(self, pid: str, slice_id: str) -> dict:
@@ -59,9 +52,10 @@ class BBC(Config):
             },
         }
 
-        response = self.client.post(self.config["api"], json=json_data).json()
+        r = self.client.post(self.config["api"], json=json_data)
+        r.raise_for_status()
 
-        return response["data"]["programme"]
+        return r.json()["data"]["programme"]
 
     def create_episode(self, episode):
         title = episode["episode"]["title"]["default"]
@@ -81,7 +75,6 @@ class BBC(Config):
         ep_num = int(next((m.group(1) or m.group(2) for m in number), 0))
 
         season_special = True if season_num == 0 else False
-        episode_special = True if ep_num == 0 else False
 
         name = re.search(r"\d+\. (.+)", subtitle.get("slice") or "")
         ep_name = name.group(1) if name else subtitle.get("slice") or ""
@@ -130,118 +123,116 @@ class BBC(Config):
             ]
         )
 
-    def add_stream(self, soup: object, init: str) -> object:
-        representation = soup.new_tag(
-            "Representation",
-            id="video=12000000",
-            bandwidth="8490000",
-            width="1920",
-            height="1080",
-            frameRate="50",
-            codecs="avc3.640020",
-            scanType="progressive",
+    def get_streams(self, content: list) -> list:
+        for video in [x for x in content if x["kind"] == "video"]:
+            connections = sorted(video["connection"], key=lambda x: x["priority"])
+            connection = next(
+                x
+                for x in connections
+                if x["supplier"] == "mf_akamai" and x["transferFormat"] == "hls"
+            )
+            break
+
+        manifest = "/".join(
+            connection["href"].replace(".hlsv2.ism", "").split("?")[0].split("/")[0:-1]
+            + ["hls", "master.m3u8"]
         )
 
-        template = soup.new_tag(
-            "SegmentTemplate",
-            timescale="5000",
-            duration="19200",
-            initialization=f"{init}-$RepresentationID$.dash",
-            media=f"{init}-$RepresentationID$-$Number$.m4s",
-        )
+        for caption in [x for x in content if x["kind"] == "captions"]:
+            connections = sorted(caption["connection"], key=lambda x: x["priority"])
+            subtitle = next(
+                x["href"] for x in connections if x["supplier"] == "mf_cloudfront"
+            )
+            break
 
-        representation.append(template)
-
-        soup.find("AdaptationSet", {"contentType": "video"}).append(representation)
-
-        return soup
+        return manifest, subtitle
 
     def get_version_content(self, vpid: str) -> list:
-        r = self.client.get(self.config["media"].format(vpid=vpid))
-        if not r.is_success:
-            geo_error(r.status_code, r.json().get("result"), location="UK")
+        r = self.client.get(self.config["media"].format(client="iptv-all", vpid=vpid))
+        if not r.ok:
+            self.log.error(f"{r} {r.json()['result']}")
+            sys.exit(1)
 
         return r.json()["media"]
 
     def get_playlist(self, pid: str) -> tuple:
-        r = self.client.get(self.config["playlist"].format(pid=pid)).json()
-        versions = [
-            x["smpConfig"]["items"][0]["vpid"] for x in r["allAvailableVersions"]
-        ]
+        r = self.client.get(self.config["playlist"].format(pid=pid))
+        r.raise_for_status()
 
-        for version in versions:
-            media = self.get_version_content(version)
-            if max([int(x.get("height", 0)) for x in media]) >= 720:
-                break
+        version = r.json().get("defaultAvailableVersion")
+        vpid = version["smpConfig"]["items"][0]["vpid"]
 
-        for item in media:
-            if item["kind"] == "video" and int(item["height"]) >= 720:
-                videos = item["connection"]
-            elif (
-                item["kind"] == "video"
-                and max([int(x.get("height", 0)) for x in media]) < 720
-            ):
-                videos = item["connection"]
-                self.height = item["height"]
+        content = self.get_version_content(vpid)
+        return self.get_streams(content)
 
-        captions = None
-        subtitle = None
+    def get_mediainfo(self, manifest: str, quality: int, resolution=None):
+        r = self.client.get(manifest)
+        r.raise_for_status()
 
-        for item in media:
-            if item["kind"] == "captions":
-                captions = item["connection"]
+        base = manifest.split("master")[0]
 
-        for video in videos:
-            if video["supplier"] == "mf_bidi" and video["transferFormat"] == "dash":
-                manifest = video["href"]
+        m3u8_obj = m3u8.loads(r.text)
 
-        if captions:
-            for caption in captions:
-                if caption["supplier"] == "mf_bidi" or "mf_cloudfront":
-                    subtitle = caption["href"]
-
-        soup = BeautifulSoup(requests.get(manifest).content, "xml")
-
-        parse = urlparse(manifest)
-        _path = parse.path.split("/")
-        _path[-1] = "dash/"
-        init = _path[-2].replace(".ism", "")
-
-        base_url = urlunparse(
-            parse._replace(
-                scheme="https",
-                netloc=self.config["base"],
-                path="/".join(_path),
-                query="",
-            )
-        )
-        soup.select_one("BaseURL").string = base_url
-
-        tag = soup.find(id="video=5070000")
-        if tag:
-            soup = self.add_stream(soup, init)
-
-        with open(self.tmp / "manifest.mpd", "w") as f:
-            f.write(str(soup.prettify()))
-
-        self.soup = soup
-        return soup, subtitle
-
-    def get_mediainfo(self, soup: object, quality: str) -> str:
-        elements = soup.find_all("Representation")
-        heights = sorted(
-            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
+        playlists = sorted(
+            [
+                {
+                    "resolution": playlist.stream_info.resolution,
+                    "bandwidth": playlist.stream_info.bandwidth,
+                    "codec": playlist.stream_info.codecs.split(",")[1],
+                    "audio": playlist.stream_info.audio,
+                    "uri": base + playlist.uri,
+                }
+                for playlist in m3u8_obj.playlists
+            ],
+            key=lambda x: x["resolution"][1],
             reverse=True,
         )
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        heights = sorted([x["resolution"][1] for x in playlists], reverse=True)
 
-        return self.height if not heights else heights[0]
+        if not quality:
+            quality = 1080
+
+        first_track = None
+        next_track = None
+
+        for stream in playlists:
+            if int(quality) in stream["resolution"]:
+                uri = self.client.get(stream["uri"])
+                if uri.status_code == 200:
+                    first_track = stream["uri"]
+                    break
+                else:
+                    self.log.warning(
+                        f"Stream for {quality}p responded with [{uri.status_code}], selecting next quality..."
+                    )
+
+        if first_track is None:
+            next_track = next(
+                (
+                    (stream["uri"], stream["resolution"][1])
+                    for stream in playlists
+                    for height in heights
+                    if height in stream["resolution"]
+                    and self.client.get(stream["uri"]).status_code == 200
+                ),
+                None,
+            )
+
+        if first_track is not None:
+            playlist = first_track
+            resolution = quality
+
+        elif next_track is not None:
+            playlist, resolution = next_track
+
+        if first_track is None and next_track is None:
+            self.log.error("No streams available")
+            sys.exit(1)
+
+        self.playlist = True
+
+        return playlist, resolution
 
     def parse_url(self, url: str):
         if is_title_match(url, self.series_re):
@@ -249,15 +240,15 @@ class BBC(Config):
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 pid = self.parse_url(url)
                 content = self.get_movies(pid)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 pid = self.parse_url(url)
                 content = self.get_series(pid)
 
@@ -267,50 +258,50 @@ class BBC(Config):
 
                 title = string_cleaning(str(content))
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        r = self.client.get(url)
-        if not r.is_success:
-            geo_error(r.status_code, None, location="UK")
+        with self.console.status("Getting episode from URL..."):
+            r = self.client.get(url)
+            r.raise_for_status()
 
-        redux = re.search(
-            "window.__IPLAYER_REDUX_STATE__ = (.*?);</script>", r.text
-        ).group(1)
-        data = json.loads(redux)
-        subtitle = data["episode"].get("subtitle")
+            redux = re.search(
+                "window.__IPLAYER_REDUX_STATE__ = (.*?);</script>", r.text
+            ).group(1)
+            data = json.loads(redux)
+            subtitle = data["episode"].get("subtitle")
 
-        if subtitle is not None:
-            season_match = re.search(r"Series (\d+):", subtitle)
-            season = int(season_match.group(1)) if season_match else 0
-            number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle)
-            number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
-            name_match = re.search(r"\d+\. (.+)", subtitle)
-            name = (
-                name_match.group(1)
-                if name_match
-                else subtitle
-                if not re.search(r"Series (\d+): Episode (\d+)", subtitle)
-                else ""
-            )
-
-        episode = Series(
-            [
-                Episode(
-                    id_=data["episode"]["id"],
-                    service="iP",
-                    title=data["episode"]["title"],
-                    season=season if subtitle else 0,
-                    number=number if subtitle else 0,
-                    name=name if subtitle else "",
-                    description=data["episode"]["synopses"].get("small"),
+            if subtitle is not None:
+                season_match = re.search(r"Series (\d+):", subtitle)
+                season = int(season_match.group(1)) if season_match else 0
+                number_match = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle)
+                number = int(next((m.group(1) or m.group(2) for m in number_match), 0))
+                name_match = re.search(r"\d+\. (.+)", subtitle)
+                name = (
+                    name_match.group(1)
+                    if name_match
+                    else subtitle
+                    if not re.search(r"Series (\d+): Episode (\d+)", subtitle)
+                    else ""
                 )
-            ]
-        )
+
+            episode = Series(
+                [
+                    Episode(
+                        id_=data["episode"]["id"],
+                        service="iP",
+                        title=data["episode"]["title"],
+                        season=season if subtitle else 0,
+                        number=number if subtitle else 0,
+                        name=name if subtitle else "",
+                        description=data["episode"]["synopses"].get("small"),
+                    )
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -327,15 +318,17 @@ class BBC(Config):
         Temporary solution, but seems to work for the most part
         """
         if self.sub_no_fix:
-            xml = requests.get(subtitle)
+            xml = self.client.get(subtitle)
             with open(self.save_path / f"{filename}.xml", "wb") as f:
                 f.write(xml.content)
 
             self.sub_path = self.save_path / f"{filename}.xml"
 
         else:
-            with self.console.status("Cleaning up subtitles..."):
-                soup = BeautifulSoup(requests.get(subtitle).content, "xml")
+            with self.console.status("Cleaning subtitles..."):
+                r = self.client.get(subtitle)
+                r.raise_for_status()
+                soup = BeautifulSoup(r.content, "xml")
                 for tag in soup.find_all():
                     if tag.name != "p" and tag.name != "br" and tag.name != "span":
                         tag.unwrap()
@@ -359,25 +352,29 @@ class BBC(Config):
 
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
-            soup, subtitle = self.get_playlist(stream.id)
-            self.res = self.get_mediainfo(soup, self.quality)
-
-        if self.info:
-            print_info(self, stream, keys=None)
+            manifest, subtitle = self.get_playlist(stream.id)
+            playlist, self.res = self.get_mediainfo(manifest, self.quality)
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
-        self.manifest = self.tmp / "manifest.mpd"
+        self.manifest = manifest if self.skip_download else playlist
         self.key_file = None  # not encrypted
         self.sub_path = None
 
-        if subtitle is not None:
+        if subtitle is not None and not self.skip_download:
             self.clean_subtitles(subtitle, self.filename)
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         click.echo("")
 
         args, file_path = get_args(self)
+
+        if self.skip_download:
+            self.log.info(f"Filename: {self.filename}")
+            # self.log.info(f"Quality: {heights}")
+            self.log.info("Subtitles: Yes\n") if subtitle else self.log.info(
+                "Subtitles: None\n"
+            )
 
         if not file_path.exists():
             try:
@@ -385,6 +382,6 @@ class BBC(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

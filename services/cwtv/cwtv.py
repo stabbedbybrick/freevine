@@ -8,68 +8,53 @@ CWTV is 1080p, AAC 2.0 max
 """
 from __future__ import annotations
 
-import subprocess
 import asyncio
 import re
-
+import subprocess
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 import click
-import m3u8
-import yaml
 import httpx
-
+import m3u8
 from bs4 import BeautifulSoup
 
-from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    get_wvd,
-    geo_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
 from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    get_wvd,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class CW(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.use_shaka_packager = True
         self.get_options()
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_data(self, url: str) -> dict:
         r = self.client.get(url)
-        if not r.is_success:
-            geo_error(r.status_code, None, location="US")
+        r.raise_for_status()
 
         soup = BeautifulSoup(r.text, "html.parser")
         container = soup.find("div", id="video-thumbs-container")
@@ -131,7 +116,9 @@ class CW(Config):
     def get_playlist(self, playlist: str, lic_url=None) -> tuple:
         parse = urlparse(playlist)
         mpx = urlunparse(parse._replace(query=self.config["dash"]))
-        soup = BeautifulSoup(self.client.get(mpx).text, "xml")
+        r = self.client.get(mpx)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.text, "xml")
 
         manifest = soup.video.get("src")
         drm = soup.find("param", {"name": "isDRM"}).get("value")
@@ -174,6 +161,7 @@ class CW(Config):
 
     def get_hls_quality(self, manifest: str, quality: str) -> str:
         r = self.client.get(manifest)
+        r.raise_for_status()
         m3u8_obj = m3u8.loads(r.text)
 
         playlists = []
@@ -194,12 +182,13 @@ class CW(Config):
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         if manifest.endswith(".mpd"):
-            self.soup = BeautifulSoup(self.client.get(manifest), "xml")
+            r = self.client.get(manifest)
+            r.raise_for_status()
+            self.soup = BeautifulSoup(r.content, "xml")
             pssh = self.get_pssh(self.soup)
             res = self.get_dash_quality(self.soup, quality)
 
         if manifest.endswith(".m3u8"):
-            self.hls = True
             pssh = None
             res = self.get_hls_quality(manifest, quality)
 
@@ -207,14 +196,14 @@ class CW(Config):
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -222,35 +211,35 @@ class CW(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        id = url.split("=")[1]
-        r = self.client.get(self.config["vod"].format(guid=id))
-        if not r.is_success:
-            geo_error(r.status_code, None, location="US")
-        
-        data = r.json().get("video")
+        with self.console.status("Getting episode from URL..."):
+            id = url.split("=")[1]
+            r = self.client.get(self.config["vod"].format(guid=id))
+            r.raise_for_status()
 
-        episode = Series(
-            [
-                Episode(
-                    id_=None,
-                    service="CW",
-                    title=data.get("series_name"),
-                    season=int(data.get("season")) or 0,
-                    number=int(data.get("episode")[1:]) or 0,
-                    name=data.get("title"),
-                    year=None,
-                    data=data.get("mpx_url"),
-                    description=data.get("description_long"),
-                )
-            ]
-        )
+            data = r.json().get("video")
+
+            episode = Series(
+                [
+                    Episode(
+                        id_=None,
+                        service="CW",
+                        title=data.get("series_name"),
+                        season=int(data.get("season")) or 0,
+                        number=int(data.get("episode")[1:]) or 0,
+                        name=data.get("title"),
+                        year=None,
+                        data=data.get("mpx_url"),
+                        description=data.get("description_long"),
+                    )
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -273,16 +262,13 @@ class CW(Config):
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest
         self.key_file = self.tmp / "keys.txt" if keys else None
         self.sub_path = None
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         click.echo("")
 
         args, file_path = get_args(self)
@@ -293,6 +279,6 @@ class CW(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

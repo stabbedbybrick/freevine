@@ -1,12 +1,12 @@
-import shutil
-import re
+from __future__ import annotations
+
+import logging
+import sys
 
 from utils.utilities import (
-    info,
-    set_range,
-    is_url,
     is_title_match,
-    general_error,
+    is_url,
+    set_range,
 )
 
 
@@ -17,12 +17,12 @@ class Options:
         self.titles = cls.titles
         self.url = cls.url
         self.tmp = cls.tmp
+        self.log = logging.getLogger()
 
     def list_titles(self, series: object) -> str:
         for episode in series:
-            info(str(episode))
+            self.log.info(str(episode))
 
-        shutil.rmtree(self.tmp)
         exit(0)
 
     def get_episode(self, series: object) -> None:
@@ -36,15 +36,15 @@ class Options:
         )
 
         if episode is not None and self.titles:
-            info(f"{str(episode)}")
-            shutil.rmtree(self.tmp)
+            self.log.info(f"{str(episode)}")
+
             exit(0)
 
         if episode is not None:
             return [episode]
         else:
-            info(f"{self.episode} was not found")
-            shutil.rmtree(self.tmp)
+            self.log.info(f"{self.episode} was not found")
+
             exit(0)
 
     def get_episode_range(self, series: object, episodes: str) -> None:
@@ -57,9 +57,8 @@ class Options:
 
         if self.titles:
             for episode in downloads:
-                info(f"{str(episode)}")
+                self.log.info(f"{str(episode)}")
 
-            shutil.rmtree(self.tmp)
             exit(0)
 
         return downloads
@@ -74,9 +73,8 @@ class Options:
 
         if self.titles:
             for episode in downloads:
-                info(f"{str(episode)}")
+                self.log.info(f"{str(episode)}")
 
-            shutil.rmtree(self.tmp)
             exit(0)
 
         return downloads
@@ -92,9 +90,8 @@ class Options:
 
         if self.titles:
             for episode in downloads:
-                info(f"{str(episode)}")
+                self.log.info(f"{str(episode)}")
 
-            shutil.rmtree(self.tmp)
             exit(0)
 
         return downloads
@@ -109,9 +106,8 @@ class Options:
 
         if self.titles:
             for episode in downloads:
-                info(f"{str(episode)}")
+                self.log.info(f"{str(episode)}")
 
-            shutil.rmtree(self.tmp)
             exit(0)
 
         return downloads
@@ -124,9 +120,8 @@ class Options:
 
         if self.titles:
             for episode in downloads:
-                info(f"{str(episode)}")
+                self.log.info(f"{str(episode)}")
 
-            shutil.rmtree(self.tmp)
             exit(0)
 
         return downloads
@@ -139,9 +134,8 @@ class Options:
 
         if self.titles:
             for movie in downloads:
-                info(f"{str(movie)}")
+                self.log.info(f"{str(movie)}")
 
-            shutil.rmtree(self.tmp)
             exit(0)
 
         return downloads
@@ -151,7 +145,10 @@ def get_downloads(stream: object) -> tuple:
     if stream.url and not any(
         [stream.episode, stream.season, stream.complete, stream.movie, stream.titles]
     ):
-        general_error("URL is missing an argument. See --help for more information")
+        stream.log.error(
+            "URL is missing an argument. See 'get --help' for more information"
+        )
+        sys.exit(1)
 
     if (
         hasattr(stream, "episode_re")
@@ -177,6 +174,8 @@ def get_downloads(stream: object) -> tuple:
             options.list_titles(content)
 
     if not downloads:
-        general_error("Requested data returned empty. See --help for more information")
+        stream.log.error(
+            "Requested data returned empty. See 'get --help' for more information"
+        )
 
     return downloads, title

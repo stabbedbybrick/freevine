@@ -1,16 +1,16 @@
-import re
-import datetime
-import shutil
 import base64
-
+import datetime
+import re
+import shutil
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta  # noqa: F811
 from pathlib import Path
 
 import click
+import m3u8
 import requests
-
-from unidecode import unidecode
-
 from pywidevine.device import Device, DeviceTypes
+from unidecode import unidecode
 
 
 def create_wvd(dir: Path) -> Path:
@@ -65,9 +65,9 @@ def get_wvd(cwd: Path) -> Path:
 def info(text: str) -> str:
     """Custom info 'logger' designed to match N_m3u8DL-RE output"""
 
-    time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    time = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     stamp = click.style(f"{time}")
-    info = click.style(f"INFO", fg="green", underline=True)
+    info = click.style("INFO", fg="green", underline=True)
     message = click.style(f" : {text}")
     return click.echo(f"{stamp} {info}{message}")
 
@@ -75,9 +75,9 @@ def info(text: str) -> str:
 def error(text: str) -> str:
     """Custom error 'logger' designed to match N_m3u8DL-RE output"""
 
-    time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    time = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     stamp = click.style(f"{time}")
-    info = click.style(f"ERROR", fg="red", underline=True)
+    info = click.style("ERROR", fg="red", underline=True)
     message = click.style(f" : {text}")
     return click.echo(f"{stamp} {info}{message}")
 
@@ -85,9 +85,9 @@ def error(text: str) -> str:
 def notification(text: str) -> str:
     """Custom error 'logger' designed to match N_m3u8DL-RE output"""
 
-    time = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+    time = datetime.now().strftime("%H:%M:%S.%f")[:-3]
     stamp = click.style(f"{time}")
-    info = click.style(f"[!!]", fg="bright_magenta")
+    info = click.style("[!!]", fg="bright_magenta")
     message = click.style(f" : {text}")
     return click.echo(f"{stamp} {info}{message}")
 
@@ -100,10 +100,15 @@ def is_url(value):
 
 
 def is_title_match(string: str, title: re):
-    if re.match(title, string, re.IGNORECASE):
-        return True
-    else:
-        general_error("Title URL is incorrect. See --help for more information")
+    return True if re.match(title, string, re.IGNORECASE) else False
+
+
+def get_binary(*names: str) -> Path:
+    for name in names:
+        path = shutil.which(name)
+        if path:
+            return Path(path)
+    return None
 
 
 def string_cleaning(filename: str) -> str:
@@ -197,6 +202,45 @@ def add_subtitles(soup: object, subtitle: str) -> object:
     return soup
 
 
+def from_mpd(mpd_data: str, url: str = None):
+    root = ET.fromstring(mpd_data)
+    items = []
+
+    for adaptationSet in root.iter("{urn:mpeg:dash:schema:mpd:2011}AdaptationSet"):
+        for representation in adaptationSet.iter("{urn:mpeg:dash:schema:mpd:2011}Representation"):
+            if representation.get("mimeType") in ["video/mp4", "audio/mp4"]:
+                item = {}
+                if representation.get("id"):
+                    item["id"] = representation.get("id")
+                if representation.get("codecs"):
+                    item["codecs"] = representation.get("codecs")
+                if representation.get("height"):
+                    item["height"] = representation.get("height")
+                if representation.get("bandwidth"):
+                    item["bandwidth"] = int(representation.get("bandwidth"))
+                items.append(item)
+
+    if url is not None:
+        items.insert(0, {"url": url})
+
+    return items
+
+
+def from_m3u8(m3u8_data: str):
+    heights = []
+    codecs = []
+
+    m3u8_obj = m3u8.loads(m3u8_data)
+
+    for playlist in m3u8_obj.playlists:
+        if playlist.stream_info.resolution:
+            heights.append(playlist.stream_info.resolution[1])
+        if playlist.stream_info.codecs:
+            codecs.append(playlist.stream_info.codecs)
+
+    return heights, codecs
+
+
 def kid_to_pssh(soup: object) -> str:
     kid = (
         soup.select_one("ContentProtection")
@@ -233,7 +277,11 @@ def pssh_from_init(path: Path) -> str:
 
 
 def set_save_path(stream: object, service: object, title: str) -> Path:
-    if service.save_dir != "False":
+    if service.skip_download:
+        save_path = service.tmp / service.filename
+        save_path.mkdir(parents=True, exist_ok=True)
+
+    elif service.save_dir != "False":
         save_path = Path(service.save_dir)
         save_path.mkdir(parents=True, exist_ok=True)
 
@@ -259,6 +307,12 @@ def set_save_path(stream: object, service: object, title: str) -> Path:
     return save_path
 
 
+def expiration(expiry: str = None, issued: str = None) -> str:
+    """Simple timestamps only"""
+    issued_at = datetime.fromtimestamp(int(issued) / 1000)
+    return issued_at + timedelta(seconds=int(expiry))
+
+
 def check_version(local_version: str):
     r = requests.get(
         "https://api.github.com/repos/stabbedbybrick/freevine/releases/latest"
@@ -274,25 +328,3 @@ def check_version(local_version: str):
 
     if latest_version and local_version < latest_version:
         notification(f"New version available! {version}\n")
-
-
-def general_error(message: str) -> str:
-    click.echo("\n")
-    error(f"{message}")
-    shutil.rmtree("tmp") if Path("tmp").exists() else None
-    exit(1)
-
-
-def geo_error(status: int, message: str = None, location: str = None) -> str:
-    msg = message if message is not None else f"Content unavailable outside {location}"
-    click.echo("\n")
-    error(f"<Response [{status}]> {msg}")
-    shutil.rmtree("tmp") if Path("tmp").exists() else None
-    exit(1)
-
-
-def premium_error(status: int) -> str:
-    click.echo("\n")
-    error(f"<Response [{status}]> Content requires subscription and is not supported")
-    shutil.rmtree("tmp") if Path("tmp").exists() else None
-    exit(1)

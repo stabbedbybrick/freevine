@@ -1,6 +1,4 @@
-import json
 import httpx
-
 from rich.console import Console
 
 from utils.search.api import _dict, _parse
@@ -72,8 +70,8 @@ def search_post(search: object, service: dict):
         return None
 
 
-def search_engine(search: tuple):
-    alias, keywords = search
+def search_engine(alias: str, keywords: str):
+    # alias, keywords = search
     cfg = Config(alias, keywords)
 
     services = [

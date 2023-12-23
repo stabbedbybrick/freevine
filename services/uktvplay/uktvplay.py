@@ -9,46 +9,32 @@ Quality: 1080p, AAC 2.0 max
 """
 from __future__ import annotations
 
-import base64
-import shutil
-import subprocess
-import sys
 import re
-
-from urllib.parse import urlparse
+import subprocess
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlparse
 
 import click
-import yaml
-
 from bs4 import BeautifulSoup
 
+from utils.args import get_args
+from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Series
 from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
     construct_pssh,
     get_wvd,
-    geo_error,
+    set_filename,
+    set_save_path,
+    string_cleaning,
 )
-from utils.titles import Episode, Series
-from utils.options import get_downloads
-from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
-from utils.cdm import LocalCDM
 
 
 class UKTVPLAY(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.vod = self.config["vod"]
         self.api = self.config["api"]
@@ -57,26 +43,22 @@ class UKTVPLAY(Config):
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_data(self, url: str) -> list[dict]:
         slug = urlparse(url).path.split("/")[2]
 
         r = self.client.get(f"{self.vod}brand/?slug={slug}")
-        if not r.is_success:
-            geo_error(r.status_code, None, location="UK")
-        
+        r.raise_for_status()
+
         id_list = [series["id"] for series in r.json()["series"]]
 
         seasons = [
@@ -98,7 +80,7 @@ class UKTVPLAY(Config):
                     name=episode["name"],
                     year=None,
                     data=episode["video_id"],
-                    description=episode.get("synopsis")
+                    description=episode.get("synopsis"),
                 )
                 for season in data
                 for episode in season["episodes"]
@@ -115,10 +97,7 @@ class UKTVPLAY(Config):
         url = f"{self.api}{account}/videos/{video_id}"
 
         r = self.client.get(url, headers=headers)
-        if not r.is_success:
-            print(f"\nError! {r.status_code}")
-            shutil.rmtree(self.tmp)
-            sys.exit(1)
+        r.raise_for_status()
 
         data = r.json()
 
@@ -136,9 +115,10 @@ class UKTVPLAY(Config):
 
         return manifest, lic_url
 
-
     def get_mediainfo(self, manifest: str, quality: str) -> str:
-        self.soup = BeautifulSoup(self.client.get(manifest), "xml")
+        r = self.client.get(manifest)
+        r.raise_for_status()
+        self.soup = BeautifulSoup(r.content, "xml")
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -153,17 +133,17 @@ class UKTVPLAY(Config):
                 return closest_match
 
         return heights[0]
-    
+
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
                 for episode in content:
                     episode.name = episode.get_filename()
@@ -173,35 +153,34 @@ class UKTVPLAY(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
-                f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
-            )
+                self.log.info(
+                    f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
+                )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        html = self.client.get(url).text
-        house_number = re.search(r'house_number="(.+?)"', html).group(1)
-        
-        data = self.client.get(
-            f"{self.vod}episode/?house_number={house_number}"
-        ).json()
+        with self.console.status("Getting episode from URL..."):
+            html = self.client.get(url).text
+            house_number = re.search(r'house_number="(.+?)"', html).group(1)
 
-        episode = Series(
-            [
-                Episode(
-                    id_=None,
-                    service="UKTV",
-                    title=data["brand_name"],
-                    season=int(data["series_number"]),
-                    number=data["episode_number"],
-                    name=data["name"],
-                    year=None,
-                    data=data["video_id"],
-                    description=data.get("synopsis")
-                )
-            ]
-        )
+            data = self.client.get(f"{self.vod}episode/?house_number={house_number}").json()
+
+            episode = Series(
+                [
+                    Episode(
+                        id_=None,
+                        service="UKTV",
+                        title=data["brand_name"],
+                        season=int(data["series_number"]),
+                        number=data["episode_number"],
+                        name=data["name"],
+                        year=None,
+                        data=data["video_id"],
+                        description=data.get("synopsis"),
+                    )
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -223,18 +202,15 @@ class UKTVPLAY(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         for key in keys:
-            info(f"{key}")
+            self.log.info(f"{key}")
         click.echo("")
 
         args, file_path = get_args(self)
@@ -245,6 +221,6 @@ class UKTVPLAY(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

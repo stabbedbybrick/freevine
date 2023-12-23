@@ -1,3 +1,9 @@
+# Config
+profile
+profile.yaml
+cookies
+cookies.txt
+
 # CDM
 pywidevine
 device_cert
@@ -9,6 +15,8 @@ device_private_key
 *.mp4
 *.srt
 *.vtt
+*.ttml
+*.xml
 *.exe
 *.dll
 *.crt
@@ -18,13 +26,20 @@ device_private_key
 *.bin
 *.db
 
-# venv
+# Environments
 .env
 .venv
 env/
 venv/
+ENV/
+env.bak/
+venv.bak/
 
-# vscode
+# Text Editor / IDE
+.idea
+*.iml
+.vscode
+*.sublime-*
 *.code-workspace
 
 # misc

@@ -1,15 +1,14 @@
-import shutil
 import re
-
+import sys
 from pathlib import Path
 
-from utils.utilities import info, error
+from utils.utilities import get_binary
 
 
 def video_settings(service: object) -> tuple:
     select_video = service.config["video"].get("select")
     drop_video = service.config["video"].get("drop")
-    
+
     if service.select_video != "False":
         select_video = service.select_video
     if service.drop_video != "False":
@@ -18,11 +17,13 @@ def video_settings(service: object) -> tuple:
     if service.quality and service.quality != str(service.res):
         select_video = re.sub(r"res=\d+", f"res={service.res}", select_video)
 
-    if hasattr(service, "variant") and not service.variant:
+    # If manifest is a segmented playlist
+    if hasattr(service, "playlist"):
         select_video = None
         drop_video = None
 
     return select_video, drop_video
+
 
 def audio_settings(service: object) -> tuple:
     select_audio = service.config["audio"].get("select")
@@ -33,11 +34,13 @@ def audio_settings(service: object) -> tuple:
     if service.drop_audio != "False":
         drop_audio = service.drop_audio
 
-    if hasattr(service, "variant") and not service.variant:
+    # If manifest is a segmented playlist
+    if hasattr(service, "playlist"):
         select_audio = None
         drop_audio = None
 
     return select_audio, drop_audio
+
 
 def subtitle_settings(service: object) -> tuple:
     sub_no_mux = service.config["subtitles"]["no_mux"]
@@ -57,11 +60,13 @@ def subtitle_settings(service: object) -> tuple:
     if service.drop_subtitle != "False":
         drop_subtitle = service.drop_subtitle
 
-    if hasattr(service, "variant") and not service.variant:
+    # If manifest is a segmented playlist
+    if hasattr(service, "playlist"):
         select_subtitle = None
         drop_subtitle = None
 
     return sub_no_mux, sub_fix, select_subtitle, drop_subtitle
+
 
 def format_settings(service: object) -> tuple:
     threads = service.config["threads"]
@@ -82,6 +87,7 @@ def format_settings(service: object) -> tuple:
 
     return threads, format, muxer, packager
 
+
 def dir_settings(service: object) -> tuple:
     temp = service.config["temp_dir"]
     save_path = service.save_path
@@ -92,13 +98,29 @@ def dir_settings(service: object) -> tuple:
     if service.save_dir != "False":
         save_path = service.save_dir
 
-    return temp, save_path, filename
+    file_path = Path(save_path) / f"{filename}.{format}"
+
+    return temp, save_path, filename, file_path
+
+
+def add_command(service: object) -> list:
+    commands = []
+    if service.add_command:
+        for command in service.add_command:
+            addition = command.split()
+            if len(addition) > 1:
+                commands.extend([[addition[0], addition[1]]])
+            if len(addition) == 1:
+                commands.extend([addition])
+
+    return commands
+
 
 def get_args(service: object) -> tuple:
     """
     Set download arguments based on config settings
 
-    The hierarchy is CLI > service config > main config 
+    The hierarchy is CLI > service config > main config
     """
 
     manifest = service.manifest
@@ -106,20 +128,22 @@ def get_args(service: object) -> tuple:
     sub_path = service.sub_path
     sub_only = service.sub_only
     no_mux = service.no_mux
+    skip_download = service.skip_download
+    hls_playlist = hasattr(service, "playlist")
 
-    m3u8dl = shutil.which("N_m3u8DL-RE") or shutil.which("n-m3u8dl-re")
+    m3u8dl = get_binary("N_m3u8DL-RE", "n-m3u8dl-re")
     if not m3u8dl:
-        error("Unable to locate N_m3u8DL-RE on your system")
-        shutil.rmtree(service.tmp)
-        exit(1)
+        service.log.error("Path to N_m3u8DL-RE was not found")
+        sys.exit(1)
 
     threads, format, muxer, packager = format_settings(service)
-    temp, save_path, filename = dir_settings(service)
+    temp, save_path, filename, file_path = dir_settings(service)
     select_video, drop_video = video_settings(service)
     select_audio, drop_audio = audio_settings(service)
     sub_no_mux, sub_fix, select_sub, drop_sub = subtitle_settings(service)
+    added_commands = add_command(service)
 
-    args = [
+    arguments = [
         m3u8dl,
         manifest,
         "-mt",
@@ -129,32 +153,45 @@ def get_args(service: object) -> tuple:
         threads,
         "--save-name",
         filename,
-        "--tmp-dir",
-        temp,
         "--save-dir",
         save_path,
+        "--tmp-dir",
+        temp,
         "--no-log",
-        # "--log-level",
-        # "OFF",
+        # "--log-level", "ERROR",
     ]
 
-    args.extend(["--key-text-file", key_file]) if key_file else None
-    args.extend(["-sv", select_video]) if select_video else None
-    args.extend(["-sa", select_audio]) if select_audio else None
-    args.extend(["-ss", select_sub]) if select_sub else None
-    args.extend(["-dv", drop_video]) if drop_video else None
-    args.extend(["-da", drop_audio]) if drop_audio else None
-    args.extend(["-ds", drop_sub]) if drop_sub else None
-    args.extend(["--sub-only", "true"]) if sub_only else None
-    args.extend(["--use-shaka-packager"]) if packager == "true" else None
+    arguments.extend(["--key-text-file", key_file]) if key_file else None
+    arguments.extend(["-sv", select_video]) if select_video else None
+    arguments.extend(["-sa", select_audio]) if select_audio else None
+    arguments.extend(["-ss", select_sub]) if select_sub else None
+    arguments.extend(["-dv", drop_video]) if drop_video else None
+    arguments.extend(["-da", drop_audio]) if drop_audio else None
+    arguments.extend(["-ds", drop_sub]) if drop_sub else None
+    arguments.extend(["--sub-only"]) if sub_only else None
+    arguments.extend(["--use-shaka-packager"]) if packager == "true" else None
+
+    if hls_playlist and not skip_download:
+        arguments.extend(["--auto-select"])
+
+    if hls_playlist and skip_download:
+        arguments.extend(["-sv", f"res={service.res}"])
+        arguments.extend(["--skip-download"])
+        arguments.extend(["--write-meta-json", "false"])
+    
+    if not hls_playlist and skip_download:
+        arguments.extend(["--skip-download"])
+        arguments.extend(["--write-meta-json", "false"])
 
     if not sub_only and not no_mux:
-        args.extend(["-M", f"format={format}:muxer={muxer}:skip_sub={sub_no_mux}"])
+        arguments.extend(["-M", f"format={format}:muxer={muxer}:skip_sub={sub_no_mux}"])
+
     if sub_path and sub_no_mux == "false":
-        args.extend(["--mux-import", f"path={sub_path}:lang=eng:name='English'"])
-
-    file_path = Path(save_path) / f"{filename}.{format}"
-
-    return args, file_path
+        arguments.extend(["--mux-import", f"path={sub_path}:lang=eng:name='English'"])
 
 
+    if added_commands:
+        for command in added_commands:
+            arguments.extend(command)
+
+    return arguments, file_path

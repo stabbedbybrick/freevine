@@ -1,11 +1,9 @@
+import logging
 import re
-
-import httpx
-import yaml
-
 from pathlib import Path
 from typing import Any, Optional
 
+import requests
 from rich.console import Console
 
 from utils.utilities import is_url
@@ -15,10 +13,8 @@ class Config:
     """Config class that gets inherited by the service"""
 
     def __init__(
-        self, 
+        self,
         config: Any,
-        srvc_api: Path = None,
-        srvc_config: Path = None,
         wvd: Path = None,
         url: str = None,
         remote: Optional[bool] = None,
@@ -45,30 +41,26 @@ class Config:
         no_mux: Optional[bool] = None,
         save_dir: Optional[str] = None,
         save_name: Optional[str] = None,
+        add_command: Optional[list] = None,
+        # skip_download: Optional[bool] = None,
     ) -> None:
-        
         if episode and not is_url(episode):
             episode = episode.upper()
         if season:
             season = season.upper()
 
-        if srvc_config.exists():
-            with open(srvc_config, "r") as f:
-                config.update(yaml.safe_load(f))
         if "res" in config["video"]["select"]:
             quality = re.search(r"res=(\d+)", config["video"]["select"]).group(1)
         if "res" in select_video:
             quality = re.search(r"res=(\d+)", select_video).group(1)
-        
+
         self.config = config
-        self.srvc_api = srvc_api
-        self.srvc_config = srvc_config
         self.url = url
         self.wvd = wvd
         self.quality = quality
         self.remote = remote
         self.titles = titles
-        self.info = info
+        # self.info = info
         self.episode = episode
         self.season = season
         self.movie = movie
@@ -89,19 +81,24 @@ class Config:
         self.no_mux = no_mux
         self.save_dir = save_dir
         self.save_name = save_name
+        self.add_command = add_command
+        self.skip_download = info
 
         self.console = Console()
 
         self.tmp = Path("tmp")
         self.tmp.mkdir(parents=True, exist_ok=True)
 
-        self.client = httpx.Client(
-            headers={
+        self.log = logging.getLogger()
+
+        self.client = requests.Session()
+        self.client.headers.update(
+            {
                 "user-agent": (
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/118.0.0.0 Safari/537.36"
                 ),
-            },
-            timeout=20.0
+            }
         )
+        self.client.timeout = 10.0

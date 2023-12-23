@@ -10,72 +10,57 @@ This program will grab higher 1080p bitrate and Dolby 5.1 audio (if available)
 """
 from __future__ import annotations
 
+import asyncio
+import json
+import re
 import subprocess
 import urllib
-import json
-import asyncio
-import re
-
-from urllib.parse import urlparse
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlparse
 
 import click
 import httpx
-import yaml
-
 from bs4 import BeautifulSoup
 
-from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    get_wvd,
-    geo_error,
-    premium_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
 from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    get_wvd,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
+
 
 class ROKU(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.api = self.config["api"]
         self.get_options()
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_data(self, url: str) -> json:
         video_id = urlparse(url).path.split("/")[2]
 
         r = self.client.get(f"{self.api}{video_id}")
-        if not r.is_success:
-            geo_error(r.status_code, None, location="US")
-        
+        r.raise_for_status()
+
         return r.json()
 
     async def fetch_titles(self, async_client: httpx.AsyncClient, id: str) -> json:
@@ -106,7 +91,7 @@ class ROKU(Config):
                     name=episode["title"],
                     year=data["releaseYear"],
                     data=episode["meta"]["id"],
-                    description=episode["description"]
+                    description=episode["description"],
                 )
                 for episode in episodes
             ]
@@ -124,7 +109,7 @@ class ROKU(Config):
                     year=data["releaseYear"],
                     name=data["title"],
                     data=data["meta"]["id"],
-                    synopsis=data["description"]
+                    synopsis=data["description"],
                 )
             ]
         )
@@ -149,9 +134,10 @@ class ROKU(Config):
 
         url = self.config["vod"]
 
-        r = self.client.post(url, headers=headers, cookies=self.client.cookies, json=payload)
-        if not r.is_success:
-            premium_error(r.status_code)
+        r = self.client.post(
+            url, headers=headers, cookies=self.client.cookies, json=payload
+        )
+        r.raise_for_status()
 
         videos = r.json()["playbackMedia"]["videos"]
 
@@ -168,7 +154,8 @@ class ROKU(Config):
         return lic_url, manifest
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
-        self.soup = BeautifulSoup(self.client.get(manifest), "xml")
+        r = self.client.get(manifest)
+        self.soup = BeautifulSoup(r.content, "xml")
         elements = self.soup.find_all("Representation")
         codecs = [x.attrs["codecs"] for x in elements if x.attrs.get("codecs")]
         heights = sorted(
@@ -189,14 +176,14 @@ class ROKU(Config):
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -204,34 +191,36 @@ class ROKU(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        with self.console.status("Fetching title..."):
+        with self.console.status("Getting episode from URL..."):
             episode_id = urlparse(url).path.split("/")[2]
 
             data = self.client.get(f"{self.api}{episode_id}").json()
-            title = self.client.get(f"{self.api}{data['series']['meta']['id']}").json()["title"]
-        
-        episode = Series(
-            [
-                Episode(
-                    id_=None,
-                    service="ROKU",
-                    title=title,
-                    season=int(data["seasonNumber"]),
-                    number=int(data["episodeNumber"]),
-                    name=data["title"],
-                    year=data.get("startYear"),
-                    data=episode_id,
-                    description=data.get("description")
-                )
+            title = self.client.get(f"{self.api}{data['series']['meta']['id']}").json()[
+                "title"
             ]
-        )
+
+            episode = Series(
+                [
+                    Episode(
+                        id_=None,
+                        service="ROKU",
+                        title=title,
+                        season=int(data["seasonNumber"]),
+                        number=int(data["episodeNumber"]),
+                        name=data["title"],
+                        year=data.get("startYear"),
+                        data=episode_id,
+                        description=data.get("description"),
+                    )
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -244,9 +233,9 @@ class ROKU(Config):
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        pssh = "AAAAKXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAkiASpI49yVmwY="
-
         with self.console.status("Getting media info..."):
+            pssh = "AAAAKXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAkiASpI49yVmwY="
+
             lic_url, manifest = self.get_playlist(stream.data)
             self.res, audio = self.get_mediainfo(manifest, self.quality)
 
@@ -254,18 +243,15 @@ class ROKU(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio)
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         for key in keys:
-            info(f"{key}")
+            self.log.info(f"{key}")
         click.echo("")
 
         args, file_path = get_args(self)
@@ -276,6 +262,6 @@ class ROKU(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

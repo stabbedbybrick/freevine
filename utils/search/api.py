@@ -1,5 +1,5 @@
-import uuid
 import re
+import uuid
 
 
 def _sanitize(title: str) -> str:
@@ -448,10 +448,7 @@ def _parse(query: dict, service: dict, client=None):
         link = "https://iview.abc.net.au/show/{slug}"
 
         if query:
-            hits = [
-                x for x in query["results"][0]["hits"] 
-                if x["docType"] == "Program" 
-            ]
+            hits = [x for x in query["results"][0]["hits"] if x["docType"] == "Program"]
             for field in hits:
                 results.append(
                     template.format(

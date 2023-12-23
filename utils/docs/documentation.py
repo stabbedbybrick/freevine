@@ -33,7 +33,16 @@ main_help = f"""
         Default values for all services:
             Video: Best available
             Audio: Best available
-            Subtitles: Cleaned SRT muxed with final output 
+            Subtitles: Cleaned SRT muxed with final output
+    \b
+    Login credentials:
+        A user profile with credentials can be set for services that require it:
+    \b
+            freevine.py profile --username "USERNAME" --password "PASSWORD" --service "SERVICE"
+    \b
+            NOTES:
+            Setting a user profile will create a profile.yaml in the service folder
+            It will store credentials along with cached auth and refresh tokens
     \b
     Instructions:
         This program has got two methods of downloading:
@@ -41,13 +50,13 @@ main_help = f"""
         Method 1: (singles and batch)
             Provide the series main URL and request what to download from it:
     \b
-                python freevine.py --episode  S01E01 URL
-                python freevine.py --episode  "Name of episode" URL
-                python freevine.py --season   S01 URL
-                python freevine.py --episode  S01E01-S01E10 URL
-                python freevine.py --episode  S01E01,S03E07,S10E12 URL
-                python freevine.py --season   S01,S03,S10 URL
-                python freevine.py --complete URL
+                freevine.py get --episode  S01E01 URL
+                freevine.py get --episode  "Name of episode" URL
+                freevine.py get --season   S01 URL
+                freevine.py get --episode  S01E01-S01E10 URL
+                freevine.py get --episode  S01E01,S03E07,S10E12 URL
+                freevine.py get --season   S01,S03,S10 URL
+                freevine.py get --complete URL
     \b
             NOTES:
             Always use main URL of series for this method, not episode URLs
@@ -59,8 +68,8 @@ main_help = f"""
         Method 2: (singles)
             Provide URL to episode or movie to download it directly:
     \b
-                python freevine.py --episode EPISODE_URL
-                python freevine.py --movie MOVIE_URL
+                freevine.py get --episode EPISODE_URL
+                freevine.py get --movie MOVIE_URL
     \b
             NOTES:
             If the episode is a standalone, you might have more success by using --movie
@@ -69,30 +78,28 @@ main_help = f"""
     \b
     Options:
             List all available episodes from a series:
-                python freevine.py --titles URL
+                freevine.py get --titles URL
             Print available quality streams and info about a single title:
-                python freevine.py --info --episode URL
-                python freevine.py --info --movie URL
+                freevine.py get --info --episode URL
+                freevine.py get --info --movie URL
             Request video quality to be downloaded: (default: best)
-                python freevine.py --select-video res=720 --episode/--season URL
-                python freevine.py --select-video res=1080 --movie URL
+                freevine.py get --select-video res=720 --episode/--season URL
+                freevine.py get --select-video res=1080 --movie URL
             Request audio tracks to be downloaded: (default: best)
-                python freevine.py --select-audio name=English --episode/--season URL
-                python freevine.py --select-audio id=Descriptive --movie URL
+                freevine.py get --select-audio name=English --episode/--season URL
+                freevine.py get --select-audio id=Descriptive --movie URL
             Request only subtitles from title(s):
-                python freevine.py --sub-only --episode/--movie URL
+                freevine.py get --sub-only --episode/--movie URL
     \b
             NOTES:
             See "N_m3u8DL-RE --morehelp select-video/audio/subtitle" for possible selection patterns
-            The order of the options isn't super strict, but it's recommended to follow the examples above
-            Combinations of options are possible as far as common sense allows
             If you request a quality that's not available, the closest match is downloaded instead
     \b
     Searching (beta):
         You can use the search option to search for titles in the command line:
     \b
-            python freevine.py --search all4 "QUERY"
-            python freevine.py --search all4,ctv,itv "QUERY"
+            freevine.py search all4 "QUERY"
+            freevine.py search all4,ctv,itv "QUERY"
     \b
             NOTES:
             You can search one or multiple services at the same time
@@ -127,7 +134,6 @@ main_help = f"""
     \b
         Known bugs:
         Programmes without clear season/episode labels might display odd names and numbers
-        TubiTV, PlutoTV, CBC does not work with --info at the moment
 
     \b
         Free streaming services are free for a reason and usually comes with gaps and odd labels

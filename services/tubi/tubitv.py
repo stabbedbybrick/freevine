@@ -12,61 +12,47 @@ Some titles are encrypted, some are not. Both versions are supported
 """
 from __future__ import annotations
 
-import base64
+import json
 import re
 import subprocess
-import json
-
-from urllib.parse import urlparse
-from pathlib import Path
 from collections import Counter
+from pathlib import Path
+from urllib.parse import urlparse
 
 import click
-import yaml
 import m3u8
 
-from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    pssh_from_init,
-    get_wvd,
-    geo_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
 from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    get_wvd,
+    pssh_from_init,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class TUBITV(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.get_options()
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_data(self, url: str) -> json:
         type = urlparse(url).path.split("/")[1]
@@ -77,8 +63,7 @@ class TUBITV(Config):
         content = self.config["content"].format(content_id=content_id)
 
         r = self.client.get(f"{content}")
-        if not r.is_success:
-            geo_error(r.status_code, None, location="NA")
+        r.raise_for_status()
 
         return r.json()
 
@@ -136,16 +121,13 @@ class TUBITV(Config):
 
         response = self.client.get(url, headers=headers)
         with open(self.tmp / "init.mp4", "wb") as f:
-            f.write(response.read())
+            f.write(response.content)
 
         return pssh_from_init(Path(self.tmp / "init.mp4"))
-    
 
     def get_mediainfo(self, manifest: str, quality: str, res=""):
         r = self.client.get(manifest)
-        if not r.is_success:
-            error(f"Unable to fetch manifest: {r.response_code}")
-            exit(1)
+        r.raise_for_status()
 
         url = urlparse(manifest)
         base = f"{url.scheme}://{url.netloc}/{url.path.split('/')[1]}/"
@@ -160,7 +142,7 @@ class TUBITV(Config):
             heights = sorted([x[0] for x in playlists], reverse=True)
             manifest = [base + x[1] for x in playlists if heights[0] == x[0]][0]
             res = heights[0]
-        
+
         if quality is not None:
             for playlist in playlists:
                 if int(quality) in playlist:
@@ -171,20 +153,18 @@ class TUBITV(Config):
                     if res == playlist[0]:
                         manifest = base + playlist[1]
 
-        self.hls = m3u8_obj
         return manifest, res
-        
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -192,48 +172,48 @@ class TUBITV(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        with self.console.status("Fetching title..."):
+        with self.console.status("Getting episode from URL..."):
             episode_id = urlparse(url).path.split("/")[2]
 
             content = (
                 f"https://tubitv.com/oz/videos/{episode_id}/content?"
                 f"video_resources=hlsv6_widevine_nonclearlead&video_resources=hlsv6"
             )
-            
+
             series_id = self.client.get(content).json()["series_id"]
             content = re.sub(rf"{episode_id}", f"{series_id}", content)
 
             data = self.client.get(content).json()
 
-        episode = Series(
-            [
-                Episode(
-                    service="TUBi",
-                    title=data["title"],
-                    season=int(season["id"]),
-                    number=int(episode["episode_number"]),
-                    name=episode["title"].split("-")[1],
-                    year=data["year"],
-                    data=episode["video_resources"][0]["manifest"]["url"],
-                    subtitle=episode.get("subtitles")[0].get("url")
-                    if episode.get("subtitles")
-                    else None,
-                    lic_url=episode["video_resources"][0]["license_server"]["url"]
-                    if episode["video_resources"][0].get("license_server")
-                    else None,
-                )
-                for season in data["children"]
-                for episode in season["children"]
-                if episode["id"] == episode_id
-            ]
-        )
+            episode = Series(
+                [
+                    Episode(
+                        service="TUBi",
+                        title=data["title"],
+                        season=int(season["id"]),
+                        number=int(episode["episode_number"]),
+                        name=episode["title"].split("-")[1],
+                        year=data["year"],
+                        data=episode["video_resources"][0]["manifest"]["url"],
+                        subtitle=episode.get("subtitles")[0].get("url")
+                        if episode.get("subtitles")
+                        else None,
+                        lic_url=episode["video_resources"][0]["license_server"]["url"]
+                        if episode["video_resources"][0].get("license_server")
+                        else None,
+                    )
+                    for season in data["children"]
+                    for episode in season["children"]
+                    if episode["id"] == episode_id
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -256,9 +236,6 @@ class TUBITV(Config):
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = stream.data
@@ -271,8 +248,8 @@ class TUBITV(Config):
             with open(self.sub_path, "wb") as f:
                 f.write(r.content)
 
-        info(f"{str(stream)}")
-        info(f"{keys[0]}") if keys else None
+        self.log.info(f"{str(stream)}")
+        self.log.info(f"{keys[0]}") if keys else None
         click.echo("")
 
         args, file_path = get_args(self)
@@ -283,6 +260,6 @@ class TUBITV(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

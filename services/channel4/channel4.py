@@ -10,45 +10,51 @@ This program will grab higher 1080p bitrate (if available)
 from __future__ import annotations
 
 import base64
+import json
 import re
 import subprocess
-import json
 import sys
-
-from pathlib import Path
 from collections import Counter
+from datetime import datetime
+from pathlib import Path
 
 import click
 import yaml
-
 from bs4 import BeautifulSoup
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
-from utils.utilities import (
-    info,
-    error,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    kid_to_pssh,
-    get_wvd,
-    geo_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
 from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    expiration,
+    get_wvd,
+    info,
+    kid_to_pssh,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class CHANNEL4(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+        self.login = self.config["login"]
+        self.username = self.config.get("credentials", {}).get("username")
+        self.password = self.config.get("credentials", {}).get("password")
+
+        self.client.headers = {
+            "x-c4-platform-name": "android",
+            "x-c4-device-type": "mobile",
+            "x-c4-app-version": "android_app:9.4.2",
+            "x-c4-device-name": "Sony C6903 (C6903)",
+            "x-c4-optimizely-datafile": "2908",
+        }
 
         self.get_options()
 
@@ -62,19 +68,18 @@ class CHANNEL4(Config):
         }
 
         r = self.client.post(lic_url, json=payload)
-        if not r.is_success:
-            error(f"License request failed: {r.json()['status']['type']}")
+        if not r.ok:
+            self.log.error(f"License request failed: {r.json()['status']['type']}")
             sys.exit(1)
 
         return r.json()["license"]
 
     def get_keys(self, pssh: str, lic_url: str, assets: tuple):
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url, assets)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url, assets)
+        return widevine.parse(response)
 
     def decrypt_token(self, token: str) -> tuple:
         if self.config["client"] == "android":
@@ -99,7 +104,7 @@ class CHANNEL4(Config):
     def get_data(self, url: str) -> dict:
         r = self.client.get(url)
         init_data = re.search(
-            "<script>window\.__PARAMS__ = (.*)</script>",
+            "<script>window.__PARAMS__ = (.*)</script>",
             "".join(
                 r.content.decode()
                 .replace("\u200c", "")
@@ -127,7 +132,7 @@ class CHANNEL4(Config):
                     description=episode.get("summary"),
                 )
                 for episode in data["brand"]["episodes"]
-                if episode["showPlayLabel"] == True
+                if episode["showPlayLabel"] is True
             ]
         )
 
@@ -149,60 +154,125 @@ class CHANNEL4(Config):
             ]
         )
 
-    def authenticate(self):
-        login = self.config["login"]
+    def refresh_token(self):
+        self.client.headers.update(
+            {
+                "authorization": f"Basic {self.config['android']['auth']}",
+            }
+        )
 
-        headers = {
-            "authorization": f"Basic {self.config['android']['auth']}",
-            "x-c4-platform-name": "android",
-            "x-c4-device-type": "mobile",
-            "x-c4-app-version": "android_app:9.4.2",
-            "x-c4-device-name": "Sony C6903 (C6903)",
-            "x-c4-optimizely-datafile": "2908",
+        data = {
+            "grant_type": "refresh_token",
+            "username": self.username,
+            "password": self.password,
+            "refresh_token": self.config["cache"]["refresh"],
         }
+
+        r = self.client.post(self.login, data=data)
+        if not r.ok:
+            self.log.error(f"{r} {r.text}")
+            sys.exit(1)
+
+        auth = json.loads(r.content)
+        token = auth.get("accessToken")
+        refresh = auth.get("refreshToken")
+
+        expiry = expiration(auth.get("expiresIn"), auth.get("issuedAt"))
+
+        profile = Path("services") / "channel4" / "profile.yaml"
+        with open(profile, "r") as f:
+            data = yaml.safe_load(f)
+
+        data["cache"]["token"] = token
+        data["cache"]["refresh"] = refresh
+        data["cache"]["expiry"] = expiry
+
+        with open(profile, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+
+        self.log.info("+ Tokens refreshed")
+
+        return token
+
+    def authenticate(self):
+        if not self.username and not self.password:
+            self.log.error(
+                "Required credentials were not found. See 'freevine.py profile --help'"
+            )
+            sys.exit(1)
+
+        self.log.info("Authenticating with service...")
+
+        self.client.headers.update(
+            {
+                "authorization": f"Basic {self.config['android']['auth']}",
+            }
+        )
 
         data = {
             "grant_type": "password",
-            "username": "ol.ivea.gu.ilar.4.1.2@gmail.com",
-            "password": "Ol.ivea.gu.ilar.4.1.2",
+            "username": self.username,
+            "password": self.password,
         }
 
-        r = self.client.post(login, headers=headers, data=data)
-        if not r.is_success:
-            error(f"{r} {r.text}")
+        r = self.client.post(self.login, data=data)
+        if not r.ok:
+            self.log.error(f"{r} {r.text}")
             sys.exit(1)
 
-        return r.json()["accessToken"]
+        auth = json.loads(r.content)
+        token = auth.get("accessToken")
+        refresh = auth.get("refreshToken")
+
+        expiry = expiration(auth.get("expiresIn"), auth.get("issuedAt"))
+
+        profile = Path("services") / "channel4" / "profile.yaml"
+        with open(profile, "r") as f:
+            data = yaml.safe_load(f)
+
+        data["cache"] = {"token": token, "expiry": expiry, "refresh": refresh}
+
+        with open(profile, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+
+        self.log.info("+ New tokens placed in cache")
+
+        return token
 
     def get_playlist(self, episode_id: str) -> tuple:
         if self.config["client"] == "android":
+            cache = self.config.get("cache")
+
+            if not cache:
+                self.log.info("Cache is empty, aquiring new tokens...")
+                token = self.authenticate()
+            elif cache and cache.get("expiry") < datetime.now():
+                self.log.info("Refreshing expired tokens...")
+                token = self.refresh_token()
+            else:
+                self.log.info("Using cached tokens")
+                token = cache.get("token")
+
             url = self.config["android"]["vod"].format(episode_id=episode_id)
 
-            token = self.authenticate()
+            self.client.headers.update({"authorization": f"Bearer {token}"})
 
-            headers = {
-                "authorization": f"Bearer {token}",
-                "x-c4-platform-name": "android",
-                "x-c4-device-type": "mobile",
-                "x-c4-app-version": '"android_app:9.4.2"',
-                "x-c4-device-name": "Sony C6903 (C6903)",
-                "x-c4-optimizely-datafile": "2908",
-            }
-
-            r = self.client.get(url=url, headers=headers)
-            if not r.is_success:
-                error(f"{r} {r.text}")
+            r = self.client.get(url=url)
+            if not r.ok:
+                self.log.error(f"{r} {r.text}")
                 sys.exit(1)
 
-            manifest = r.json()["videoProfiles"][0]["streams"][0]["uri"]
-            token = r.json()["videoProfiles"][0]["streams"][0]["token"]
+            data = json.loads(r.content)
+            manifest = data["videoProfiles"][0]["streams"][0]["uri"]
+            token = data["videoProfiles"][0]["streams"][0]["token"]
 
         else:
             url = self.config["web"]["vod"].format(programmeId=episode_id)
 
             r = self.client.get(url)
-            if not r.is_success:
-                geo_error(r.status_code, r.json().get("message"), location="UK")
+            if not r.ok:
+                self.log.error(f"{r} {r.json().get('message')}")
+                sys.exit(1)
 
             data = json.loads(r.content)
 
@@ -214,7 +284,10 @@ class CHANNEL4(Config):
         return manifest, token
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
-        self.soup = BeautifulSoup(self.client.get(manifest), "xml")
+        r = self.client.get(manifest)
+        r.raise_for_status()
+
+        self.soup = BeautifulSoup(r.text, "xml")
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -225,6 +298,7 @@ class CHANNEL4(Config):
             if int(quality) in heights:
                 return quality
             else:
+                self.log.info("Requested quality not available - getting closest match")
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
                 return closest_match
 
@@ -232,14 +306,14 @@ class CHANNEL4(Config):
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -247,30 +321,31 @@ class CHANNEL4(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        brand = self.get_data(url)
+        with self.console.status("Getting episode from URL..."):
+            brand = self.get_data(url)
 
-        episode = Series(
-            [
-                Episode(
-                    id_=brand["selectedEpisode"]["programmeId"],
-                    service="ALL4",
-                    title=brand["brand"]["title"],
-                    season=brand["selectedEpisode"]["seriesNumber"] or 0,
-                    number=brand["selectedEpisode"]["episodeNumber"] or 0,
-                    name=brand["selectedEpisode"]["originalTitle"],
-                    year=None,
-                    data=brand["selectedEpisode"].get("assetId"),
-                    description=brand["selectedEpisode"].get("summary"),
-                )
-            ]
-        )
+            episode = Series(
+                [
+                    Episode(
+                        id_=brand["selectedEpisode"]["programmeId"],
+                        service="ALL4",
+                        title=brand["brand"]["title"],
+                        season=brand["selectedEpisode"]["seriesNumber"] or 0,
+                        number=brand["selectedEpisode"]["episodeNumber"] or 0,
+                        name=brand["selectedEpisode"]["originalTitle"],
+                        year=None,
+                        data=brand["selectedEpisode"].get("assetId"),
+                        description=brand["selectedEpisode"].get("summary"),
+                    )
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -294,17 +369,14 @@ class CHANNEL4(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        info(f"{str(stream)}")
-        info(f"{keys[0]}")
+        self.log.info(f"{str(stream)}")
+        self.log.info(f"{keys[0]}")
         click.echo("")
 
         args, file_path = get_args(self)

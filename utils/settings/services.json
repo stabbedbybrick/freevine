@@ -1,0 +1,128 @@
+{
+    "iview.abc.net.au": {
+        "name": "ABC",
+        "alias": ["ABC iView", "ABC", "iView", "ABCiView"],
+        "path": "services/abciview/abciview.py",
+        "api": "services/abciview/api.yaml",
+        "config": "services/abciview/config.yaml",
+        "profile": "services/abciview/profile.yaml",
+        "cookies": "services/abciview/cookies.txt"
+    },
+    "www.bbc.co.uk": {
+        "name": "BBC",
+        "alias": ["BBC iPlayer", "iPlayer", "BBC", "BBCiPlayer"],
+        "path": "services/bbciplayer/bbciplayer.py",
+        "api": "services/bbciplayer/api.yaml",
+        "config": "services/bbciplayer/config.yaml",
+        "profile": "services/bbciplayer/profile.yaml",
+        "cookies": "services/bbciplayer/cookies.txt"
+    },
+    "www.channel4.com": {
+        "name": "CHANNEL4",
+        "alias": ["ALL4", "Channel4", "C4", "CH4"],
+        "path": "services/channel4/channel4.py",
+        "api": "services/channel4/api.yaml",
+        "config": "services/channel4/config.yaml",
+        "profile": "services/channel4/profile.yaml",
+        "cookies": "services/channel4/cookies.txt"
+    },
+    "www.channel5.com": {
+        "name": "CHANNEL5",
+        "alias": ["My5 TV", "MY5", "Channel5", "CH5"],
+        "path": "services/channel5/channel5.py",
+        "api": "services/channel5/api.yaml",
+        "config": "services/channel5/config.yaml",
+        "profile": "services/channel5/profile.yaml",
+        "cookies": "services/channel5/cookies.txt"
+    },
+    "www.crackle.com": {
+        "name": "CRACKLE",
+        "alias": ["CRACKLE"],
+        "path": "services/crackle/crackle.py",
+        "api": "services/crackle/api.yaml",
+        "config": "services/crackle/config.yaml",
+        "profile": "services/crackle/profile.yaml",
+        "cookies": "services/crackle/cookies.txt"
+    },
+    "www.ctv.ca": {
+        "name": "CTV",
+        "alias": ["CTV"],
+        "path": "services/ctv/ctv.py",
+        "api": "services/ctv/api.yaml",
+        "config": "services/ctv/config.yaml",
+        "profile": "services/ctv/profile.yaml",
+        "cookies": "services/ctv/cookies.txt"
+    },
+    "gem.cbc.ca": {
+        "name": "CBC",
+        "alias": ["CBC Gem", "CBC", "CBCGem"],
+        "path": "services/cbc/cbc.py",
+        "api": "services/cbc/api.yaml",
+        "config": "services/cbc/config.yaml",
+        "profile": "services/cbc/profile.yaml",
+        "cookies": "services/cbc/cookies.txt"
+    },
+    "www.itv.com": {
+        "name": "ITV",
+        "alias": ["ITVX", "ITV"],
+        "path": "services/itv/itv.py",
+        "api": "services/itv/api.yaml",
+        "config": "services/itv/config.yaml",
+        "profile": "services/itv/profile.yaml",
+        "cookies": "services/itv/cookies.txt"
+    },
+    "pluto.tv": {
+        "name": "PLUTO",
+        "alias": ["PlutoTV", "PLUTO"],
+        "path": "services/pluto/pluto.py",
+        "api": "services/pluto/api.yaml",
+        "config": "services/pluto/config.yaml",
+        "profile": "services/pluto/profile.yaml",
+        "cookies": "services/pluto/cookies.txt"
+    },
+    "therokuchannel.roku.com": {
+        "name": "ROKU",
+        "alias": ["The Roku Channel", "ROKU", "RokuChannel"],
+        "path": "services/roku/roku.py",
+        "api": "services/roku/api.yaml",
+        "config": "services/roku/config.yaml",
+        "profile": "services/roku/profile.yaml",
+        "cookies": "services/roku/cookies.txt"
+    },
+    "player.stv.tv": {
+        "name": "STV",
+        "alias": ["STV Player", "STV", "STVPlayer"],
+        "path": "services/stv/stv.py",
+        "api": "services/stv/api.yaml",
+        "config": "services/stv/config.yaml",
+        "profile": "services/stv/profile.yaml",
+        "cookies": "services/stv/cookies.txt"
+    },
+    "tubitv.com": {
+        "name": "TUBITV",
+        "alias": ["TubiTV", "TUBI"],
+        "path": "services/tubi/tubitv.py",
+        "api": "services/tubi/api.yaml",
+        "config": "services/tubi/config.yaml",
+        "profile": "services/tubi/profile.yaml",
+        "cookies": "services/tubi/cookies.txt"
+    },
+    "uktvplay.co.uk": {
+        "name": "UKTVPLAY",
+        "alias": ["UKTV Play", "UKTV", "UKTVPlay"],
+        "path": "services/uktvplay/uktvplay.py",
+        "api": "services/uktvplay/api.yaml",
+        "config": "services/uktvplay/config.yaml",
+        "profile": "services/uktvplay/profile.yaml",
+        "cookies": "services/uktvplay/cookies.txt"
+    },
+    "www.cwtv.com": {
+        "name": "CW",
+        "alias": ["The CW", "CW", "CWTV", "THECW"],
+        "path": "services/cwtv/cwtv.py",
+        "api": "services/cwtv/api.yaml",
+        "config": "services/cwtv/config.yaml",
+        "profile": "services/cwtv/profile.yaml",
+        "cookies": "services/cwtv/cookies.txt"
+    }
+}

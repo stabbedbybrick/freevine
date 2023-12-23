@@ -19,41 +19,30 @@ import base64
 import re
 import subprocess
 import uuid
-
-from urllib.parse import urlparse
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlparse
 
 import click
-import yaml
 import m3u8
-
 from bs4 import BeautifulSoup
 
-from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    get_wvd,
-    geo_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
 from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    get_wvd,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class PLUTO(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f)) 
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.lic_url = self.config["lic"]
         self.api = self.config["api"]
@@ -62,18 +51,15 @@ class PLUTO(Config):
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_data(self, url: str) -> dict:
         type = urlparse(url).path.split("/")[3]
@@ -95,11 +81,10 @@ class PLUTO(Config):
             "drmCapabilities": "widevine:L3",
         }
 
-        response = self.client.get(
-            "https://boot.pluto.tv/v4/start", params=params
-        ).json()
+        response = self.client.get("https://boot.pluto.tv/v4/start", params=params)
+        response.raise_for_status()
 
-        self.token = response["sessionToken"]
+        self.token = response.json()["sessionToken"]
 
         info = (
             f"{self.api}/series/{video_id}/seasons"
@@ -110,8 +95,8 @@ class PLUTO(Config):
         self.client.params = params
 
         r = self.client.get(info)
-        if not r.is_success:
-            geo_error(r.status_code, r.json().get("message"))
+        if not r.ok:
+            self.log.error(r.json().get("message"))
 
         return r.json()
 
@@ -154,7 +139,9 @@ class PLUTO(Config):
         base = "https://cfd-v4-service-stitcher-dash-use1-1.prd.pluto.tv/v2"
 
         url = f"{base}{stitch}"
-        soup = BeautifulSoup(self.client.get(url), "xml")
+        r = self.client.get(url)
+        r.raise_for_status()
+        soup = BeautifulSoup(r.content, "xml")
         base_urls = soup.find_all("BaseURL")
         for base_url in base_urls:
             if base_url.text.endswith("end/"):
@@ -206,9 +193,9 @@ class PLUTO(Config):
 
         if stitched.endswith(".m3u8"):
             return self.get_hls(stitched)
-        
+
         if not stitched:
-            error("Unable to find manifest")
+            self.log.error("Unable to find manifest")
             return
 
     def get_dash_quality(self, soup: object, quality: str) -> str:
@@ -233,11 +220,12 @@ class PLUTO(Config):
                 return closest_match
 
         return heights[0]
-    
+
     def get_hls_quality(self, manifest: str, quality: str) -> str:
         base = manifest.rstrip("master.m3u8")
         self.client.headers.pop("Authorization")
         r = self.client.get(manifest)
+        r.raise_for_status()
         m3u8_obj = m3u8.loads(r.text)
 
         playlists = []
@@ -248,7 +236,7 @@ class PLUTO(Config):
             heights = sorted([x[0] for x in playlists], reverse=True)
             manifest = [base + x[1] for x in playlists if heights[0] == x[0]][0]
             res = heights[0]
-        
+
         if quality is not None:
             for playlist in playlists:
                 if int(quality) in playlist:
@@ -259,7 +247,6 @@ class PLUTO(Config):
                     if res == playlist[0]:
                         manifest = base + playlist[1]
 
-        self.hls = m3u8_obj
         return res, manifest
 
     def generate_pssh(self, kid: str):
@@ -282,31 +269,30 @@ class PLUTO(Config):
         return [self.generate_pssh(kid) for kid in kids]
 
     def get_mediainfo(self, manifest: str, quality: str, pssh=None, hls=None) -> str:
-
         if manifest.endswith(".mpd"):
             self.client.headers.pop("Authorization")
-            self.soup = BeautifulSoup(self.client.get(manifest), "xml")
+            r = self.client.get(manifest)
+            r.raise_for_status()
+            self.soup = BeautifulSoup(r.content, "xml")
             pssh = self.get_pssh(self.soup)
             quality = self.get_dash_quality(self.soup, quality)
-            self.variant = True
-            return quality, pssh, hls
-        
-        if manifest.endswith(".m3u8"):
-            quality, hls = self.get_hls_quality(manifest, quality)
-            self.variant = False
             return quality, pssh, hls
 
+        if manifest.endswith(".m3u8"):
+            quality, hls = self.get_hls_quality(manifest, quality)
+            self.playlist = True
+            return quality, pssh, hls
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -314,7 +300,7 @@ class PLUTO(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
@@ -331,23 +317,20 @@ class PLUTO(Config):
             manifest = self.get_playlist(stream.data)
             self.res, pssh, hls = self.get_mediainfo(manifest, self.quality)
             self.client.headers.update({"Authorization": f"Bearer {self.token}"})
-        
+
         keys = None
         if pssh is not None:
             keys = [self.get_keys(key, self.lic_url) for key in pssh]
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(key[0] for key in keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = hls if hls else manifest
-        self.key_file = self.tmp / "keys.txt" if pssh else None
+        self.key_file = self.tmp / "keys.txt" if keys else None
         self.sub_path = None
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         click.echo("")
 
         args, file_path = get_args(self)
@@ -358,6 +341,6 @@ class PLUTO(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

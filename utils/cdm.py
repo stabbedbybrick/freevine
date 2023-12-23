@@ -1,16 +1,16 @@
-from utils.utilities import info, error
+import logging
 
-from pywidevine.pssh import PSSH
-from pywidevine.device import Device
 from pywidevine.cdm import Cdm
+from pywidevine.device import Device
+from pywidevine.pssh import PSSH
 
 
 class LocalCDM:
     def __init__(self, wvd=None) -> None:
-        
         self.device = Device.load(wvd)
         self.cdm = Cdm.from_device(self.device)
         self.session_id = self.cdm.open()
+        self.log = logging.getLogger()
 
     def challenge(self, pssh: str) -> bytes:
         return self.cdm.get_license_challenge(self.session_id, PSSH(pssh))
@@ -22,11 +22,11 @@ class LocalCDM:
             for key in self.cdm.get_keys(self.session_id):
                 if key.type == "CONTENT":
                     keys.append(f"{key.kid.hex}:{key.key.hex()}")
-                    
+
             return keys
-        
+
         except Exception as e:
-            error(f"Unable to parse license response {e}")
+            self.log.error(f"Unable to parse license response {e}")
             exit(1)
 
         finally:

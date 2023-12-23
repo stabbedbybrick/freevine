@@ -9,53 +9,40 @@ Quality: up to 1080p and DDP5.1 audio
 """
 from __future__ import annotations
 
-import subprocess
 import re
-
-from urllib.parse import urlparse
+import subprocess
+import sys
 from collections import Counter
+from urllib.parse import urlparse
 
 import click
-import yaml
 import m3u8
-
 from bs4 import BeautifulSoup
 
-from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    geo_error,
-    premium_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
 from utils.config import Config
+from utils.info import print_info
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    is_url,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class CBC(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        if self.info:
-            error("Info feature is currently not supported")
-            return
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         if is_url(self.episode):
-            error("Episode URL not supported. Use standard method")
+            self.log.error("Episode URL not supported. Use standard method")
             return
 
         if self.sub_only:
-            info("Subtitle downloads are not supported on this service")
+            self.log.info("Subtitle downloads are not supported on this service")
             return
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
 
         self.get_options()
 
@@ -224,7 +211,9 @@ class CBC(Config):
         m3u8_text = self.client.get(url).text
 
         try:
-            self.xml = BeautifulSoup(self.client.get(smooth), "xml")
+            r = self.client.get(smooth)
+            r.raise_for_status()
+            self.xml = BeautifulSoup(r.content, "xml")
         except ValueError:
             self.xml = None
 
@@ -268,30 +257,27 @@ class CBC(Config):
             with open(self.tmp / "manifest.m3u8", "w") as f:
                 f.write(m3u8_text)
 
-        self.hls = m3u8.loads(m3u8_text)
         return url, m3u8_text
 
     def get_playlist(self, playsession: str) -> tuple:
         response = self.client.get(playsession).json()
 
-        if response["errorCode"] == 1:
-            geo_error(403, None, location="CA")
-
-        if response["errorCode"] == 35:
-            premium_error(403)
+        if response.get("errorCode"):
+            self.log.error(response)
+            sys.exit(1)
 
         return self.get_hls(response.get("url"))
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -299,12 +285,11 @@ class CBC(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
-
 
     def get_options(self) -> None:
         downloads, title = get_downloads(self)
@@ -317,16 +302,13 @@ class CBC(Config):
             mpd_url, m3u8 = self.get_playlist(stream.data)
             self.res, audio = self.get_mediainfo(self.quality, m3u8)
 
-        if self.info:
-            print_info(self, stream)
-
         self.filename = set_filename(self, stream, self.res, audio)
         self.save_path = set_save_path(stream, self, title)
         self.manifest = self.tmp / "manifest.m3u8" if self.xml else mpd_url
         self.key_file = None  # Not encrypted
         self.sub_path = None
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         click.echo("")
 
         args, file_path = get_args(self)
@@ -337,6 +319,6 @@ class CBC(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

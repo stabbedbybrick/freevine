@@ -1,7 +1,7 @@
-import shutil
-
 from rich.console import Console
 from rich.table import Table
+
+console = Console()
 
 
 def get_dash_info(soup: object):
@@ -61,12 +61,11 @@ def get_hls_info(m3u8_obj: object):
 
 
 def print_sorted_table(video_data, audio_data, stream):
-    console = Console()
     table = Table(title=str(stream), border_style="grey35")
-    table.add_column("Video ID", style="cyan")
+    table.add_column("Video ID", style="bright_blue")
     table.add_column("Resolution", style="green")
     table.add_column("Bitrate", style="yellow")
-    table.add_column("Audio ID", style="cyan")
+    table.add_column("Audio ID", style="bright_blue")
     table.add_column("Bitrate", style="yellow")
     table.add_column("Codec", style="green")
 
@@ -90,6 +89,7 @@ def print_sorted_table(video_data, audio_data, stream):
             str(audio_row[2]),
         )
 
+    console.print("\n\n")
     console.print(table)
 
 
@@ -103,5 +103,4 @@ def print_info(service: object, stream: object, keys: list = None):
 
     print_sorted_table(video, audio, stream)
 
-    shutil.rmtree(service.tmp)
     exit(0)

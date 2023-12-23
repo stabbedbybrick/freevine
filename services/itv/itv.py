@@ -10,68 +10,53 @@ ITV L3 is 720p, AAC 2.0 max
 """
 from __future__ import annotations
 
-import base64
-import subprocess
 import json
-import shutil
-import sys
-
+import subprocess
 from collections import Counter
 from pathlib import Path
 
 import click
 import requests
-import yaml
-
 from bs4 import BeautifulSoup
 
+from utils.args import get_args
+from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
     add_subtitles,
     construct_pssh,
     get_wvd,
-    geo_error,
-    premium_error,
+    set_filename,
+    set_save_path,
+    string_cleaning,
 )
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
-from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
-from utils.cdm import LocalCDM
 
 
 class ITV(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         self.get_options()
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_data(self, url: str) -> dict:
-        soup = BeautifulSoup(self.client.get(url), "html.parser")
+        r = self.client.get(url)
+        r.raise_for_status()
+
+        soup = BeautifulSoup(r.text, "html.parser")
         props = soup.select_one("#__NEXT_DATA__").text
         data = json.loads(props)
         return data["props"]["pageProps"]
@@ -85,8 +70,12 @@ class ITV(Config):
                     id_=None,
                     service="ITV",
                     title=data["programme"]["title"],
-                    season=episode.get("series") or 0,
-                    number=episode.get("episode") or 0,
+                    season=episode.get("series")
+                    if isinstance(episode.get("series"), int)
+                    else 0,
+                    number=episode.get("episode")
+                    if isinstance(episode.get("episode"), int)
+                    else 0,
                     name=episode["episodeTitle"],
                     year=None,
                     data=episode["playlistUrl"],
@@ -128,12 +117,7 @@ class ITV(Config):
         }
 
         r = self.client.post(playlist, json=payload)
-        if not r.is_success:
-            premium_error(
-                r.status_code
-            ) if "UserTokenValidationFailed" in r.text else geo_error(
-                r.status_code, None, location="UK"
-            )
+        r.raise_for_status()
 
         data = r.json()
 
@@ -146,12 +130,9 @@ class ITV(Config):
 
         return mpd_url, lic_url, subtitle
 
-
     def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
         r = requests.get(manifest)
-        if not r.ok:
-            click.echo(f"\n\nError! {r.status_code}\n{r.content}")
-            sys.exit(1)
+        r.raise_for_status()
 
         self.soup = BeautifulSoup(r.content, "xml")
         elements = self.soup.find_all("Representation")
@@ -186,14 +167,14 @@ class ITV(Config):
 
     def get_content(self, url: str) -> object:
         if self.movie:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
-            with self.console.status("Fetching titles..."):
+            with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
 
                 title = string_cleaning(str(content))
@@ -201,30 +182,35 @@ class ITV(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        data = self.get_data(url)
+        with self.console.status("Getting episode from URL..."):
+            data = self.get_data(url)
 
-        episode = Series(
-            [
-                Episode(
-                    id_=None,
-                    service="ITV",
-                    title=data["programme"]["title"],
-                    season=data["episode"].get("series") or 0,
-                    number=data["episode"].get("episode") or 0,
-                    name=data["episode"]["episodeTitle"],
-                    year=None,
-                    data=data["episode"]["playlistUrl"],
-                    description=data["episode"].get("description"),
-                )
-            ]
-        )
+            episode = Series(
+                [
+                    Episode(
+                        id_=None,
+                        service="ITV",
+                        title=data["programme"]["title"],
+                        season=data["episode"].get("series")
+                        if isinstance(data["episode"].get("series"), int)
+                        else 0,
+                        number=data["episode"].get("episode")
+                        if isinstance(data["episode"].get("episode"), int)
+                        else 0,
+                        name=data["episode"]["episodeTitle"],
+                        # year=None,
+                        data=data["episode"]["playlistUrl"],
+                        description=data["episode"].get("description"),
+                    )
+                ]
+            )
 
         title = string_cleaning(str(episode))
 
@@ -246,18 +232,15 @@ class ITV(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = self.tmp / "manifest.mpd"
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        info(f"{str(stream)}")
+        self.log.info(f"{str(stream)}")
         for key in keys:
-            info(f"{key}")
+            self.log.info(f"{key}")
         click.echo("")
 
         args, file_path = get_args(self)
@@ -268,6 +251,6 @@ class ITV(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

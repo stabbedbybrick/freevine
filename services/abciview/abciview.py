@@ -7,67 +7,54 @@ Quality: up to 1080p
 """
 from __future__ import annotations
 
-import subprocess
 import re
-import base64
-
-from urllib.parse import urlparse
+import subprocess
+import sys
 from collections import Counter
 from pathlib import Path
+from urllib.parse import urlparse
 
 import click
-import yaml
-
 from bs4 import BeautifulSoup
 
-from utils.utilities import (
-    info,
-    error,
-    is_url,
-    string_cleaning,
-    set_save_path,
-    set_filename,
-    add_subtitles,
-    kid_to_pssh,
-    get_wvd,
-    geo_error,
-)
-from utils.titles import Episode, Series, Movie, Movies
-from utils.options import get_downloads
 from utils.args import get_args
-from utils.info import print_info
-from utils.config import Config
 from utils.cdm import LocalCDM
+from utils.config import Config
+from utils.options import get_downloads
+from utils.titles import Episode, Movie, Movies, Series
+from utils.utilities import (
+    add_subtitles,
+    get_wvd,
+    info,
+    kid_to_pssh,
+    set_filename,
+    set_save_path,
+    string_cleaning,
+)
 
 
 class ABC(Config):
-    def __init__(self, config, srvc_api, srvc_config, **kwargs):
-        super().__init__(config, srvc_api, srvc_config, **kwargs)
+    def __init__(self, config, **kwargs):
+        super().__init__(config, **kwargs)
 
         if self.sub_only:
             info("Subtitle downloads are not supported on this service")
             return
-
-        with open(self.srvc_api, "r") as f:
-            self.config.update(yaml.safe_load(f))
 
         self.lic_url = self.config["license"]
         self.get_options()
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
-        if not r.is_success:
-            error(f"License request failed: {r.status_code}")
-            exit(1)
+        r.raise_for_status()
         return r.content
 
     def get_keys(self, pssh: str, lic_url: str) -> bytes:
         wvd = get_wvd(Path.cwd())
-        with self.console.status("Getting decryption keys..."):
-            widevine = LocalCDM(wvd)
-            challenge = widevine.challenge(pssh)
-            response = self.get_license(challenge, lic_url)
-            return widevine.parse(response)
+        widevine = LocalCDM(wvd)
+        challenge = widevine.challenge(pssh)
+        response = self.get_license(challenge, lic_url)
+        return widevine.parse(response)
 
     def get_token(self):
         return self.client.post(
@@ -152,13 +139,15 @@ class ABC(Config):
             ]
         )
 
-
     def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
         r = self.client.get(manifest)
-        if not r.is_success:
-            geo_error(r.status_code, None, location="AU")
+        r.raise_for_status()
 
-        self.soup = BeautifulSoup(r, "xml")
+        if "cenc" not in r.text:
+            self.log.error("Unable to parse manifest. Possible VPN/proxy detection")
+            sys.exit(0)
+
+        self.soup = BeautifulSoup(r.content, "xml")
         elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
@@ -188,8 +177,9 @@ class ABC(Config):
     def get_playlist(self, video_id: str) -> tuple:
         r = self.client.get(self.config["vod"].format(video_id=video_id)).json()
         if not r.get("playable"):
-            geo_error(404, r.get("unavailableMessage"), location="AU")
-        
+            self.log.error(r.get("unavailableMessage"))
+            sys.exit(1)
+
         playlist = r["_embedded"]["playlist"]
         streams = [
             x["streams"]["mpegdash"] for x in playlist if x["type"] == "program"
@@ -211,7 +201,7 @@ class ABC(Config):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
 
-            info(f"{str(content)}\n")
+            self.log.info(f"{str(content)}\n")
 
         else:
             with self.console.status("Fetching titles..."):
@@ -222,22 +212,23 @@ class ABC(Config):
                 num_seasons = len(seasons)
                 num_episodes = sum(seasons.values())
 
-            info(
+            self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
             )
 
         return content, title
 
     def get_episode_from_url(self, url: str):
-        video_id = urlparse(url).path.split("/")[2]
+        with self.console.status("Getting episode from URL..."):
+            video_id = urlparse(url).path.split("/")[2]
 
-        data = self.client.get(self.config["vod"].format(video_id=video_id)).json()
+            data = self.client.get(self.config["vod"].format(video_id=video_id)).json()
 
-        episode = self.create_episode(data)
+            episode = self.create_episode(data)
 
-        episode = Series([episode])
+            episode = Series([episode])
 
-        title = string_cleaning(str(episode))
+            title = string_cleaning(str(episode))
 
         return [episode[0]], title
 
@@ -259,17 +250,14 @@ class ABC(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        if self.info:
-            print_info(self, stream, keys)
-
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest if not subtitle else self.tmp / "manifest.mpd"
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        info(f"{str(stream)}")
-        info(f"{keys[0]}")
+        self.log.info(f"{str(stream)}")
+        self.log.info(f"{keys[0]}")
         click.echo("")
 
         args, file_path = get_args(self)
@@ -280,6 +268,6 @@ class ABC(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exist. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass

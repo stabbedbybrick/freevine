@@ -1,7 +1,7 @@
 import re
+from abc import ABC
 
 from sortedcontainers import SortedKeyList
-from abc import ABC
 
 from utils.utilities import string_cleaning
 
@@ -49,19 +49,17 @@ class Episode:
     def __str__(self) -> str:
         if self.season == 0 and self.number == 0:
             return "{title} {name}".format(title=self.title, name=self.name).strip()
-        
+
         elif self.season == 0 and self.number > 0:
             return "{title} E{number:02} {name}".format(
-                title=self.title, 
-                number=self.number, 
-                name=self.name).strip()
-        
+                title=self.title, number=self.number, name=self.name
+            ).strip()
+
         elif self.number == 0 and self.season > 0:
             return "{title} S{season:02} {name}".format(
-                title=self.title, 
-                season=self.season, 
-                name=self.name).strip()
-    
+                title=self.title, season=self.season, name=self.name
+            ).strip()
+
         else:
             return "{title} S{season:02}E{number:02} {name}".format(
                 title=self.title,
@@ -116,7 +114,6 @@ class Movie:
         self.subtitle = subtitle
         self.lic_url = lic_url
         self.synopsis = synopsis
-
 
     def __str__(self) -> str:
         if self.year:
