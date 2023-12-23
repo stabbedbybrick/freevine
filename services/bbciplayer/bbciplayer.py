@@ -65,10 +65,10 @@ class BBC(Config):
         cetegory = labels.get("category") if labels else None
 
         series = re.finditer(
-            r"Series (\d+):|(\d{4}/\d{2}): Episode \d+", subtitle.get("default")
+            r"Series (\d+):|Season (\d+):|(\d{4}/\d{2}): Episode \d+", subtitle.get("default")
         )
         season_num = int(
-            next((m.group(1) or m.group(2).replace("/", "") for m in series), 0)
+            next((m.group(1) or m.group(2) or m.group(3).replace("/", "") for m in series), 0)
         )
 
         number = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle.get("slice") or "")
