@@ -12,7 +12,7 @@ from utils.console import custom_handler
 from utils.docs.documentation import main_help
 from utils.manager import service_manager
 from utils.search.search import search_engine
-from utils.utilities import is_url
+from utils.utilities import is_url, check_version
 
 console = Console()
 
@@ -29,7 +29,7 @@ def cli(debug: bool):
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
     click.echo(f"\n❯_ 𝕗𝕣𝕖𝕖𝕧𝕚𝕟𝕖 {__version__}\n")
-    # check_version(__version__)
+    check_version(__version__)
 
 
 @cli.command()

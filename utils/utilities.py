@@ -2,6 +2,7 @@ import base64
 import datetime
 import re
 import shutil
+import logging
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta  # noqa: F811
 from pathlib import Path
@@ -12,6 +13,7 @@ import requests
 from pywidevine.device import Device, DeviceTypes
 from unidecode import unidecode
 
+log = logging.getLogger()
 
 def create_wvd(dir: Path) -> Path:
     """
@@ -29,7 +31,7 @@ def create_wvd(dir: Path) -> Path:
             client_id = file
 
     if not private_key and not client_id:
-        error("Required key and client ID not found")
+        log.error("Required key and client ID not found")
         exit(1)
 
     device = Device(
@@ -44,7 +46,7 @@ def create_wvd(dir: Path) -> Path:
         dir / f"{device.type.name}_{device.system_id}_l{device.security_level}.wvd"
     )
     device.dump(out_path)
-    info("New WVD file successfully created")
+    log.info("New WVD file successfully created")
 
     return next(dir.glob("*.wvd"), None)
 
@@ -56,7 +58,7 @@ def get_wvd(cwd: Path) -> Path:
     wvd = next(dir.glob("*.wvd"), None)
 
     if not wvd:
-        info("WVD file is missing. Attempting to create a new one...")
+        log.info("WVD file is missing. Attempting to create a new one...")
         wvd = create_wvd(dir)
 
     return wvd
