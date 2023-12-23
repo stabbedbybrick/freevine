@@ -358,8 +358,8 @@ class CHANNEL4(Config):
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
+        manifest, token = self.get_playlist(stream.id)
         with self.console.status("Getting media info..."):
-            manifest, token = self.get_playlist(stream.id)
             self.res = self.get_mediainfo(manifest, self.quality)
             pssh = kid_to_pssh(self.soup)
             token, lic_url = self.decrypt_token(token)
