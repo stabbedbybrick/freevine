@@ -12,6 +12,7 @@ import m3u8
 import requests
 from pywidevine.device import Device, DeviceTypes
 from unidecode import unidecode
+from bs4 import BeautifulSoup
 
 log = logging.getLogger()
 
@@ -111,6 +112,19 @@ def get_binary(*names: str) -> Path:
         if path:
             return Path(path)
     return None
+
+
+def get_heights(session: requests.Session, manifest: str) -> tuple:
+        r = session.get(manifest)
+        r.raise_for_status()
+
+        soup = BeautifulSoup(r.text, "xml")
+        elements = soup.find_all("Representation")
+        heights = sorted(
+            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
+            reverse=True,
+        )
+        return heights, soup
 
 
 def string_cleaning(filename: str) -> str:
