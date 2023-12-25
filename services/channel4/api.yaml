@@ -1,15 +1,13 @@
 ## CLIENT SETTINGS FOR CHANNEL4
 
 login: "https://api.channel4.com/online/v2/auth/token"
-
-# Switch client to "android" or "web" to access different streams
-client: "android"
+license: "https://c4.eme.lp.aws.redbeemedia.com/wvlicenceproxy-service/widevine/acquire"
 
 android:
   key: "QVlESUQ4U0RGQlA0TThESA=="
   iv: "MURDRDAzODNES0RGU0w4Mg=="
   auth: "MzZVVUN0OThWTVF2QkFnUTI3QXU4ekdIbDMxTjlMUTE6Sllzd3lIdkdlNjJWbGlrVw=="
-  vod: "https://api.channel4.com/online/v1/vod/stream/{episode_id}?client=android-mod"
+  vod: "https://api.channel4.com/online/v1/vod/stream/{video_id}?client=android-mod"
   
 web:
   key: "bjljTGllWWtxd3pOQ3F2aQ=="

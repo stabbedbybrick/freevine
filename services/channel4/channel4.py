@@ -20,7 +20,6 @@ from pathlib import Path
 
 import click
 import yaml
-from bs4 import BeautifulSoup
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
 
@@ -31,6 +30,7 @@ from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
     expiration,
+    get_heights,
     get_wvd,
     info,
     kid_to_pssh,
@@ -44,6 +44,7 @@ class CHANNEL4(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
 
+        self.lic_url = self.config["license"]
         self.login = self.config["login"]
         self.username = self.config.get("credentials", {}).get("username")
         self.password = self.config.get("credentials", {}).get("password")
@@ -81,12 +82,12 @@ class CHANNEL4(Config):
         response = self.get_license(challenge, lic_url, assets)
         return widevine.parse(response)
 
-    def decrypt_token(self, token: str) -> tuple:
-        if self.config["client"] == "android":
+    def decrypt_token(self, token: str, client: str) -> tuple:
+        if client == "android":
             key = self.config["android"]["key"]
             iv = self.config["android"]["iv"]
 
-        if self.config["client"] == "web":
+        if client == "web":
             key = self.config["web"]["key"]
             iv = self.config["web"]["iv"]
 
@@ -98,8 +99,8 @@ class CHANNEL4(Config):
                 mode=AES.MODE_CBC,
             )
             data = unpad(cipher.decrypt(token), AES.block_size)
-            license_api, dec_token = data.decode().split("|")
-            return dec_token.strip(), license_api.strip()
+            dec_token = data.decode().split("|")[1]
+            return dec_token.strip()
 
     def get_data(self, url: str) -> dict:
         r = self.client.get(url)
@@ -239,70 +240,70 @@ class CHANNEL4(Config):
 
         return token
 
-    def get_playlist(self, episode_id: str) -> tuple:
-        if self.config["client"] == "android":
-            cache = self.config.get("cache")
+    def android_playlist(self, video_id: str) -> tuple:
+        cache = self.config.get("cache")
 
-            if not cache:
-                self.log.info("Cache is empty, aquiring new tokens...")
-                token = self.authenticate()
-            elif cache and cache.get("expiry") < datetime.now():
-                self.log.info("Refreshing expired tokens...")
-                token = self.refresh_token()
-            else:
-                self.log.info("Using cached tokens")
-                token = cache.get("token")
-
-            url = self.config["android"]["vod"].format(episode_id=episode_id)
-
-            self.client.headers.update({"authorization": f"Bearer {token}"})
-
-            r = self.client.get(url=url)
-            if not r.ok:
-                self.log.error(f"{r} {r.text}")
-                sys.exit(1)
-
-            data = json.loads(r.content)
-            manifest = data["videoProfiles"][0]["streams"][0]["uri"]
-            token = data["videoProfiles"][0]["streams"][0]["token"]
-
+        if not cache:
+            self.log.info("Cache is empty, aquiring new tokens...")
+            token = self.authenticate()
+        elif cache and cache.get("expiry") < datetime.now():
+            self.log.info("Refreshing expired tokens...")
+            token = self.refresh_token()
         else:
-            url = self.config["web"]["vod"].format(programmeId=episode_id)
+            self.log.info("Using cached tokens")
+            token = cache.get("token")
 
-            r = self.client.get(url)
-            if not r.ok:
-                self.log.error(f"{r} {r.json().get('message')}")
-                sys.exit(1)
+        url = self.config["android"]["vod"].format(video_id=video_id)
 
-            data = json.loads(r.content)
+        self.client.headers.update({"authorization": f"Bearer {token}"})
 
-            for item in data["videoProfiles"]:
-                if item["name"] == "dashwv-dyn-stream-1":
-                    token = item["streams"][0]["token"]
-                    manifest = item["streams"][0]["uri"]
+        r = self.client.get(url=url)
+        if not r.ok:
+            self.log.error(f"{r} {r.text}")
+            sys.exit(1)
+
+        data = json.loads(r.content)
+        manifest = data["videoProfiles"][0]["streams"][0]["uri"]
+        token = data["videoProfiles"][0]["streams"][0]["token"]
 
         return manifest, token
 
-    def get_mediainfo(self, manifest: str, quality: str) -> str:
-        r = self.client.get(manifest)
-        r.raise_for_status()
+    def web_playlist(self, video_id: str) -> tuple:
+        url = self.config["web"]["vod"].format(programmeId=video_id)
 
-        self.soup = BeautifulSoup(r.text, "xml")
-        elements = self.soup.find_all("Representation")
-        heights = sorted(
-            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
-            reverse=True,
-        )
+        r = self.client.get(url)
+        if not r.ok:
+            self.log.error(f"{r} {r.json().get('message')}")
+            sys.exit(1)
+
+        data = json.loads(r.content)
+
+        for item in data["videoProfiles"]:
+            if item["name"] == "dashwv-dyn-stream-1":
+                token = item["streams"][0]["token"]
+                manifest = item["streams"][0]["uri"]
+
+        return manifest, token
+
+    def get_mediainfo(self, video_id: str, quality: str) -> str:
+        manifest, token = self.android_playlist(video_id)
+        lic_token = self.decrypt_token(token, client="android")
+        heights, self.soup = get_heights(self.client, manifest)
+        resolution = heights[0]
+
+        if resolution < 1080:
+            manifest, token = self.web_playlist(video_id)
+            lic_token = self.decrypt_token(token, client="web")
+            heights, self.soup = get_heights(self.client, manifest)
+            resolution = heights[0]
 
         if quality is not None:
             if int(quality) in heights:
-                return quality
+                resolution = quality
             else:
-                self.log.info("Requested quality not available - getting closest match")
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+                resolution = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
-        return heights[0]
+        return resolution, manifest, lic_token
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -358,14 +359,11 @@ class CHANNEL4(Config):
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        manifest, token = self.get_playlist(stream.id)
-        with self.console.status("Getting media info..."):
-            self.res = self.get_mediainfo(manifest, self.quality)
-            pssh = kid_to_pssh(self.soup)
-            token, lic_url = self.decrypt_token(token)
-            assets = manifest, token, stream.data
+        self.res, manifest, token = self.get_mediainfo(stream.id, self.quality)
+        pssh = kid_to_pssh(self.soup)
+        assets = manifest, token, stream.data
 
-        keys = self.get_keys(pssh, lic_url, assets)
+        keys = self.get_keys(pssh, self.lic_url, assets)
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
