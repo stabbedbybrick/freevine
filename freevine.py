@@ -1,8 +1,6 @@
-import shutil
 import atexit
-
+import shutil
 from pathlib import Path
-
 
 from utils.commands import cli
 

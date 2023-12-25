@@ -44,7 +44,7 @@
 5. Install necessary packages: `pip install -r requirements.txt`
 
 > [!TIP]
-> Get the main branch for immediate fixes and updates
+> Clone/download the main branch for immediate fixes and updates
 
 ## Usage:
 
