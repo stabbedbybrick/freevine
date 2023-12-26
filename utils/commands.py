@@ -1,6 +1,8 @@
 import json
 import logging
 import sys
+import subprocess
+import shlex
 from pathlib import Path
 
 import click
@@ -12,7 +14,7 @@ from utils.console import custom_handler
 from utils.docs.documentation import main_help
 from utils.manager import service_manager
 from utils.search.search import search_engine
-from utils.utilities import is_url, check_version
+from utils.utilities import is_url, check_version, get_binary
 
 console = Console()
 
@@ -131,6 +133,19 @@ def profile(username: str, password: str, service: str):
     log.info(f"Profile has been set for {key['alias'][0]}!")
 
 
+@cli.command()
+@click.argument("file", type=click.Path(exists=True), required=True)
+def file(file: Path):
+    python = get_binary("python", "python3", "py")
+    work_dir = Path(__file__).resolve().parent.parent
+    freevine = work_dir / "freevine.py"
+    with open(file, "r") as f:
+        for line in f:
+            args = shlex.split(line.rstrip())
+            subprocess.run([python, freevine] + args)
+
+
 cli.add_command(search)
 cli.add_command(get)
 cli.add_command(profile)
+cli.add_command(file)
