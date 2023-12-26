@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import subprocess
 import urllib.parse
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -134,7 +135,7 @@ class STV(Config):
                     title=episode["programme"]["name"],
                     season=int(episode["playerSeries"]["name"].split(" ")[1])
                     if episode["playerSeries"] is not None
-                    and "movie" not in episode["playerSeries"]["name"]
+                    and re.match(r"Series \d+", episode["playerSeries"]["name"])
                     else 0,
                     number=episode.get("number") or 0,
                     name=episode.get("title"),
