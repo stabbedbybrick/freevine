@@ -143,12 +143,12 @@ class CHANNEL4(Config):
         return Movies(
             [
                 Movie(
-                    id_=None,
+                    id_=movie.get("programmeId"),
                     service="ALL4",
                     title=data["brand"]["title"],
                     year=data["brand"]["summary"].split(" ")[0].strip().strip("()"),
                     name=data["brand"]["title"],
-                    data=movie.get("assetId"),
+                    data=None,
                     synopsis=movie.get("summary"),
                 )
                 for movie in data["brand"]["episodes"]
