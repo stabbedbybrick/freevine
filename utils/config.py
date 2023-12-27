@@ -42,6 +42,7 @@ class Config:
         save_dir: Optional[str] = None,
         save_name: Optional[str] = None,
         add_command: Optional[list] = None,
+        force_numbering: Optional[list] = None,
         # skip_download: Optional[bool] = None,
     ) -> None:
         if episode and not is_url(episode):
@@ -83,6 +84,7 @@ class Config:
         self.save_name = save_name
         self.add_command = add_command
         self.skip_download = info
+        self.force_numbering = force_numbering
 
         self.console = Console()
 

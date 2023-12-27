@@ -27,6 +27,7 @@ from utils.utilities import (
     set_filename,
     set_save_path,
     string_cleaning,
+    force_numbering,
 )
 
 
@@ -257,6 +258,9 @@ class BBC(Config):
                 num_episodes = sum(seasons.values())
 
                 title = string_cleaning(str(content))
+
+                if self.force_numbering:
+                    content = force_numbering(content)
 
             self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"

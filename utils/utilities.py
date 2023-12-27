@@ -128,6 +128,18 @@ def get_heights(session: requests.Session, manifest: str) -> tuple:
     return heights, soup
 
 
+def force_numbering(content: list) -> list:
+        season_episode_counter = {}
+        for episode in content:
+            if episode.season not in season_episode_counter:
+                season_episode_counter[episode.season] = 1
+            else:
+                season_episode_counter[episode.season] += 1
+            episode.number = season_episode_counter[episode.season]
+        
+        return content
+
+
 def string_cleaning(filename: str) -> str:
     filename = unidecode(filename)
     filename = filename.replace("&", "and")

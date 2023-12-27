@@ -60,6 +60,7 @@ def search(alias: str, keywords: str) -> None:
 @click.option("--sub-no-fix", is_flag=True, default=False, help="Leave subtitles untouched")
 @click.option("--use-shaka-packager", is_flag=True, default=False, help="Use shaka-packager to decrypt")
 @click.option("--add-command", multiple=True, default=list, help="Add extra command to N_m3u8DL-RE")
+@click.option("-fn", "--force-numbering", is_flag=True, help="Force add numbering to episodes")
 @click.option("-e", "--episode", type=str, help="Download episode(s)")
 @click.option("-s", "--season", type=str, help="Download complete season")
 @click.option("-c", "--complete", is_flag=True, help="Download complete series")
