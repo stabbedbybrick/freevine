@@ -39,7 +39,7 @@ def cli(debug: bool):
 @click.argument("keywords", type=str)
 def search(alias: str, keywords: str) -> None:
     """
-    Specify one or more services to search using keywords:
+    Search one or multiple services for titles
 
     Usage: freevine.py search bbc,all4 "KEYWORDS"
     """
@@ -137,6 +137,9 @@ def profile(username: str, password: str, service: str):
 @cli.command()
 @click.argument("file", type=click.Path(exists=True), required=True)
 def file(file: Path):
+    """
+    Read commands from a text file
+    """
     python = get_binary("python", "python3", "py")
     work_dir = Path(__file__).resolve().parent.parent
     freevine = work_dir / "freevine.py"
