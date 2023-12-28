@@ -157,9 +157,9 @@ class UKTVPLAY(Config):
                 if self.force_numbering:
                     content = force_numbering(content)
 
-                self.log.info(
-                    f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
-                )
+            self.log.info(
+                f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
+            )
 
         return content, title
 
