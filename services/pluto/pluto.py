@@ -97,7 +97,7 @@ class PLUTO(Config):
 
         r = self.client.get(info)
         if not r.ok:
-            self.log.error(r.json().get("message"))
+            raise ConnectionError(f"{r.status_code} - {r.json().get('message')}")
 
         return r.json()
 

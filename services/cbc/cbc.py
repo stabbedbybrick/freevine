@@ -262,8 +262,7 @@ class CBC(Config):
         response = self.client.get(playsession).json()
 
         if response.get("errorCode"):
-            self.log.error(response)
-            sys.exit(1)
+             raise ConnectionError(response)
 
         return self.get_hls(response.get("url"))
 

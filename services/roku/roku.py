@@ -60,9 +60,13 @@ class ROKU(Config):
         video_id = urlparse(url).path.split("/")[2]
 
         r = self.client.get(f"{self.api}{video_id}")
-        r.raise_for_status()
 
-        return r.json()
+        try:
+            data = json.loads(r.content)
+        except:
+            raise ConnectionError("This video is unavailable in your location")
+
+        return data
 
     async def fetch_titles(self, async_client: httpx.AsyncClient, id: str) -> json:
         response = await async_client.get(f"{self.api}{id}")

@@ -71,8 +71,7 @@ class CHANNEL4(Config):
 
         r = self.client.post(lic_url, json=payload)
         if not r.ok:
-            self.log.error(f"License request failed: {r.json()['status']['type']}")
-            sys.exit(1)
+            raise ConnectionError(f"License request failed: {r.json()['status']['type']}")
 
         return r.json()["license"]
 
@@ -172,8 +171,7 @@ class CHANNEL4(Config):
 
         r = self.client.post(self.login, data=data)
         if not r.ok:
-            self.log.error(f"{r} {r.text}")
-            sys.exit(1)
+             raise ConnectionError(f"{r} {r.text}")
 
         auth = json.loads(r.content)
         token = auth.get("accessToken")
@@ -219,8 +217,7 @@ class CHANNEL4(Config):
 
         r = self.client.post(self.login, data=data)
         if not r.ok:
-            self.log.error(f"{r} {r.text}")
-            sys.exit(1)
+             raise ConnectionError(f"{r} {r.text}")
 
         auth = json.loads(r.content)
         token = auth.get("accessToken")
@@ -260,8 +257,7 @@ class CHANNEL4(Config):
 
         r = self.client.get(url=url)
         if not r.ok:
-            self.log.error(f"{r} {r.text}")
-            sys.exit(1)
+             raise ConnectionError(f"{r} {r.text}")
 
         data = json.loads(r.content)
         manifest = data["videoProfiles"][0]["streams"][0]["uri"]
@@ -274,8 +270,7 @@ class CHANNEL4(Config):
 
         r = self.client.get(url)
         if not r.ok:
-            self.log.error(f"{r} {r.json().get('message')}")
-            sys.exit(1)
+            raise ConnectionError(f"{r} {r.json().get('message')}")
 
         data = json.loads(r.content)
 

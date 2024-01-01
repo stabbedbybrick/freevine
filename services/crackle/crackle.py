@@ -60,8 +60,7 @@ class CRACKLE(Config):
 
         r = self.client.get(f"{self.api}/content/{self.video_id}")
         if not r.ok:
-            self.log.error(r.json()["error"]["message"])
-            sys.exit(1)
+            raise ConnectionError(r.json()["error"]["message"])
 
         return r.json()["data"]
 

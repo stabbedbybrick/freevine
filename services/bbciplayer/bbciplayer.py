@@ -151,8 +151,7 @@ class BBC(Config):
     def get_version_content(self, vpid: str) -> list:
         r = self.client.get(self.config["media"].format(client="iptv-all", vpid=vpid))
         if not r.ok:
-            self.log.error(f"{r} {r.json()['result']}")
-            sys.exit(1)
+            raise ConnectionError(f"{r} {r.json()['result']}")
 
         return r.json()["media"]
 

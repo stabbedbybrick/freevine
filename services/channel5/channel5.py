@@ -112,8 +112,7 @@ class CHANNEL5(Config):
 
         r = self.client.get(media)
         if not r.ok:
-            self.log.error(r.json().get("message"))
-            sys.exit(1)
+            raise ConnectionError(r.json().get("message"))
 
         content = r.json()
 

@@ -178,8 +178,7 @@ class ABC(Config):
     def get_playlist(self, video_id: str) -> tuple:
         r = self.client.get(self.config["vod"].format(video_id=video_id)).json()
         if not r.get("playable"):
-            self.log.error(r.get("unavailableMessage"))
-            sys.exit(1)
+             raise ConnectionError(r.get("unavailableMessage"))
 
         playlist = r["_embedded"]["playlist"]
         streams = [
