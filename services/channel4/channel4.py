@@ -60,6 +60,21 @@ class CHANNEL4(Config):
 
         self.get_options()
 
+    def get_auth_token(self):
+        cache = self.config.get("cache")
+
+        if not cache:
+            self.log.info("Cache is empty, aquiring new tokens...")
+            token = self.authenticate()
+        elif cache and cache.get("expiry") < datetime.now():
+            self.log.info("Refreshing expired tokens...")
+            token = self.refresh_token()
+        else:
+            self.log.info("Using cached tokens")
+            token = cache.get("token")
+
+        return token
+
     def get_license(self, challenge: bytes, lic_url: str, assets: tuple) -> str:
         manifest, token, asset = assets
         payload = {
@@ -238,22 +253,10 @@ class CHANNEL4(Config):
 
         return token
 
-    def android_playlist(self, video_id: str) -> tuple:
-        cache = self.config.get("cache")
-
-        if not cache:
-            self.log.info("Cache is empty, aquiring new tokens...")
-            token = self.authenticate()
-        elif cache and cache.get("expiry") < datetime.now():
-            self.log.info("Refreshing expired tokens...")
-            token = self.refresh_token()
-        else:
-            self.log.info("Using cached tokens")
-            token = cache.get("token")
-
+    def android_playlist(self, video_id: str, bearer: str) -> tuple:
         url = self.config["android"]["vod"].format(video_id=video_id)
 
-        self.client.headers.update({"authorization": f"Bearer {token}"})
+        self.client.headers.update({"authorization": f"Bearer {bearer}"})
 
         r = self.client.get(url=url)
         if not r.ok:
@@ -281,8 +284,8 @@ class CHANNEL4(Config):
 
         return manifest, token
 
-    def get_mediainfo(self, video_id: str, quality: str) -> str:
-        manifest, token = self.android_playlist(video_id)
+    def get_mediainfo(self, video_id: str, quality: str, bearer: str) -> str:
+        manifest, token = self.android_playlist(video_id, bearer)
         lic_token = self.decrypt_token(token, client="android")
         heights, self.soup = get_heights(self.client, manifest)
         resolution = heights[0]
@@ -352,13 +355,14 @@ class CHANNEL4(Config):
         return [episode[0]], title
 
     def get_options(self) -> None:
+        bearer = self.get_auth_token()
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            self.download(download, title)
+            self.download(download, title, bearer)
 
-    def download(self, stream: object, title: str) -> None:
-        self.res, manifest, token = self.get_mediainfo(stream.id, self.quality)
+    def download(self, stream: object, title: str, bearer: str) -> None:
+        self.res, manifest, token = self.get_mediainfo(stream.id, self.quality, bearer)
         pssh = kid_to_pssh(self.soup)
         assets = manifest, token, stream.data
 
