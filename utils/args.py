@@ -88,7 +88,7 @@ def format_settings(service: object) -> tuple:
     return threads, format, muxer, packager
 
 
-def dir_settings(service: object) -> tuple:
+def dir_settings(service: object, format: str) -> tuple:
     temp = service.config["temp_dir"]
     save_path = service.save_path
     filename = service.filename
@@ -137,7 +137,7 @@ def get_args(service: object) -> tuple:
         sys.exit(1)
 
     threads, format, muxer, packager = format_settings(service)
-    temp, save_path, filename, file_path = dir_settings(service)
+    temp, save_path, filename, file_path = dir_settings(service, format)
     select_video, drop_video = video_settings(service)
     select_audio, drop_audio = audio_settings(service)
     sub_no_mux, sub_fix, select_sub, drop_sub = subtitle_settings(service)
