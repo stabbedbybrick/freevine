@@ -144,14 +144,19 @@ class PLUTO(Config):
         r.raise_for_status()
         soup = BeautifulSoup(r.content, "xml")
         base_urls = soup.find_all("BaseURL")
+        ads = ("_ad", "Bumper", "Promo")
         for base_url in base_urls:
-            if base_url.text.endswith("end/"):
+            if not any(ad in base_url.text for ad in ads):
                 new_base = base_url.text
 
         parse = urlparse(new_base)
         _path = parse.path.split("/")
-        _path = "/".join(_path[:-3])
-        new_path = f"{_path}/dash/0-end/main.mpd"
+        _path = "/".join(_path[:-3]) if new_base.endswith("end/") else "/".join(_path)
+        new_path = (
+            f"{_path}/dash/0-end/main.mpd"
+            if new_base.endswith("end/")
+            else f"{_path}main.mpd"
+        )
 
         return parse._replace(
             scheme="http",
@@ -171,18 +176,22 @@ class PLUTO(Config):
         url = url.replace("master.m3u8", f"{max_bandwidth[0]}/playlist.m3u8")
 
         response = self.client.get(url).text
-        segment = re.search(
-            r"^(https?://.*/)0\-(end|[0-9]+)/[^/]+\.ts$", response, re.MULTILINE
-        ).group(1)
+        playlist = m3u8.loads(response)
+        segment = playlist.segments[0].uri
 
-        parse = urlparse(f"{segment}0-end/master.m3u8")
+        if "hls/hls" in segment:
+            master = re.sub(r"hls_\d+-\d+\.ts$", "", segment)
+            master += "master.m3u8"
+        else:
+            master = segment.split("hls/")[0]
+            master += "hls/0-end/master.m3u8"
 
-        master = parse._replace(
+        parse = urlparse(master)
+        return parse._replace(
             scheme="http",
             netloc="silo-hybrik.pluto.tv.s3.amazonaws.com",
         ).geturl()
 
-        return master
 
     def get_playlist(self, playlists: str) -> tuple:
         stitched = next((x for x in playlists if x.endswith(".mpd")), None)
@@ -223,7 +232,6 @@ class PLUTO(Config):
         return heights[0]
 
     def get_hls_quality(self, manifest: str, quality: str) -> str:
-        base = manifest.rstrip("master.m3u8")
         self.client.headers.pop("Authorization")
         r = self.client.get(manifest)
         r.raise_for_status()
@@ -235,18 +243,14 @@ class PLUTO(Config):
                 playlists.append((playlist.stream_info.resolution[1], playlist.uri))
 
             heights = sorted([x[0] for x in playlists], reverse=True)
-            manifest = [base + x[1] for x in playlists if heights[0] == x[0]][0]
             res = heights[0]
 
         if quality is not None:
             for playlist in playlists:
                 if int(quality) in playlist:
                     res = playlist[0]
-                    manifest = base + playlist[1]
                 else:
                     res = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                    if res == playlist[0]:
-                        manifest = base + playlist[1]
 
         return res, manifest
 
