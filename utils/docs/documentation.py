@@ -14,6 +14,7 @@ main_help = f"""
         mkvmerge
         mp4decrypt
         shaka-packager
+        hola-proxy (optional)
     \b
     Installation:
         1. Install Python (check 'Add to PATH' if on Windows)
@@ -105,6 +106,18 @@ main_help = f"""
             You can search one or multiple services at the same time
             The results should produce usable URL to series or movie
             Some services have geo block even for searching
+    \b
+    Proxy (beta):
+        You can request or specify a proxy server to be used for API and license requests:
+    \b
+            freevine.py --proxy US
+            freevine.py --proxy "01.234.56.789:10"
+    \b
+            NOTES:
+            Requesting a proxy by country code requires https://github.com/Snawoot/hola-proxy
+            Make sure to re-name the executable to "hola-proxy" in order to work properly
+    \b
+            The proxy currently only affects API and license requests, not downloads
     \b    
     Service information:
         (Premium content on any service is not supported)
@@ -113,7 +126,7 @@ main_help = f"""
             CTV:      1080p, DD5.1
             CBC GEM:  1080p, DD5.1
             iView:    1080p, AAC2.0
-            ALL4:     1080p, AAC2.0 *
+            ALL4:     1080p, AAC2.0
             MY5:      1080p, AAC2.0
             iPLAYER:  1080p, AAC2.0
             UKTVPLAY: 1080p, AAC2.0
@@ -123,9 +136,6 @@ main_help = f"""
             ITV:      720p,  AAC2.0
             TUBI:     720p,  AAC2.0
             PLUTO:    720p,  AAC2.0 
-    \b
-            *ALL4 offer different quality streams on different API endpoints
-            You can switch between them in /services/channel4/api.yaml by using "android" or "web" as client
     \b
     Final notes:
     \b

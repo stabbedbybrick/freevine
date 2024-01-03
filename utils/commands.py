@@ -30,7 +30,7 @@ def cli(debug: bool):
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
-    click.echo(f"\n❯_ 𝕗𝕣𝕖𝕖𝕧𝕚𝕟𝕖 {__version__}\n")
+    click.echo(f"\n❯_freevine {__version__}\n")
     check_version(__version__)
 
 

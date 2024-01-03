@@ -53,6 +53,7 @@
 Available arguments:
 
 ```
+  --proxy TEXT                 Request or specify a proxy server
   --threads TEXT               Concurrent download fragments
   --format TEXT                Specify file format
   --muxer TEXT                 Select muxer
@@ -64,6 +65,7 @@ Available arguments:
   --sub-no-fix                 Leave subtitles untouched
   --use-shaka-packager         Use shaka-packager to decrypt
   --add-command TEXT           Add extra command to N_m3u8DL-RE
+  -fn, --force-numbering       Force add numbering to episodes
   -e, --episode TEXT           Download episode(s)
   -s, --season TEXT            Download complete season
   -c, --complete               Download complete series
@@ -72,9 +74,9 @@ Available arguments:
   -i, --info                   Print title info
   -sv, --select-video TEXT     Select video stream
   -sa, --select-audio TEXT     Select audio stream
-  -ss, --select-subtitle TEXT  Select subtitle
   -dv, --drop-video TEXT       Drop video stream
   -da, --drop-audio TEXT       Drop audio stream
+  -ss, --select-subtitle TEXT  Select subtitle
   -ds, --drop-subtitle TEXT    Drop subtitle
 ```
 Examples:
