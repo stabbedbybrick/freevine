@@ -33,6 +33,8 @@
 
 * [shaka packager](https://github.com/shaka-project/shaka-packager)
 
+* [hola-proxy](https://github.com/Snawoot/hola-proxy) (optional)
+
 * Widevine Device File (.wvd)
 
 ## Installation:
