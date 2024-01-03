@@ -1,5 +1,6 @@
 import re
 import sys
+import shutil
 from pathlib import Path
 
 from utils.utilities import get_binary
@@ -189,6 +190,8 @@ def get_args(service: object) -> tuple:
     if sub_path and sub_no_mux == "false":
         arguments.extend(["--mux-import", f"path={sub_path}:lang=eng:name='English'"])
 
+    if sub_path and sub_no_mux == "true":
+        shutil.move(sub_path, save_path)
 
     if added_commands:
         for command in added_commands:

@@ -247,7 +247,7 @@ class TUBITV(Config):
         self.sub_path = None
 
         if stream.subtitle is not None:
-            self.sub_path = self.save_path / f"{self.filename}.srt"
+            self.sub_path = self.tmp / f"{self.filename}.srt"
             r = self.client.get(url=f"{stream.subtitle}")
             with open(self.sub_path, "wb") as f:
                 f.write(r.content)

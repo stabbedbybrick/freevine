@@ -54,7 +54,7 @@ def search(alias: str, keywords: str) -> None:
 @click.option("--muxer", type=str, default=False, help="Select muxer")
 @click.option("--no-mux", is_flag=True, default=False, help="Choose to not mux files")
 @click.option("--save-name", type=str, default=False, help="Name of saved file")
-@click.option("--save-dir", type=str, default=False, help="Save directory")
+@click.option("--save-dir", type=click.Path(exists=True), default=False, help="Save directory")
 @click.option("--sub-only", is_flag=True, default=False, help="Download only subtitles")
 @click.option("--sub-no-mux", is_flag=True, default=False, help="Choose to not mux subtitles")
 @click.option("--sub-no-fix", is_flag=True, default=False, help="Leave subtitles untouched")

@@ -325,7 +325,7 @@ class BBC(Config):
             with open(self.save_path / f"{filename}.xml", "wb") as f:
                 f.write(xml.content)
 
-            self.sub_path = self.save_path / f"{filename}.xml"
+            self.sub_path = self.tmp / f"{filename}.xml"
 
         else:
             with self.console.status("Cleaning subtitles..."):
@@ -347,11 +347,11 @@ class BBC(Config):
                     srt += f"{i+1}\n{start.replace('.', ',')} --> {end.replace('.', ',')}\n{text}\n\n"
 
                 with open(
-                    self.save_path / f"{filename}.srt", "w", encoding="UTF-8"
+                    self.tmp / f"{filename}.srt", "w", encoding="UTF-8"
                 ) as f:
                     f.write(srt)
 
-            self.sub_path = self.save_path / f"{filename}.srt"
+            self.sub_path = self.tmp / f"{filename}.srt"
 
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
