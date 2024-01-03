@@ -194,7 +194,7 @@ class CBC(Config):
         video_stream = (
             "#EXT-X-STREAM-INF:BANDWIDTH={bandwidth},"
             "RESOLUTION={width}x{height},"
-            'CODECS="avc1.4d401f,mp4a.40.2",'
+            'CODECS="avc1.{codec}",'
             'AUDIO="audio",'
             'CLOSED-CAPTIONS="CC"\n{uri}QualityLevels({bitrate})/Manifest(video,format=m3u8-aapl)'
         )
@@ -225,17 +225,24 @@ class CBC(Config):
                     for level in index:
                         if not level.attrs.get("Bitrate"):
                             continue
-
-                        m3u8_text += (
-                            video_stream.format(
-                                bandwidth=level.attrs.get("Bitrate", 0),
-                                width=level.attrs.get("MaxWidth", 0),
-                                height=level.attrs.get("MaxHeight", 0),
-                                uri=base_url,
-                                bitrate=level.attrs.get("Bitrate", 0),
+                        
+                        if level.attrs.get("MaxHeight") == "1080":
+                            m3u8_text += (
+                                video_stream.format(
+                                    bandwidth=level.attrs.get("Bitrate", 0),
+                                    width=level.attrs.get("MaxWidth", 0),
+                                    height=level.attrs.get("MaxHeight", 0),
+                                    codec=re.search(
+                                        "0000000127(\w{6})",
+                                        level.attrs.get("CodecPrivateData"),
+                                    )
+                                    .group(1)
+                                    .lower(),
+                                    uri=base_url,
+                                    bitrate=level.attrs.get("Bitrate", 0),
+                                )
+                                + "\n"
                             )
-                            + "\n"
-                        )
 
                 if index.attrs.get("Type") == "audio":
                     levels = index.find_all("QualityLevel")
