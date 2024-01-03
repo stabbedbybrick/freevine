@@ -115,6 +115,11 @@ def get_binary(*names: str) -> Path:
     return None
 
 
+def contains_ip_address(input_string):
+    pattern = r"\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
+    return bool(re.search(pattern, input_string))
+
+
 def get_heights(session: requests.Session, manifest: str) -> tuple:
     r = session.get(manifest)
     r.raise_for_status()
@@ -129,15 +134,15 @@ def get_heights(session: requests.Session, manifest: str) -> tuple:
 
 
 def force_numbering(content: list) -> list:
-        season_episode_counter = {}
-        for episode in content:
-            if episode.season not in season_episode_counter:
-                season_episode_counter[episode.season] = 1
-            else:
-                season_episode_counter[episode.season] += 1
-            episode.number = season_episode_counter[episode.season]
-        
-        return content
+    season_episode_counter = {}
+    for episode in content:
+        if episode.season not in season_episode_counter:
+            season_episode_counter[episode.season] = 1
+        else:
+            season_episode_counter[episode.season] += 1
+        episode.number = season_episode_counter[episode.season]
+
+    return content
 
 
 def string_cleaning(filename: str) -> str:

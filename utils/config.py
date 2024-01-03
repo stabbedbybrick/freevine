@@ -7,6 +7,7 @@ import requests
 from rich.console import Console
 
 from utils.utilities import is_url
+from utils.proxies import get_proxy
 
 
 class Config:
@@ -43,6 +44,7 @@ class Config:
         save_name: Optional[str] = None,
         add_command: Optional[list] = None,
         force_numbering: Optional[list] = None,
+        proxy: Optional[str] = None,
         # skip_download: Optional[bool] = None,
     ) -> None:
         if episode and not is_url(episode):
@@ -94,6 +96,7 @@ class Config:
         self.log = logging.getLogger()
 
         self.client = requests.Session()
+        self.client.timeout = 10.0
         self.client.headers.update(
             {
                 "user-agent": (
@@ -103,4 +106,7 @@ class Config:
                 ),
             }
         )
-        self.client.timeout = 10.0
+
+        if proxy != "False":
+            uri = get_proxy(proxy)
+            self.client.proxies = {"http": uri, "https": uri}
