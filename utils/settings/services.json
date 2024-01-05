@@ -124,5 +124,14 @@
         "config": "services/cwtv/config.yaml",
         "profile": "services/cwtv/profile.yaml",
         "cookies": "services/cwtv/cookies.txt"
+    },
+    "www.svtplay.se": {
+        "name": "SVTPlay",
+        "alias": ["SVTPlay", "SVT"],
+        "path": "services/svtplay/svtplay.py",
+        "api": "services/svtplay/api.yaml",
+        "config": "services/svtplay/config.yaml",
+        "profile": "services/svtplay/profile.yaml",
+        "cookies": "services/svtplay/cookies.txt"
     }
 }
