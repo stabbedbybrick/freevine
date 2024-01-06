@@ -1,0 +1,2 @@
+content: https://contento.svt.se/graphql?ua=svtplaywebb-render-prod-client
+vod: https://api.svt.se/video/{id}
