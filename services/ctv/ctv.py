@@ -233,11 +233,9 @@ class CTV(Config):
         return pssh_from_init(Path(self.tmp / "init.mp4"))
 
     async def fetch_manifests(self, async_client: httpx.AsyncClient, url: str):
-        try:
-            response = await async_client.get(url)
-            response.raise_for_status()
-        except httpx.HTTPStatusError:
-            pass
+        response = await async_client.get(url)
+        if not response.is_success:
+            raise ConnectionError(f"{response}")
 
         return from_mpd(response.text, url)
 
@@ -248,17 +246,20 @@ class CTV(Config):
 
     def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
         content = asyncio.run(
-            self.parse_manifests([manifest + num for num in ["14", "3", "25"]])
+            self.parse_manifests(
+                [manifest + num for num in ["14", "3", "25", "fe&mca=true&mta=true"]]
+            )
         )
 
         for streams in content:
-            for track in streams:
-                height = track.get("height", "")
-
-                if "1080" in height or "720" in height:
-                    manifest = streams[0].get("url")
-                else:
-                    manifest = manifest
+            url = streams[0]["url"]
+            track = next(
+                (t for t in streams if "height" in t and ("1080" in t["height"])), None
+            )
+            manifest = url if track else manifest
+            dv_audio = next(
+                (t["id"] for t in streams if "id" in t and "-dv-" in t["id"]), None
+            )
 
         r = self.client.get(manifest)
         self.soup = BeautifulSoup(r.text, "xml")
@@ -273,6 +274,16 @@ class CTV(Config):
         audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
 
         self.soup = add_subtitles(self.soup, subtitle)
+        if dv_audio:
+            self.soup.find("AdaptationSet", {"contentType": "audio"}).append(
+                self.soup.new_tag(
+                    "Representation",
+                    id=f"{dv_audio}",
+                    codecs="mp4a.40.2",
+                    mimeType="audio/mp4",
+                    bandwidth="128000",
+                )
+            )
 
         with open(self.tmp / "manifest.mpd", "w") as f:
             f.write(str(self.soup.prettify()))
@@ -340,7 +351,9 @@ class CTV(Config):
                     """,
             }
 
-            data = self.client.post(self.api, json=payload).json()["data"]["axisContent"]
+            data = self.client.post(self.api, json=payload).json()["data"][
+                "axisContent"
+            ]
 
             episode = Series(
                 [
