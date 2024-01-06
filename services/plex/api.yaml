@@ -1,0 +1,4 @@
+user: https://plex.tv/api/v2/users/anonymous
+provider: provider://tv.plex.provider.vod/library/metadata/{path}
+vod: https://play.provider.plex.tv/playQueues
+license: https://vod.provider.plex.tv/{parts}?X-Plex-Token={token}&X-Plex-DRM=widevine
