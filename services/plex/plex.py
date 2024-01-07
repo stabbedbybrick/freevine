@@ -10,16 +10,15 @@ Some titles are encrypted, some are not. Both versions are supported
 """
 from __future__ import annotations
 
-import base64
+import asyncio
 import re
 import subprocess
-import uuid
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
 import click
-import m3u8
+import httpx
 from bs4 import BeautifulSoup
 
 from utils.args import get_args
@@ -28,11 +27,14 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    add_subtitles,
+    force_numbering,
     get_wvd,
+    kid_to_pssh,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    is_url
 )
 
 
@@ -40,12 +42,14 @@ class Plex(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
 
-        self.lic_url = self.config["license"]
+        if is_url(self.episode):
+            self.log.error("Episode URL not supported. Use standard method")
+            return
 
         self.client.headers.update(
             {
                 "accept": "application/json",
-                "x-plex-client-identifier": "490b079e-2dbf-4212-bf51-2aabaa54191f",
+                "x-plex-client-identifier": "d90522a0-52bd-4101-969e-58beaed3ab66",
                 "x-plex-language": "en",
                 "x-plex-product": "Plex Mediaverse",
                 "x-plex-provider-version": "6.5.0",
@@ -71,41 +75,63 @@ class Plex(Config):
         if not r.ok:
             raise ConnectionError(r.json()["Error"].get("message"))
 
-        return r.json()["authToken"]
+        self.auth_token = r.json()["authToken"]
+        return self.auth_token
+
 
     def get_data(self, url: str) -> dict:
         kind = urlparse(url).path.split("/")[1]
         video_id = urlparse(url).path.split("/")[2]
 
-        auth_token = self.get_auth_token()
+        self.client.headers.update({"x-plex-token": self.get_auth_token()})
 
-        self.client.headers.update({"x-plex-token": auth_token})
-        params = {
-            "uri": self.config["provider"].format(path=f"{kind}:{video_id}"),
-            "type": "video",
-            "continuous": "1",
-        }
-        r = self.client.post(self.config["vod"], params=params)
+        r = self.client.get(f"{self.config['vod']}/library/metadata/{kind}:{video_id}")
         if not r.ok:
             raise ConnectionError(r.json()["Error"].get("message"))
+        
+        return r.json()
 
-        return r.json()["MediaContainer"]["Metadata"]
+    async def fetch(self, session, url):
+        response = await session.get(url)
+        return response.json()["MediaContainer"]["Metadata"]
+
+    async def fetch_all(self, urls):
+        async with httpx.AsyncClient(headers=self.client.headers) as client:
+            tasks = [self.fetch(client, url) for url in urls]
+            responses = await asyncio.gather(*tasks)
+        return responses
 
     def get_series(self, url: str) -> Series:
         data = self.get_data(url)
+        series = self.client.get(
+            self.config["vod"] + data["MediaContainer"]["Metadata"][0]["key"]
+        ).json()
+
+        urls = [
+            self.config["vod"] + item["key"]
+            for item in series["MediaContainer"]["Metadata"]
+            if item["type"] == "season"
+        ]
+
+        seasons = asyncio.run(self.fetch_all(urls))
 
         return Series(
             [
                 Episode(
+                    id_=next((x["id"] for x in episode["Media"]), None),
                     service="PLEX",
-                    title=episode["grandparentTitle"].split()[0],
+                    title=re.sub(r"\s*\(\d{4}\)", "", episode["grandparentTitle"]),
                     season=int(episode.get("parentIndex", 0)),
                     number=int(episode.get("index", 0)),
                     name=episode.get("title"),
                     year=episode.get("year"),
-                    data=None,
+                    data=next(x["url"] for x in episode["Media"] if x.get("protocol") == "dash"),
+                    drm=True if next((x["drm"] for x in episode["Media"]), None) else False,
+                    subtitle=(next(x["key"] for x in episode["Media"][0]["Part"][0]["Stream"] 
+                                   if x.get("streamType") == 3), None),
                 )
-                for episode in data
+                for season in seasons
+                for episode in season
                 if episode["type"] == "episode"
             ]
         )
@@ -116,86 +142,20 @@ class Plex(Config):
         return Movies(
             [
                 Movie(
+                    id_=next((x["id"] for x in movie["Media"]), None),
                     service="PLEX",
-                    title=movie["name"],
-                    year=movie["slug"].split("-")[-3],  # TODO
-                    name=movie["name"],
-                    data=[x["path"] for x in movie["stitched"]["paths"]],
+                    title=movie["title"],
+                    year=movie.get("year"),
+                    name=movie["title"],
+                    data=next(x["url"] for x in movie["Media"] if x.get("protocol") == "dash"),
+                    drm=True if next((x["drm"] for x in movie["Media"]), None) else False,
+                    subtitle=(next(x["key"] for x in movie["Media"][0]["Part"][0]["Stream"] 
+                                   if x.get("streamType") == 3), None),
                 )
-                for movie in data
+                for movie in data["MediaContainer"]["Metadata"]
             ]
         )
-
-    def get_dash(self, stitch: str):
-        base = "https://cfd-v4-service-stitcher-dash-use1-1.prd.pluto.tv/v2"
-
-        url = f"{base}{stitch}"
-        r = self.client.get(url)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.content, "xml")
-        base_urls = soup.find_all("BaseURL")
-        ads = ("_ad", "Bumper", "Promo")
-        for base_url in base_urls:
-            if not any(ad in base_url.text for ad in ads):
-                new_base = base_url.text
-
-        parse = urlparse(new_base)
-        _path = parse.path.split("/")
-        _path = "/".join(_path[:-3]) if new_base.endswith("end/") else "/".join(_path)
-        new_path = (
-            f"{_path}/dash/0-end/main.mpd"
-            if new_base.endswith("end/")
-            else f"{_path}main.mpd"
-        )
-
-        return parse._replace(
-            scheme="http",
-            netloc="silo-hybrik.pluto.tv.s3.amazonaws.com",
-            path=f"{new_path}",
-        ).geturl()
-
-    def get_hls(self, stitch: str):
-        base = "https://cfd-v4-service-channel-stitcher-use1-1.prd.pluto.tv"
-
-        url = f"{base}{stitch}"
-        response = self.client.get(url).text
-        pattern = r"#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=(\d+)"
-        matches = re.findall(pattern, response)
-
-        max_bandwidth = sorted(matches, key=int, reverse=True)
-        url = url.replace("master.m3u8", f"{max_bandwidth[0]}/playlist.m3u8")
-
-        response = self.client.get(url).text
-        playlist = m3u8.loads(response)
-        segment = playlist.segments[0].uri
-
-        if "hls/hls" in segment:
-            master = re.sub(r"hls_\d+-\d+\.ts$", "", segment)
-            master += "master.m3u8"
-        else:
-            master = segment.split("hls/")[0]
-            master += "hls/0-end/master.m3u8"
-
-        parse = urlparse(master)
-        return parse._replace(
-            scheme="http",
-            netloc="silo-hybrik.pluto.tv.s3.amazonaws.com",
-        ).geturl()
-
-    def get_playlist(self, playlists: str) -> tuple:
-        stitched = next((x for x in playlists if x.endswith(".mpd")), None)
-        if not stitched:
-            stitched = next((x for x in playlists if x.endswith(".m3u8")), None)
-
-        if stitched.endswith(".mpd"):
-            return self.get_dash(stitched)
-
-        if stitched.endswith(".m3u8"):
-            return self.get_hls(stitched)
-
-        if not stitched:
-            self.log.error("Unable to find manifest")
-            return
+    
 
     def get_dash_quality(self, soup: object, quality: str) -> str:
         elements = soup.find_all("Representation")
@@ -203,13 +163,6 @@ class Plex(Config):
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
             reverse=True,
         )
-
-        # 720p on Pluto is in the adaptationset rather than representation
-        adaptation_sets = soup.find_all("AdaptationSet")
-        for item in adaptation_sets:
-            if item.attrs.get("height"):
-                heights.append(int(item.attrs["height"]))
-                heights.sort(reverse=True)
 
         if quality is not None:
             if int(quality) in heights:
@@ -220,62 +173,24 @@ class Plex(Config):
 
         return heights[0]
 
-    def get_hls_quality(self, manifest: str, quality: str) -> str:
-        self.client.headers.pop("Authorization")
-        r = self.client.get(manifest)
+    def get_mediainfo(self, stream: object, quality: str) -> str:
+        r = self.client.get(stream.data)
         r.raise_for_status()
-        m3u8_obj = m3u8.loads(r.text)
+        self.soup = BeautifulSoup(r.content, "xml")
+        pssh = kid_to_pssh(self.soup) if stream.drm else None
+        quality = self.get_dash_quality(self.soup, quality)
 
-        playlists = []
-        if m3u8_obj.is_variant:
-            for playlist in m3u8_obj.playlists:
-                playlists.append((playlist.stream_info.resolution[1], playlist.uri))
+        if stream.subtitle:
+            video_id = stream.id.split("-")[0]
+            subtitle = self.config["subtitle"].format(id=video_id)
+            self.soup = add_subtitles(self.soup, subtitle)
 
-            heights = sorted([x[0] for x in playlists], reverse=True)
-            res = heights[0]
+        self.base_url = re.sub(r"(\w+.mpd)", "", stream.data)
 
-        if quality is not None:
-            for playlist in playlists:
-                if int(quality) in playlist:
-                    res = playlist[0]
-                else:
-                    res = min(heights, key=lambda x: abs(int(x) - int(quality)))
+        with open(self.tmp / "manifest.mpd", "w") as f:
+            f.write(str(self.soup.prettify()))
 
-        return res, manifest
-
-    def generate_pssh(self, kid: str):
-        array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
-        array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
-        array_of_bytes.extend(b"\x00\x00\x00\x12\x12\x10")
-        array_of_bytes.extend(bytes.fromhex(kid.replace("-", "")))
-        return base64.b64encode(bytes.fromhex(array_of_bytes.hex())).decode("utf-8")
-
-    def get_pssh(self, soup) -> str:
-        tags = soup.find_all("ContentProtection")
-        kids = set(
-            [
-                x.attrs.get("cenc:default_KID").replace("-", "")
-                for x in tags
-                if x.attrs.get("cenc:default_KID")
-            ]
-        )
-
-        return [self.generate_pssh(kid) for kid in kids]
-
-    def get_mediainfo(self, manifest: str, quality: str, pssh=None, hls=None) -> str:
-        if manifest.endswith(".mpd"):
-            self.client.headers.pop("Authorization")
-            r = self.client.get(manifest)
-            r.raise_for_status()
-            self.soup = BeautifulSoup(r.content, "xml")
-            pssh = self.get_pssh(self.soup)
-            quality = self.get_dash_quality(self.soup, quality)
-            return quality, pssh, hls
-
-        if manifest.endswith(".m3u8"):
-            quality, hls = self.get_hls_quality(manifest, quality)
-            self.playlist = True
-            return quality, pssh, hls
+        return quality, pssh
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -311,19 +226,18 @@ class Plex(Config):
 
     def download(self, stream: object, title: str) -> None:
         with self.console.status("Getting media info..."):
-            manifest = self.get_playlist(stream.data)
-            self.res, pssh, hls = self.get_mediainfo(manifest, self.quality)
-            self.client.headers.update({"Authorization": f"Bearer {self.token}"})
+            self.res, pssh = self.get_mediainfo(stream, self.quality)
 
         keys = None
-        if pssh is not None:
-            keys = [self.get_keys(key, self.lic_url) for key in pssh]
+        if stream.drm:
+            lic_url = self.config["license"].format(id=stream.id, token=self.auth_token)
+            keys = self.get_keys(pssh, lic_url)
             with open(self.tmp / "keys.txt", "w") as file:
-                file.write("\n".join(key[0] for key in keys))
+                file.write("\n".join(keys))
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
-        self.manifest = hls if hls else manifest
+        self.manifest = self.tmp / "manifest.mpd"
         self.key_file = self.tmp / "keys.txt" if keys else None
         self.sub_path = None
 
@@ -338,6 +252,6 @@ class Plex(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+            self.log.info(f"{self.filename} already exists. Skipping download\n")
             self.sub_path.unlink() if self.sub_path else None
             pass
