@@ -79,6 +79,18 @@ def _dict(keywords: str):
             "method": "POST",
         },
         {
+            "name": "SVTPlayer",
+            "alias": ["SVTPLAYER", "SVT", "SVT Player"],
+            "url": "https://contento-search.svt.se/graphql",
+            "params": {
+                "operationName": "SearchPage",
+                "variables": f'{{"abTestVariants":[],"query":"{keywords}"}}',
+                "extensions": '{"persistedQuery":{"sha256Hash":"65a6875f886e590a917da4c90ac7ae0249ab0025ffc6d414b058801dc8f06d9d","version":1}}',
+                "ua": "svtplaywebb-render-prod-client",
+            },
+            "method": "GET",
+        },
+        {
             "name": "CBC Gem",
             "alias": ["CBC", "GEM"],
             "url": "https://services.radio-canada.ca/ott/catalog/v1/gem/search",
@@ -191,6 +203,24 @@ def _dict(keywords: str):
                 "q": f"{keywords}".replace(" ", "%2520"),
                 "format": "json2",
                 "service": "t",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "Plex",
+            "alias": ["PLEX", "PLEX.TV"],
+            "url": f"https://discover.provider.plex.tv/library/search?searchTypes=livetv,movies,people,tv&searchProviders=discover,plexAVOD,plexFAST&includeMetadata=1&filterPeople=1&limit=10&query={keywords}",
+            "header": {
+                'authority': 'discover.provider.plex.tv',
+                'accept': 'application/json',
+                'content-type': 'application/json',
+                'origin': 'https://watch.plex.tv',
+                'referer': 'https://watch.plex.tv/',
+                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+                'x-plex-client-identifier': 'e3109fe5-d10c-4d8a-b71b-24f60c2c550b',
+                'x-plex-language': 'en',
+                'x-plex-product': 'Plex Mediaverse',
+                'x-plex-provider-version': '6.5.0',
             },
             "method": "GET",
         },
@@ -474,5 +504,35 @@ def _parse(query: dict, service: dict, client=None):
                             url=link.format(slug=field["link"].split("?")[0]),
                         )
                     )
+    if service["name"] == "SVTPlayer":
+        link = "https://www.svtplay.se{slug}"
+
+        if query:
+            for field in query["data"]["searchPage"]["flat"]["hits"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["teaser"]["item"].get("name"),
+                        synopsis=field["teaser"].get("description"),
+                        type=field["teaser"]["item"].get("__typename"),
+                        url=link.format(slug=field["teaser"]["item"]["urls"]["svtplay"]),
+                    )
+                )
+    if service["name"] == "Plex":
+        link = "https://watch.plex.tv/{type}/{slug}"
+
+        if query:
+            media = query["MediaContainer"]["SearchResults"]
+            search_results = next(x.get("SearchResult") for x in media if x.get("id") == "external")
+            for field in search_results:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field["Metadata"]["title"],
+                        synopsis=None,
+                        type=field["Metadata"].get("type"),
+                        url=link.format(type=field["Metadata"].get("type"), slug=field["Metadata"]["slug"]),
+                    )
+                )
 
     return results
