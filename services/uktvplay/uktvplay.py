@@ -146,8 +146,6 @@ class UKTVPLAY(Config):
         else:
             with self.console.status("Fetching series titles..."):
                 content = self.get_series(url)
-                for episode in content:
-                    episode.name = episode.get_filename()
 
                 title = string_cleaning(str(content))
                 seasons = Counter(x.season for x in content)
