@@ -131,6 +131,7 @@ def get_args(service: object) -> tuple:
     no_mux = service.no_mux
     skip_download = service.skip_download
     hls_playlist = hasattr(service, "playlist")
+    base_url = service.base_url if hasattr(service, "base_url") else None
 
     m3u8dl = get_binary("N_m3u8DL-RE", "n-m3u8dl-re")
     if not m3u8dl:
@@ -171,6 +172,7 @@ def get_args(service: object) -> tuple:
     arguments.extend(["-ds", drop_sub]) if drop_sub else None
     arguments.extend(["--sub-only"]) if sub_only else None
     arguments.extend(["--use-shaka-packager"]) if packager == "true" else None
+    arguments.extend(["--base-url", base_url]) if base_url else None
 
     if hls_playlist and not skip_download:
         arguments.extend(["--auto-select"])
