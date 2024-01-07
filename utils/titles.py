@@ -21,8 +21,7 @@ class Episode:
         data=None,
         subtitle=None,
         lic_url=None,
-        synopsis=None,
-        description=None,
+        drm=None,
         special=None,
     ) -> None:
         if name is not None:
@@ -42,8 +41,7 @@ class Episode:
         self.data = data
         self.subtitle = subtitle
         self.lic_url = lic_url
-        self.synopsis = synopsis
-        self.description = description
+        self.drm = drm
         self.special = special
 
     def __str__(self) -> str:
@@ -100,7 +98,7 @@ class Movie:
         data=None,
         subtitle=None,
         lic_url=None,
-        synopsis=None,
+        drm=None,
     ) -> None:
         if name is not None:
             name = name.strip()
@@ -113,7 +111,7 @@ class Movie:
         self.data = data
         self.subtitle = subtitle
         self.lic_url = lic_url
-        self.synopsis = synopsis
+        self.drm = drm
 
     def __str__(self) -> str:
         if self.year:

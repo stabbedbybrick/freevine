@@ -1,0 +1,5 @@
+user: https://plex.tv/api/v2/users/anonymous
+provider: provider://tv.plex.provider.vod/library/metadata/{path}
+vod: https://vod.provider.plex.tv
+license: https://vod.provider.plex.tv/library/parts/{id}/license?X-Plex-Token={token}&X-Plex-DRM=widevine
+subtitle: https://vod-static.plex.tv/subtitles/{id}/eng.vtt

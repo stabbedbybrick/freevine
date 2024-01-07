@@ -133,5 +133,14 @@
         "config": "services/svtplay/config.yaml",
         "profile": "services/svtplay/profile.yaml",
         "cookies": "services/svtplay/cookies.txt"
+    },
+    "watch.plex.tv": {
+        "name": "Plex",
+        "alias": ["Plex", "Watch.Plex", "PlexTV"],
+        "path": "services/plex/plex.py",
+        "api": "services/plex/api.yaml",
+        "config": "services/plex/config.yaml",
+        "profile": "services/plex/profile.yaml",
+        "cookies": "services/plex/cookies.txt"
     }
 }
