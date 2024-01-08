@@ -18,6 +18,7 @@
 - [x] Config file with customized settings
 - [x] Search option
 - [x] Option to add login credentials
+- [x] [Supported sites](https://github.com/stabbedbybrick/freevine/blob/main/supportedsites.md)
 
 ## Requirements:
 

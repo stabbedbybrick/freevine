@@ -2,7 +2,7 @@
 * Crackle: 1080p, AAC2.0 :us:
 * CWTV, The CW: 1080p, AAC2.0 :us:
 * Tubi TV: 720p,  AAC2.0 :us: :canada:
-* Pluto TV: 720p,  AAC2.0 :us: :canada: :eu: :earth_americas:
+* Pluto TV: 720p,  AAC2.0 :us: :canada: :eu:
 * CBC Gem: 1080p, DD5.1 :canada:
 * CTV: 1080p, DD5.1 :canada:
 * Channel4 All4: 1080p, AAC2.0 :uk:
@@ -13,3 +13,4 @@
 * ITVx: 720p,  AAC2.0 :uk:
 * ABC iView: 1080p, AAC2.0 :australia:
 * SVTPlay: 1080p, DD5.1 :sweden:
+* Plex.tv: 1080p, AAC2.0 :earth_americas:
