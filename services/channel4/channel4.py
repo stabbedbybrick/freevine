@@ -22,6 +22,7 @@ import click
 import yaml
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
+from bs4 import BeautifulSoup
 
 from utils.args import get_args
 from utils.cdm import LocalCDM
@@ -38,6 +39,7 @@ from utils.utilities import (
     set_save_path,
     string_cleaning,
     force_numbering,
+    add_subtitles,
 )
 
 
@@ -86,7 +88,9 @@ class CHANNEL4(Config):
 
         r = self.client.post(lic_url, json=payload)
         if not r.ok:
-            raise ConnectionError(f"License request failed: {r.json()['status']['type']}")
+            raise ConnectionError(
+                f"License request failed: {r.json()['status']['type']}"
+            )
 
         return r.json()["license"]
 
@@ -186,7 +190,7 @@ class CHANNEL4(Config):
 
         r = self.client.post(self.login, data=data)
         if not r.ok:
-             raise ConnectionError(f"{r} {r.text}")
+            raise ConnectionError(f"{r} {r.text}")
 
         auth = json.loads(r.content)
         token = auth.get("accessToken")
@@ -232,7 +236,7 @@ class CHANNEL4(Config):
 
         r = self.client.post(self.login, data=data)
         if not r.ok:
-             raise ConnectionError(f"{r} {r.text}")
+            raise ConnectionError(f"{r} {r.text}")
 
         auth = json.loads(r.content)
         token = auth.get("accessToken")
@@ -260,7 +264,7 @@ class CHANNEL4(Config):
 
         r = self.client.get(url=url)
         if not r.ok:
-             raise ConnectionError(f"{r} {r.text}")
+            raise ConnectionError(f"{r} {r.text}")
 
         data = json.loads(r.content)
         manifest = data["videoProfiles"][0]["streams"][0]["uri"]
@@ -270,7 +274,6 @@ class CHANNEL4(Config):
 
     def web_playlist(self, video_id: str) -> tuple:
         url = self.config["web"]["vod"].format(programmeId=video_id)
-
         r = self.client.get(url)
         if not r.ok:
             raise ConnectionError(f"{r} {r.json().get('message')}")
@@ -282,9 +285,22 @@ class CHANNEL4(Config):
                 token = item["streams"][0]["token"]
                 manifest = item["streams"][0]["uri"]
 
+        subtitle = [x["url"] for x in data["subtitlesAssets"] if x["url"].endswith(".vtt")][0]
+        if subtitle is not None:
+            r = self.client.get(manifest)
+            r.raise_for_status()
+
+            soup = BeautifulSoup(r.content, "xml")
+            self.web = add_subtitles(soup, subtitle)
+            self.base_url = manifest.split("stream.mpd")[0]
+            with open(self.tmp / "manifest.mpd", "w") as f:
+                f.write(str(self.web.prettify()))
+
         return manifest, token
 
     def get_mediainfo(self, video_id: str, quality: str, bearer: str) -> str:
+        self.web = None
+
         manifest, token = self.android_playlist(video_id, bearer)
         lic_token = self.decrypt_token(token, client="android")
         heights, self.soup = get_heights(self.client, manifest)
@@ -372,7 +388,7 @@ class CHANNEL4(Config):
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
-        self.manifest = manifest
+        self.manifest = self.tmp / "manifest.mpd" if self.web else manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
