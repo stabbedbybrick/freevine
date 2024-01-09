@@ -144,7 +144,7 @@ class PLUTO(Config):
         r.raise_for_status()
         soup = BeautifulSoup(r.content, "xml")
         base_urls = soup.find_all("BaseURL")
-        ads = ("_ad", "Bumper", "Promo")
+        ads = ("_ad/", "/creative/", "Bumper", "Promo/")
         for base_url in base_urls:
             if not any(ad in base_url.text for ad in ads):
                 new_base = base_url.text
