@@ -36,7 +36,10 @@
 
 * [hola-proxy](https://github.com/Snawoot/hola-proxy) (optional)
 
-* Widevine Device File (.wvd)
+* Valid Widevine CDM (not included)
+
+> [!TIP]
+> Windows users are recommended to use Powershell 7 in Windows Terminal for best experience
 
 ## Installation:
 
