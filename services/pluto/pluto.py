@@ -25,6 +25,7 @@ from urllib.parse import urlparse
 
 import click
 import m3u8
+import requests
 from bs4 import BeautifulSoup
 
 from utils.args import get_args
@@ -169,6 +170,7 @@ class PLUTO(Config):
 
         url = f"{base}{stitch}"
         response = self.client.get(url).text
+
         pattern = r"#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=(\d+)"
         matches = re.findall(pattern, response)
 
@@ -187,26 +189,37 @@ class PLUTO(Config):
             master += "hls/0-end/master.m3u8"
 
         parse = urlparse(master)
-        return parse._replace(
+        master = parse._replace(
             scheme="http",
             netloc="silo-hybrik.pluto.tv.s3.amazonaws.com",
         ).geturl()
 
+        # TODO: Determine DRM without extra request
+        response = requests.get(master).text
+        if re.search(r'#PLUTO-DRM:ID="fairplay"', response):
+            return
+
+        return master
+
 
     def get_playlist(self, playlists: str) -> tuple:
-        stitched = next((x for x in playlists if x.endswith(".mpd")), None)
-        if not stitched:
-            stitched = next((x for x in playlists if x.endswith(".m3u8")), None)
+        manifest = None
 
-        if stitched.endswith(".mpd"):
-            return self.get_dash(stitched)
+        hls = next((x for x in playlists if x.endswith(".m3u8")), None)
+        dash = next((x for x in playlists if x.endswith(".mpd")), None)
 
-        if stitched.endswith(".m3u8"):
-            return self.get_hls(stitched)
-
-        if not stitched:
+        if not hls and dash:
             self.log.error("Unable to find manifest")
             return
+
+        if hls:
+            manifest = self.get_hls(hls)
+
+        if not manifest:
+            manifest = self.get_dash(dash)
+
+        return manifest
+
 
     def get_dash_quality(self, soup: object, quality: str) -> str:
         elements = soup.find_all("Representation")
