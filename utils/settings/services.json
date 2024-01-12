@@ -142,5 +142,14 @@
         "config": "services/plex/config.yaml",
         "profile": "services/plex/profile.yaml",
         "cookies": "services/plex/cookies.txt"
+    },
+    "www.tv4play.se": {
+        "name": "TV4Play",
+        "alias": ["TV4Play", "TV4"],
+        "path": "services/tv4play/tv4play.py",
+        "api": "services/tv4play/api.yaml",
+        "config": "services/tv4play/config.yaml",
+        "profile": "services/tv4play/profile.yaml",
+        "cookies": "services/tv4play/cookies.txt"
     }
 }
