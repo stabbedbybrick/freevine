@@ -17,7 +17,8 @@
 - [x] Automatic PSSH, manifest, and key retreival 
 - [x] Config file with customized settings
 - [x] Search option
-- [x] Option to add login credentials
+- [x] Proxy option
+- [x] Option to add login credentials with user profile or cookies 
 - [x] [Supported sites](https://github.com/stabbedbybrick/freevine/blob/main/supportedsites.md)
 
 ## Requirements:
@@ -36,7 +37,7 @@
 
 * [hola-proxy](https://github.com/Snawoot/hola-proxy) (optional)
 
-* Valid Widevine CDM (not included)
+* Valid Widevine CDM (only needed for encrypted streams)
 
 > [!TIP]
 > Windows users are recommended to use Powershell 7 in Windows Terminal for best experience
@@ -100,6 +101,9 @@ freevine.py get --episode S01E01,S03E12,S05E03 URL
 freevine.py get --season S01,S03,S05 URL
 freevine.py get --select-video res=720 --season S01 URL
 freevine.py get --select-audio name=English --episode S01E01 URL
+
+freevine.py service-info
+freevine.py service-info "iplayer"
 
 freevine.py profile --help
 freevine.py profile --username "username" --password "password" --service "service"
