@@ -62,14 +62,18 @@ class ServiceManager:
         log.info(f"\u001b[1m{service.alias[0]}\u001b[0m")
 
         if service.config.exists():
-            log.info("+ Loading service config")
+            log.info("+ Adding service config")
             with open(service.config, "r") as f:
                 self.config.update(yaml.safe_load(f))
 
         if service.profile.exists():
-            log.info("+ Loading user profile")
+            log.info("+ Adding service profile")
             with open(service.profile, "r") as f:
                 self.config.update(yaml.safe_load(f))
+
+        if service.cookies.exists():
+            log.info("+ Adding cookie data")
+            self.config["cookies"] = service.cookies
 
         with open(service.api, "r") as f:
             self.config.update(yaml.safe_load(f))

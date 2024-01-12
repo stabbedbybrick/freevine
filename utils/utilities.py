@@ -3,6 +3,7 @@ import datetime
 import logging
 import re
 import shutil
+import http.cookiejar
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta  # noqa: F811
 from pathlib import Path
@@ -143,6 +144,19 @@ def force_numbering(content: list) -> list:
         episode.number = season_episode_counter[episode.season]
 
     return content
+
+
+def load_cookies(path: Path) -> http.cookiejar.MozillaCookieJar:
+    cookie_jar = http.cookiejar.MozillaCookieJar(path)
+    cookie_jar.load()
+    return cookie_jar
+
+
+def get_cookie(cookie_jar: http.cookiejar.MozillaCookieJar, name: str) -> dict:
+    for cookie in cookie_jar:
+        if cookie.name == name:
+            return {"value": cookie.value, "expires": cookie.expires}
+    return None
 
 
 def string_cleaning(filename: str) -> str:
