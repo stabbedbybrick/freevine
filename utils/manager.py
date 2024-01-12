@@ -15,17 +15,21 @@ class Service:
         alias: str,
         path: Path,
         api: Path,
+        quality: str,
         config: Path,
         profile: Path,
         cookies: Path,
+        credentials: str,
     ) -> None:
         self.name = name
         self.alias = alias
         self.path = path
         self.api = api
+        self.quality = quality
         self.config = config
         self.profile = profile
         self.cookies = cookies
+        self.credentials = credentials
 
     def import_service(self):
         spec = importlib.util.spec_from_file_location(self.name, str(self.path))

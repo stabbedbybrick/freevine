@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 import yaml
 from rich.console import Console
+from rich import print_json
 
 from utils import __version__
 from utils.console import custom_handler
@@ -87,7 +88,7 @@ def get(**kwargs) -> None:
 @click.option("-s", "--service", type=str, required=True, help="Set service to be used with credentials")
 def profile(username: str, password: str, service: str):
     """
-    Create a profile with user credentials for a service
+    Create a profile with user credentials
 
     This will create a profile.yaml in service folder, which stores credentials and cache data.
     """
@@ -150,7 +151,46 @@ def file(file: Path):
             subprocess.run([python, freevine] + args)
 
 
+@cli.command()
+@click.argument("service", type=str, required=False)
+def service_info(service: str):
+    """Print information about each streaming service"""
+
+    log = logging.getLogger()
+
+    settings = Path("utils") / "settings"
+    with open(settings / "services.json") as f:
+        services = json.load(f)
+
+    if service:
+        service = service.casefold()
+        match = next(
+            (
+                item
+                for item, key in services.items()
+                if service in {alias.casefold() for alias in key["alias"]}
+            ),
+            None,
+        )
+        if not match:
+            log.error("No service found by that name")
+            return
+        
+        print_json(data=services[match])
+
+    else:
+        info = {}
+        for item, key in services.items():
+            info["name"] = key["alias"][0]
+            info["url"] = item
+
+            print_json(data=info)
+        
+
+
+
 cli.add_command(search)
 cli.add_command(get)
 cli.add_command(profile)
 cli.add_command(file)
+cli.add_command(service_info)

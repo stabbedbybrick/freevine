@@ -2,6 +2,8 @@
     "iview.abc.net.au": {
         "name": "ABC",
         "alias": ["ABC iView", "ABC", "iView", "ABCiView"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
         "path": "services/abciview/abciview.py",
         "api": "services/abciview/api.yaml",
         "config": "services/abciview/config.yaml",
@@ -11,6 +13,8 @@
     "www.bbc.co.uk": {
         "name": "BBC",
         "alias": ["BBC iPlayer", "iPlayer", "BBC", "BBCiPlayer"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
         "path": "services/bbciplayer/bbciplayer.py",
         "api": "services/bbciplayer/api.yaml",
         "config": "services/bbciplayer/config.yaml",
@@ -20,6 +24,8 @@
     "www.channel4.com": {
         "name": "CHANNEL4",
         "alias": ["ALL4", "Channel4", "C4", "CH4"],
+        "credentials": "login",
+        "quality": "1080p, AAC2.0",
         "path": "services/channel4/channel4.py",
         "api": "services/channel4/api.yaml",
         "config": "services/channel4/config.yaml",
@@ -29,6 +35,8 @@
     "www.channel5.com": {
         "name": "CHANNEL5",
         "alias": ["My5 TV", "MY5", "Channel5", "CH5"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
         "path": "services/channel5/channel5.py",
         "api": "services/channel5/api.yaml",
         "config": "services/channel5/config.yaml",
@@ -38,6 +46,8 @@
     "www.crackle.com": {
         "name": "CRACKLE",
         "alias": ["CRACKLE"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
         "path": "services/crackle/crackle.py",
         "api": "services/crackle/api.yaml",
         "config": "services/crackle/config.yaml",
@@ -47,6 +57,8 @@
     "www.ctv.ca": {
         "name": "CTV",
         "alias": ["CTV"],
+        "credentials": "none",
+        "quality": "1080p, DD5.1",
         "path": "services/ctv/ctv.py",
         "api": "services/ctv/api.yaml",
         "config": "services/ctv/config.yaml",
@@ -56,6 +68,8 @@
     "gem.cbc.ca": {
         "name": "CBC",
         "alias": ["CBC Gem", "CBC", "CBCGem"],
+        "credentials": "login",
+        "quality": "1080p, DDP5.1",
         "path": "services/cbc/cbc.py",
         "api": "services/cbc/api.yaml",
         "config": "services/cbc/config.yaml",
@@ -65,6 +79,8 @@
     "www.itv.com": {
         "name": "ITV",
         "alias": ["ITVX", "ITV"],
+        "credentials": "none",
+        "quality": "720p, AAC2.0",
         "path": "services/itv/itv.py",
         "api": "services/itv/api.yaml",
         "config": "services/itv/config.yaml",
@@ -74,6 +90,8 @@
     "pluto.tv": {
         "name": "PLUTO",
         "alias": ["PlutoTV", "PLUTO"],
+        "credentials": "none",
+        "quality": "720p, AAC2.0",
         "path": "services/pluto/pluto.py",
         "api": "services/pluto/api.yaml",
         "config": "services/pluto/config.yaml",
@@ -83,6 +101,8 @@
     "therokuchannel.roku.com": {
         "name": "ROKU",
         "alias": ["The Roku Channel", "ROKU", "RokuChannel"],
+        "credentials": "none",
+        "quality": "1080p, DD5.1",
         "path": "services/roku/roku.py",
         "api": "services/roku/api.yaml",
         "config": "services/roku/config.yaml",
@@ -92,6 +112,8 @@
     "player.stv.tv": {
         "name": "STV",
         "alias": ["STV Player", "STV", "STVPlayer"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
         "path": "services/stv/stv.py",
         "api": "services/stv/api.yaml",
         "config": "services/stv/config.yaml",
@@ -101,6 +123,8 @@
     "tubitv.com": {
         "name": "TUBITV",
         "alias": ["TubiTV", "TUBI"],
+        "credentials": "none",
+        "quality": "720p, AAC2.0",
         "path": "services/tubi/tubitv.py",
         "api": "services/tubi/api.yaml",
         "config": "services/tubi/config.yaml",
@@ -110,6 +134,8 @@
     "uktvplay.co.uk": {
         "name": "UKTVPLAY",
         "alias": ["UKTV Play", "UKTV", "UKTVPlay"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
         "path": "services/uktvplay/uktvplay.py",
         "api": "services/uktvplay/api.yaml",
         "config": "services/uktvplay/config.yaml",
@@ -119,6 +145,8 @@
     "www.cwtv.com": {
         "name": "CW",
         "alias": ["The CW", "CW", "CWTV", "THECW"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
         "path": "services/cwtv/cwtv.py",
         "api": "services/cwtv/api.yaml",
         "config": "services/cwtv/config.yaml",
@@ -128,6 +156,8 @@
     "www.svtplay.se": {
         "name": "SVTPlay",
         "alias": ["SVTPlay", "SVT"],
+        "credentials": "none",
+        "quality": "1080p, DD5.1",
         "path": "services/svtplay/svtplay.py",
         "api": "services/svtplay/api.yaml",
         "config": "services/svtplay/config.yaml",
@@ -137,6 +167,8 @@
     "watch.plex.tv": {
         "name": "Plex",
         "alias": ["Plex", "Watch.Plex", "PlexTV"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
         "path": "services/plex/plex.py",
         "api": "services/plex/api.yaml",
         "config": "services/plex/config.yaml",
@@ -146,6 +178,8 @@
     "www.tv4play.se": {
         "name": "TV4Play",
         "alias": ["TV4Play", "TV4"],
+        "credentials": "cookies",
+        "quality": "1080p, AAC2.0",
         "path": "services/tv4play/tv4play.py",
         "api": "services/tv4play/api.yaml",
         "config": "services/tv4play/config.yaml",
