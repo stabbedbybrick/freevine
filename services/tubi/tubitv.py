@@ -6,7 +6,6 @@ Author: stabbedbybrick
 
 Info:
 TubiTV WEB is 720p max
-Some titles are encrypted, some are not. Both versions are supported
 
 
 """
@@ -15,6 +14,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import time
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
@@ -28,18 +28,29 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    force_numbering,
     get_wvd,
+    in_cache,
     pssh_from_init,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "720"
+MAX_AUDIO = "AAC2.0"
 
 
 class TUBITV(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.get_options()
 
@@ -74,6 +85,7 @@ class TUBITV(Config):
         return Series(
             [
                 Episode(
+                    id_=episode["id"],
                     service="TUBi",
                     title=data["title"],
                     season=int(season["id"]),
@@ -99,6 +111,7 @@ class TUBITV(Config):
         return Movies(
             [
                 Movie(
+                    id_=data["id"],
                     service="TUBi",
                     title=data["title"],
                     year=data["year"],
@@ -142,19 +155,19 @@ class TUBITV(Config):
 
             heights = sorted([x[0] for x in playlists], reverse=True)
             manifest = [base + x[1] for x in playlists if heights[0] == x[0]][0]
-            res = heights[0]
 
-        if quality is not None:
-            for playlist in playlists:
-                if int(quality) in playlist:
-                    res = playlist[0]
-                    manifest = base + playlist[1]
-                else:
-                    res = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                    if res == playlist[0]:
-                        manifest = base + playlist[1]
+        for playlist in playlists:
+            if int(quality) in heights:
+                resolution = quality
+                manifest = base + playlist[1]
+            else:
+                self.log.error(
+                    "Video quality unavailable. Please select another resolution"
+                )
+                resolution = None
+                self.skip_download = True
 
-        return manifest, res
+        return manifest, resolution
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -199,6 +212,7 @@ class TUBITV(Config):
             episode = Series(
                 [
                     Episode(
+                        id_=episode["id"],
                         service="TUBi",
                         title=data["title"],
                         season=int(season["id"]),
@@ -227,11 +241,19 @@ class TUBITV(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, self.res = self.get_mediainfo(stream.data, self.quality)
+        manifest, self.res = self.get_mediainfo(stream.data, self.quality)
 
         keys = None
         if stream.lic_url:
@@ -240,7 +262,7 @@ class TUBITV(Config):
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
-        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
+        self.filename = set_filename(self, stream, self.res, audio=MAX_AUDIO)
         self.save_path = set_save_path(stream, self, title)
         self.manifest = stream.data
         self.key_file = self.tmp / "keys.txt" if keys else None
@@ -256,14 +278,11 @@ class TUBITV(Config):
         self.log.info(f"{keys[0]}") if keys else None
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

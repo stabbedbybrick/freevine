@@ -6,8 +6,6 @@ Author: stabbedbybrick
 
 Info:
 This program will download ad-free streams with highest available quality and subtitles
-Quality: 720p, AAC 2.0 max
-Some titles are encrypted, some are not. Both versions are supported
 
 Notes:
 Pluto's library is very spotty, so it's highly recommended to use --titles before downloading
@@ -19,6 +17,8 @@ import base64
 import re
 import subprocess
 import uuid
+import json
+import time
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
@@ -39,12 +39,23 @@ from utils.utilities import (
     set_save_path,
     string_cleaning,
     force_numbering,
+    in_cache,
+    update_cache,
 )
+
+MAX_VIDEO = "720"
+MAX_AUDIO = "AAC2.0"
 
 
 class PLUTO(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.lic_url = self.config["lic"]
         self.api = self.config["api"]
@@ -108,6 +119,7 @@ class PLUTO(Config):
         return Series(
             [
                 Episode(
+                    id_=episode["_id"],
                     service="PLUTO",
                     title=data["name"],
                     season=int(episode.get("season")),
@@ -127,6 +139,7 @@ class PLUTO(Config):
         return Movies(
             [
                 Movie(
+                    id_=movie["_id"],
                     service="PLUTO",
                     title=movie["name"],
                     year=movie["slug"].split("-")[-3],  # TODO
@@ -235,14 +248,14 @@ class PLUTO(Config):
                 heights.append(int(item.attrs["height"]))
                 heights.sort(reverse=True)
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_hls_quality(self, manifest: str, quality: str) -> str:
         self.client.headers.pop("Authorization")
@@ -256,16 +269,15 @@ class PLUTO(Config):
                 playlists.append((playlist.stream_info.resolution[1], playlist.uri))
 
             heights = sorted([x[0] for x in playlists], reverse=True)
-            res = heights[0]
 
-        if quality is not None:
-            for playlist in playlists:
-                if int(quality) in playlist:
-                    res = playlist[0]
-                else:
-                    res = min(heights, key=lambda x: abs(int(x) - int(quality)))
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
 
-        return res, manifest
+        return resolution, manifest
 
     def generate_pssh(self, kid: str):
         array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
@@ -298,7 +310,6 @@ class PLUTO(Config):
 
         if manifest.endswith(".m3u8"):
             quality, hls = self.get_hls_quality(manifest, quality)
-            self.playlist = True
             return quality, pssh, hls
 
     def get_content(self, url: str) -> object:
@@ -331,13 +342,19 @@ class PLUTO(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest = self.get_playlist(stream.data)
-            self.res, pssh, hls = self.get_mediainfo(manifest, self.quality)
-            self.client.headers.update({"Authorization": f"Bearer {self.token}"})
+        manifest = self.get_playlist(stream.data)
+        self.res, pssh, hls = self.get_mediainfo(manifest, self.quality)
+        self.client.headers.update({"Authorization": f"Bearer {self.token}"})
 
         keys = None
         if pssh is not None:
@@ -354,14 +371,11 @@ class PLUTO(Config):
         self.log.info(f"{str(stream)}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

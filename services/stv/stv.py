@@ -14,6 +14,7 @@ import json
 import subprocess
 import urllib.parse
 import re
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -32,12 +33,24 @@ from utils.utilities import (
     set_save_path,
     string_cleaning,
     force_numbering,
+    get_heights,
+    in_cache,
+    update_cache
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class STV(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.vod = self.config["vod"]
         self.api = self.config["api"]
@@ -131,7 +144,7 @@ class STV(Config):
         return Series(
             [
                 Episode(
-                    id_=None,
+                    id_=episode["video"]["id"],
                     service="STV",
                     title=episode["programme"]["name"],
                     season=int(episode["playerSeries"]["name"].split(" ")[1])
@@ -141,7 +154,7 @@ class STV(Config):
                     number=episode.get("number") or 0,
                     name=episode.get("title"),
                     year=None,
-                    data=episode["video"]["id"],
+                    data=None,
                     description=episode.get("summary"),
                 )
                 for series in data
@@ -152,21 +165,16 @@ class STV(Config):
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         r = self.client.get(manifest)
         r.raise_for_status()
-        self.soup = BeautifulSoup(r.text, "xml")
-        elements = self.soup.find_all("Representation")
-        heights = sorted(
-            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
-            reverse=True,
-        )
+        heights, self.soup = get_heights(self.client, manifest)
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_content(self, url: str) -> object:
         with self.console.status("Fetching series titles..."):
@@ -205,7 +213,7 @@ class STV(Config):
             episode = Series(
                 [
                     Episode(
-                        id_=None,
+                        id_=content["video"]["id"],
                         service="STV",
                         title=content["programme"]["name"],
                         season=int(content["playerSeries"]["name"].split(" ")[1])
@@ -215,7 +223,7 @@ class STV(Config):
                         number=content.get("number") or 0,
                         name=content.get("title"),
                         year=None,
-                        data=content["video"]["id"],
+                        data=None,
                         description=content.get("summary"),
                     )
                 ]
@@ -229,13 +237,19 @@ class STV(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, lic_url = self.get_playlist(stream.data)
-            self.res = self.get_mediainfo(manifest, self.quality)
-            pssh = construct_pssh(self.soup) if self.drm else None
+        manifest, lic_url = self.get_playlist(stream.id)
+        self.res = self.get_mediainfo(manifest, self.quality)
+        pssh = construct_pssh(self.soup) if self.drm else None
 
         keys = None
         if self.drm:
@@ -253,14 +267,11 @@ class STV(Config):
         self.log.info(f"{keys[0]}") if keys else self.log.info("No encryption found")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

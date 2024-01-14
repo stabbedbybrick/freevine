@@ -8,9 +8,10 @@ Quality: up to 1080p and Dolby 5.1 audio
 from __future__ import annotations
 
 import json
-import subprocess
 import re
+import subprocess
 import sys
+import time
 from collections import Counter
 from urllib.parse import urlparse
 
@@ -22,12 +23,17 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    force_numbering,
     from_m3u8,
+    in_cache,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "DD5.1"
 
 
 FORMATS = [
@@ -42,6 +48,12 @@ FORMATS = [
 class SVTPlay(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.get_options()
 
@@ -147,16 +159,16 @@ class SVTPlay(Config):
             reverse=True,
         )
 
-        audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
+        audio = MAX_AUDIO if "ac-3" in codecs else "AAC2.0"
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality, audio
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, audio
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
 
-        return heights[0], audio
+        return resolution, audio
 
     def get_hls_info(self, manifest: str, quality: str) -> tuple:
         r = self.client.get(manifest)
@@ -164,19 +176,19 @@ class SVTPlay(Config):
         heights, codecs = from_m3u8(r.text)
 
         heights = sorted(heights, reverse=True)
-        audio = "DD5.1" if "ac-3" in codecs[0] else "AAC2.0"
+        audio = MAX_AUDIO if "ac-3" in codecs[0] else "AAC2.0"
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality, audio
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, audio
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
             
         self.log.info("Subtitles for this format are currently not supported")
         self.drop_subtitle = "all" # TODO
 
-        return heights[0], audio
+        return resolution, audio
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         if manifest.endswith(".mpd"):
@@ -260,6 +272,13 @@ class SVTPlay(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
@@ -275,14 +294,11 @@ class SVTPlay(Config):
         self.log.info(self.filename)
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exists. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

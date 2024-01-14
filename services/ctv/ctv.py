@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import json
 import subprocess
+import time
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
@@ -32,12 +33,23 @@ from utils.utilities import (
     set_save_path,
     string_cleaning,
     force_numbering,
+    in_cache,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "DD5.1"
 
 
 class CTV(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.lic_url = self.config["lic"]
         self.api = self.config["api"]
@@ -270,8 +282,9 @@ class CTV(Config):
             [int(x.attrs["height"]) for x in tags if x.attrs.get("height")],
             reverse=True,
         )
+        resolution = heights[0]
 
-        audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
+        audio = MAX_AUDIO if "ac-3" in codecs else "AAC2.0"
 
         self.soup = add_subtitles(self.soup, subtitle)
         if dv_audio:
@@ -288,14 +301,14 @@ class CTV(Config):
         with open(self.tmp / "manifest.mpd", "w") as f:
             f.write(str(self.soup.prettify()))
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality, audio
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, audio
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
 
-        return heights[0], audio
+        return resolution, audio
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -379,13 +392,19 @@ class CTV(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, subtitle = self.get_playlist(stream.data, stream.id)
-            self.res, audio = self.get_mediainfo(manifest, self.quality, subtitle)
-            pssh = self.get_init(self.soup)
+        manifest, subtitle = self.get_playlist(stream.data, stream.id)
+        self.res, audio = self.get_mediainfo(manifest, self.quality, subtitle)
+        pssh = self.get_init(self.soup)
 
         keys = self.get_keys(pssh, self.lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
@@ -402,14 +421,11 @@ class CTV(Config):
             self.log.info(f"{key}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

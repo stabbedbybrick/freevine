@@ -16,6 +16,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -32,18 +33,29 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    force_numbering,
     get_wvd,
+    in_cache,
     kid_to_pssh,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class CHANNEL5(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.gist = self.client.get(
             self.config["gist"].format(timestamp=datetime.now().timestamp())
@@ -75,14 +87,14 @@ class CHANNEL5(Config):
         return Series(
             [
                 Episode(
-                    id_=None,
+                    id_=episode.get("id"),
                     service="MY5",
                     title=episode.get("sh_title"),
                     season=int(episode.get("sea_num")) or 0,
                     number=int(episode.get("ep_num")) or 0,
                     name=episode.get("title"),
                     year=None,
-                    data=episode.get("id"),
+                    data=None,
                     description=episode.get("s_desc"),
                 )
                 for episode in data["episodes"]
@@ -95,12 +107,12 @@ class CHANNEL5(Config):
         return Movies(
             [
                 Movie(
-                    id_=None,
+                    id_=movie.get("id"),
                     service="MY5",
                     title=movie["sh_title"],
                     year=None,
                     name=movie["sh_title"],
-                    data=movie.get("id"),
+                    data=None,
                     synopsis=movie.get("s_desc"),
                 )
                 for movie in data["episodes"]
@@ -158,14 +170,14 @@ class CHANNEL5(Config):
             reverse=True,
         )
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_content(self, url: str) -> tuple:
         if self.movie:
@@ -223,7 +235,7 @@ class CHANNEL5(Config):
             episode = Series(
                 [
                     Episode(
-                        id_=None,
+                        id_=episode.get("id"),
                         service="MY5",
                         title=episode.get("sh_title"),
                         season=int(episode.get("sea_num"))
@@ -234,7 +246,7 @@ class CHANNEL5(Config):
                         else 0,
                         name=episode.get("sh_title"),
                         year=None,
-                        data=episode.get("id"),
+                        data=None,
                         description=episode.get("m_desc"),
                     )
                     for episode in episodes
@@ -249,13 +261,19 @@ class CHANNEL5(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, lic_url = self.get_playlist(stream.data)
-            self.res = self.get_mediainfo(manifest, self.quality)
-            pssh = kid_to_pssh(self.soup)
+        manifest, lic_url = self.get_playlist(stream.id)
+        self.res = self.get_mediainfo(manifest, self.quality)
+        pssh = kid_to_pssh(self.soup)
 
         keys = self.get_keys(pssh, lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
@@ -272,14 +290,11 @@ class CHANNEL5(Config):
             self.log.info(f"{key}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if file_path.exists():
-            self.log.info(f"{self.filename} already exists - skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
-        else:
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

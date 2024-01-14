@@ -62,6 +62,7 @@ def search(alias: str, keywords: str) -> None:
 @click.option("--sub-no-fix", is_flag=True, default=False, help="Leave subtitles untouched")
 @click.option("--use-shaka-packager", is_flag=True, default=False, help="Use shaka-packager to decrypt")
 @click.option("--add-command", multiple=True, default=list, help="Add extra command to N_m3u8DL-RE")
+@click.option("--slowdown", type=int, nargs=1, help="Add sleep (in seconds) between downloads")
 @click.option("-fn", "--force-numbering", is_flag=True, help="Force add numbering to episodes")
 @click.option("-e", "--episode", type=str, help="Download episode(s)")
 @click.option("-s", "--season", type=str, help="Download complete season")
@@ -185,7 +186,21 @@ def service_info(service: str):
             info["url"] = item
 
             print_json(data=info)
-        
+
+
+@cli.command()
+def clear_cache():
+    """Delete download cache"""
+
+    log = logging.getLogger()
+
+    for file in Path("services").rglob("cache.json"):
+        try:
+            file.unlink()
+        except Exception as e:
+            log.error(f"Failed to delete {file}. Reason: {e}")
+    
+    log.info("Download cache has been cleared!")
 
 
 
@@ -194,3 +209,4 @@ cli.add_command(get)
 cli.add_command(profile)
 cli.add_command(file)
 cli.add_command(service_info)
+cli.add_command(clear_cache)

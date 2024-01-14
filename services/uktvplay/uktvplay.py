@@ -9,14 +9,15 @@ Quality: 1080p, AAC 2.0 max
 """
 from __future__ import annotations
 
+import json
 import re
 import subprocess
+import time
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
 import click
-from bs4 import BeautifulSoup
 
 from utils.args import get_args
 from utils.cdm import LocalCDM
@@ -25,17 +26,29 @@ from utils.options import get_downloads
 from utils.titles import Episode, Series
 from utils.utilities import (
     construct_pssh,
+    force_numbering,
+    get_heights,
     get_wvd,
+    in_cache,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class UKTVPLAY(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.vod = self.config["vod"]
         self.api = self.config["api"]
@@ -73,14 +86,14 @@ class UKTVPLAY(Config):
         return Series(
             [
                 Episode(
-                    id_=None,
+                    id_=episode["video_id"],
                     service="UKTV",
                     title=episode["brand_name"],
                     season=int(episode["series_number"]),
                     number=episode["episode_number"],
                     name=episode["name"],
                     year=None,
-                    data=episode["video_id"],
+                    data=None,
                     description=episode.get("synopsis"),
                 )
                 for season in data
@@ -119,21 +132,18 @@ class UKTVPLAY(Config):
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         r = self.client.get(manifest)
         r.raise_for_status()
-        self.soup = BeautifulSoup(r.content, "xml")
-        elements = self.soup.find_all("Representation")
-        heights = sorted(
-            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
-            reverse=True,
-        )
+        heights, self.soup = get_heights(self.client, manifest)
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error(
+                "Video quality unavailable. Please select another resolution"
+            )
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -166,19 +176,21 @@ class UKTVPLAY(Config):
             html = self.client.get(url).text
             house_number = re.search(r'house_number="(.+?)"', html).group(1)
 
-            data = self.client.get(f"{self.vod}episode/?house_number={house_number}").json()
+            data = self.client.get(
+                f"{self.vod}episode/?house_number={house_number}"
+            ).json()
 
             episode = Series(
                 [
                     Episode(
-                        id_=None,
+                        id_=data["video_id"],
                         service="UKTV",
                         title=data["brand_name"],
                         season=int(data["series_number"]),
                         number=data["episode_number"],
                         name=data["name"],
                         year=None,
-                        data=data["video_id"],
+                        data=None,
                         description=data.get("synopsis"),
                     )
                 ]
@@ -192,13 +204,21 @@ class UKTVPLAY(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, lic_url = self.get_playlist(stream.data)
-            self.res = self.get_mediainfo(manifest, self.quality)
-            pssh = construct_pssh(self.soup)
+        manifest, lic_url = self.get_playlist(stream.id)
+        self.res = self.get_mediainfo(manifest, self.quality)
+        pssh = construct_pssh(self.soup)
 
         keys = self.get_keys(pssh, lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
@@ -215,14 +235,11 @@ class UKTVPLAY(Config):
             self.log.info(f"{key}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

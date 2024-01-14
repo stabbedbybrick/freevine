@@ -7,9 +7,11 @@ Quality: up to 1080p
 """
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
@@ -24,14 +26,20 @@ from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
     add_subtitles,
+    force_numbering,
+    get_heights,
     get_wvd,
+    in_cache,
     info,
     kid_to_pssh,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class ABC(Config):
@@ -41,6 +49,12 @@ class ABC(Config):
         if self.sub_only:
             info("Subtitle downloads are not supported on this service")
             return
+        
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.lic_url = self.config["license"]
         self.get_options()
@@ -149,11 +163,8 @@ class ABC(Config):
             sys.exit(0)
 
         self.soup = BeautifulSoup(r.content, "xml")
-        elements = self.soup.find_all("Representation")
-        heights = sorted(
-            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
-            reverse=True,
-        )
+        heights, self.soup = get_heights(self.client, manifest)
+        resolution = heights[0]
 
         _base = "/".join(manifest.split("/")[:-1])
 
@@ -166,14 +177,14 @@ class ABC(Config):
             with open(self.tmp / "manifest.mpd", "w") as f:
                 f.write(str(self.soup.prettify()))
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_playlist(self, video_id: str) -> tuple:
         r = self.client.get(self.config["vod"].format(video_id=video_id)).json()
@@ -239,21 +250,27 @@ class ABC(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, subtitle = self.get_playlist(stream.id)
-            self.res = self.get_mediainfo(manifest, self.quality, subtitle)
-            pssh = kid_to_pssh(self.soup)
-            customdata = self.get_license_url(stream.id)
-            self.client.headers.update({"customdata": customdata})
+        manifest, subtitle = self.get_playlist(stream.id)
+        self.res = self.get_mediainfo(manifest, self.quality, subtitle)
+        pssh = kid_to_pssh(self.soup)
+        customdata = self.get_license_url(stream.id)
+        self.client.headers.update({"customdata": customdata})
 
         keys = self.get_keys(pssh, self.lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
+        self.filename = set_filename(self, stream, self.res, audio=MAX_AUDIO)
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest if not subtitle else self.tmp / "manifest.mpd"
         self.key_file = self.tmp / "keys.txt"
@@ -263,14 +280,11 @@ class ABC(Config):
         self.log.info(f"{keys[0]}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

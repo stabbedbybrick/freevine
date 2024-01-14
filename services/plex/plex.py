@@ -13,6 +13,8 @@ from __future__ import annotations
 import asyncio
 import re
 import subprocess
+import json
+import time
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
@@ -34,13 +36,24 @@ from utils.utilities import (
     set_filename,
     set_save_path,
     string_cleaning,
-    is_url
+    is_url,
+    in_cache,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class Plex(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         if is_url(self.episode):
             self.log.error("Episode URL not supported. Use standard method")
@@ -78,7 +91,6 @@ class Plex(Config):
         self.auth_token = r.json()["authToken"]
         return self.auth_token
 
-
     def get_data(self, url: str) -> dict:
         kind = urlparse(url).path.split("/")[1]
         video_id = urlparse(url).path.split("/")[2]
@@ -88,7 +100,7 @@ class Plex(Config):
         r = self.client.get(f"{self.config['vod']}/library/metadata/{kind}:{video_id}")
         if not r.ok:
             raise ConnectionError(r.json()["Error"].get("message"))
-        
+
         return r.json()
 
     async def fetch(self, session, url):
@@ -118,17 +130,29 @@ class Plex(Config):
         return Series(
             [
                 Episode(
-                    id_=next((x["id"] for x in episode["Media"]), None),
+                    id_=episode["streamingMediaId"],
                     service="PLEX",
                     title=re.sub(r"\s*\(\d{4}\)", "", episode["grandparentTitle"]),
                     season=int(episode.get("parentIndex", 0)),
                     number=int(episode.get("index", 0)),
                     name=episode.get("title"),
                     year=episode.get("year"),
-                    data=next(x["url"] for x in episode["Media"] if x.get("protocol") == "dash"),
-                    drm=True if next((x["drm"] for x in episode["Media"]), None) else False,
-                    subtitle=(next(x["key"] for x in episode["Media"][0]["Part"][0]["Stream"] 
-                                   if x.get("streamType") == 3), None),
+                    data=next(
+                        x["url"]
+                        for x in episode["Media"]
+                        if x.get("protocol") == "dash"
+                    ),
+                    drm=True
+                    if next((x["drm"] for x in episode["Media"]), None)
+                    else False,
+                    subtitle=(
+                        next(
+                            x["key"]
+                            for x in episode["Media"][0]["Part"][0]["Stream"]
+                            if x.get("streamType") == 3
+                        ),
+                        None,
+                    ),
                 )
                 for season in seasons
                 for episode in season
@@ -142,20 +166,29 @@ class Plex(Config):
         return Movies(
             [
                 Movie(
-                    id_=next((x["id"] for x in movie["Media"]), None),
+                    id_=movie["streamingMediaId"],
                     service="PLEX",
                     title=movie["title"],
                     year=movie.get("year"),
                     name=movie["title"],
-                    data=next(x["url"] for x in movie["Media"] if x.get("protocol") == "dash"),
-                    drm=True if next((x["drm"] for x in movie["Media"]), None) else False,
-                    subtitle=(next(x["key"] for x in movie["Media"][0]["Part"][0]["Stream"] 
-                                   if x.get("streamType") == 3), None),
+                    data=next(
+                        x["url"] for x in movie["Media"] if x.get("protocol") == "dash"
+                    ),
+                    drm=True
+                    if next((x["drm"] for x in movie["Media"]), None)
+                    else False,
+                    subtitle=(
+                        next(
+                            x["key"]
+                            for x in movie["Media"][0]["Part"][0]["Stream"]
+                            if x.get("streamType") == 3
+                        ),
+                        None,
+                    ),
                 )
                 for movie in data["MediaContainer"]["Metadata"]
             ]
         )
-    
 
     def get_dash_quality(self, soup: object, quality: str) -> str:
         elements = soup.find_all("Representation")
@@ -164,14 +197,16 @@ class Plex(Config):
             reverse=True,
         )
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error(
+                "Video quality unavailable. Please select another resolution"
+            )
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_mediainfo(self, stream: object, quality: str) -> str:
         r = self.client.get(stream.data)
@@ -181,8 +216,7 @@ class Plex(Config):
         quality = self.get_dash_quality(self.soup, quality)
 
         if stream.subtitle:
-            video_id = stream.id.split("-")[0]
-            subtitle = self.config["subtitle"].format(id=video_id)
+            subtitle = self.config["subtitle"].format(id=stream.id)
             self.soup = add_subtitles(self.soup, subtitle)
 
         self.base_url = re.sub(r"(\w+.mpd)", "", stream.data)
@@ -222,11 +256,19 @@ class Plex(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            self.res, pssh = self.get_mediainfo(stream, self.quality)
+        self.res, pssh = self.get_mediainfo(stream, self.quality)
 
         keys = None
         if stream.drm:
@@ -244,14 +286,11 @@ class Plex(Config):
         self.log.info(f"{str(stream)}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exists. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

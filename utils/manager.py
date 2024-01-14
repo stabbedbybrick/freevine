@@ -15,6 +15,7 @@ class Service:
         alias: str,
         path: Path,
         api: Path,
+        cache: Path,
         quality: str,
         config: Path,
         profile: Path,
@@ -25,6 +26,7 @@ class Service:
         self.alias = alias
         self.path = path
         self.api = api
+        self.cache = cache
         self.quality = quality
         self.config = config
         self.profile = profile
@@ -50,6 +52,7 @@ class ServiceManager:
         for service, details in data.items():
             details["path"] = Path(details["path"])
             details["api"] = Path(details["api"])
+            details["cache"] = Path(details["cache"])
             details["config"] = Path(details["config"])
             details["profile"] = Path(details["profile"])
             details["cookies"] = Path(details["cookies"])
@@ -78,6 +81,14 @@ class ServiceManager:
         if service.cookies.exists():
             log.info("+ Adding cookie data")
             self.config["cookies"] = service.cookies
+
+        if service.cache.exists():
+            self.config["download_cache"] = service.cache
+        else:
+            service.cache.touch()
+            with service.cache.open("w") as file:
+                json.dump({}, file)
+            self.config["download_cache"] = service.cache
 
         with open(service.api, "r") as f:
             self.config.update(yaml.safe_load(f))

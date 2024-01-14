@@ -199,4 +199,4 @@ def get_args(service: object) -> tuple:
         for command in added_commands:
             arguments.extend(command)
 
-    return arguments, file_path
+    return arguments

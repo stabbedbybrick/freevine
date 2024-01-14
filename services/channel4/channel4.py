@@ -14,6 +14,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -33,14 +34,19 @@ from utils.utilities import (
     expiration,
     get_heights,
     get_wvd,
-    info,
     kid_to_pssh,
     set_filename,
     set_save_path,
     string_cleaning,
     force_numbering,
     add_subtitles,
+    in_cache,
+    update_cache,
 )
+
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class CHANNEL4(Config):
@@ -51,6 +57,12 @@ class CHANNEL4(Config):
         self.login = self.config["login"]
         self.username = self.config.get("credentials", {}).get("username")
         self.password = self.config.get("credentials", {}).get("password")
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.client.headers = {
             "x-c4-platform-name": "android",
@@ -257,9 +269,8 @@ class CHANNEL4(Config):
 
         return token
 
-    def android_playlist(self, video_id: str, bearer: str) -> tuple:
+    def android_playlist(self, video_id: str, bearer: str, quality: str) -> tuple:
         url = self.config["android"]["vod"].format(video_id=video_id)
-
         self.client.headers.update({"authorization": f"Bearer {bearer}"})
 
         r = self.client.get(url=url)
@@ -285,7 +296,9 @@ class CHANNEL4(Config):
                 token = item["streams"][0]["token"]
                 manifest = item["streams"][0]["uri"]
 
-        subtitle = [x["url"] for x in data["subtitlesAssets"] if x["url"].endswith(".vtt")][0]
+        subtitle = [
+            x["url"] for x in data["subtitlesAssets"] if x["url"].endswith(".vtt")
+        ][0]
         if subtitle is not None:
             r = self.client.get(manifest)
             r.raise_for_status()
@@ -301,22 +314,21 @@ class CHANNEL4(Config):
     def get_mediainfo(self, video_id: str, quality: str, bearer: str) -> str:
         self.web = None
 
-        manifest, token = self.android_playlist(video_id, bearer)
+        manifest, token = self.android_playlist(video_id, bearer, quality)
         lic_token = self.decrypt_token(token, client="android")
         heights, self.soup = get_heights(self.client, manifest)
-        resolution = heights[0]
 
-        if resolution < 1080:
+        if heights[0] < 1080:
             manifest, token = self.web_playlist(video_id)
             lic_token = self.decrypt_token(token, client="web")
             heights, self.soup = get_heights(self.client, manifest)
-            resolution = heights[0]
 
-        if quality is not None:
-            if int(quality) in heights:
-                resolution = quality
-            else:
-                resolution = min(heights, key=lambda x: abs(int(x) - int(quality)))
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error("Video quality unavailable. Please select another resolution")
+            resolution = None
+            self.skip_download = True
 
         return resolution, manifest, lic_token
 
@@ -375,6 +387,13 @@ class CHANNEL4(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                    time.sleep(self.slowdown)
+
             self.download(download, title, bearer)
 
     def download(self, stream: object, title: str, bearer: str) -> None:
@@ -386,24 +405,21 @@ class CHANNEL4(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
+        self.filename = set_filename(self, stream, self.res, audio=MAX_AUDIO)
         self.save_path = set_save_path(stream, self, title)
         self.manifest = self.tmp / "manifest.mpd" if self.web else manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
+        click.echo("")
         self.log.info(f"{str(stream)}")
-        self.log.info(f"{keys[0]}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

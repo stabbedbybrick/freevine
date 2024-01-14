@@ -43,6 +43,7 @@ class Config:
         save_dir: Optional[str] = None,
         save_name: Optional[str] = None,
         add_command: Optional[list] = None,
+        slowdown: Optional[int] = None,
         force_numbering: Optional[list] = None,
         proxy: Optional[str] = None,
         # skip_download: Optional[bool] = None,
@@ -85,6 +86,7 @@ class Config:
         self.save_dir = save_dir
         self.save_name = save_name
         self.add_command = add_command
+        self.slowdown = slowdown
         self.skip_download = info
         self.force_numbering = force_numbering
 

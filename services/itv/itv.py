@@ -1,6 +1,4 @@
 """
-Thanks to A_n_g_e_l_a for the cookies!
-
 ITV
 Author: stabbedbybrick
 
@@ -12,6 +10,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -27,17 +26,28 @@ from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
     add_subtitles,
     construct_pssh,
+    force_numbering,
     get_wvd,
+    in_cache,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "720"
+MAX_AUDIO = "AAC2.0"
 
 
 class ITV(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.get_options()
 
@@ -68,7 +78,7 @@ class ITV(Config):
         return Series(
             [
                 Episode(
-                    id_=None,
+                    id_=episode["episodeId"],
                     service="ITV",
                     title=data["programme"]["title"],
                     season=episode.get("series")
@@ -94,7 +104,7 @@ class ITV(Config):
         return Movies(
             [
                 Movie(
-                    id_=None,
+                    id_=movie["episodeId"],
                     service="ITV",
                     title=data["programme"]["title"],
                     year=movie.get("productionYear"),
@@ -157,14 +167,16 @@ class ITV(Config):
         with open(self.tmp / "manifest.mpd", "w") as f:
             f.write(str(self.soup.prettify()))
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error(
+                "Video quality unavailable. Please select another resolution"
+            )
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -199,7 +211,7 @@ class ITV(Config):
             episode = Series(
                 [
                     Episode(
-                        id_=None,
+                        id_=data["episode"]["episodeId"],
                         service="ITV",
                         title=data["programme"]["title"],
                         season=data["episode"].get("series")
@@ -224,13 +236,21 @@ class ITV(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, lic_url, subtitle = self.get_playlist(stream.data)
-            self.res = self.get_mediainfo(manifest, self.quality, subtitle)
-            pssh = construct_pssh(self.soup)
+        manifest, lic_url, subtitle = self.get_playlist(stream.data)
+        self.res = self.get_mediainfo(manifest, self.quality, subtitle)
+        pssh = construct_pssh(self.soup)
 
         keys = self.get_keys(pssh, lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
@@ -247,14 +267,11 @@ class ITV(Config):
             self.log.info(f"{key}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

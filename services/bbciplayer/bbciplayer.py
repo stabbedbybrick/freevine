@@ -12,6 +12,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from collections import Counter
 
 import click
@@ -28,7 +29,12 @@ from utils.utilities import (
     set_save_path,
     string_cleaning,
     force_numbering,
+    in_cache,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class BBC(Config):
@@ -39,6 +45,12 @@ class BBC(Config):
         self.episode_re = (
             r"^(?:https?://(?:www\.)?bbc\.co\.uk/(iplayer/episode)/)(?P<id>[a-z0-9]+)"
         )
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.get_options()
 
@@ -314,6 +326,13 @@ class BBC(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def clean_subtitles(self, subtitle: str, filename: str):
@@ -354,11 +373,10 @@ class BBC(Config):
             self.sub_path = self.tmp / f"{filename}.srt"
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, subtitle = self.get_playlist(stream.id)
-            playlist, self.res = self.get_mediainfo(manifest, self.quality)
+        manifest, subtitle = self.get_playlist(stream.id)
+        playlist, self.res = self.get_mediainfo(manifest, self.quality)
 
-        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
+        self.filename = set_filename(self, stream, self.res, audio=MAX_AUDIO)
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest if self.skip_download else playlist
         self.key_file = None  # not encrypted
@@ -370,21 +388,17 @@ class BBC(Config):
         self.log.info(f"{str(stream)}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
         if self.skip_download:
             self.log.info(f"Filename: {self.filename}")
-            # self.log.info(f"Quality: {heights}")
             self.log.info("Subtitles: Yes\n") if subtitle else self.log.info(
                 "Subtitles: None\n"
             )
 
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

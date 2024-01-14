@@ -14,6 +14,7 @@ import asyncio
 import json
 import re
 import subprocess
+import time
 import urllib
 from collections import Counter
 from pathlib import Path
@@ -29,17 +30,28 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    force_numbering,
     get_wvd,
+    in_cache,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "DD5.1"
 
 
 class ROKU(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.api = self.config["api"]
         self.get_options()
@@ -63,7 +75,7 @@ class ROKU(Config):
 
         try:
             data = json.loads(r.content)
-        except:
+        except Exception:
             raise ConnectionError("This video is unavailable in your location")
 
         return data
@@ -88,14 +100,14 @@ class ROKU(Config):
         return Series(
             [
                 Episode(
-                    id_=None,
+                    id_=episode["meta"]["id"],
                     service="ROKU",
                     title=data["title"],
                     season=int(episode["seasonNumber"]),
                     number=int(episode["episodeNumber"]),
                     name=episode["title"],
                     year=data["releaseYear"],
-                    data=episode["meta"]["id"],
+                    data=None,
                     description=episode["description"],
                 )
                 for episode in episodes
@@ -108,12 +120,12 @@ class ROKU(Config):
         return Movies(
             [
                 Movie(
-                    id_=None,
+                    id_=data["meta"]["id"],
                     service="ROKU",
                     title=data["title"],
                     year=data["releaseYear"],
                     name=data["title"],
-                    data=data["meta"]["id"],
+                    data=None,
                     synopsis=data["description"],
                 )
             ]
@@ -168,16 +180,18 @@ class ROKU(Config):
             reverse=True,
         )
 
-        audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
+        audio = MAX_AUDIO if "ac-3" in codecs else "AAC2.0"
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality, audio
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match, audio
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error(
+                "Video quality unavailable. Please select another resolution"
+            )
+            resolution = None
+            self.skip_download = True
 
-        return heights[0], audio
+        return resolution, audio
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -217,7 +231,7 @@ class ROKU(Config):
             episode = Series(
                 [
                     Episode(
-                        id_=None,
+                        id_=episode_id,
                         service="ROKU",
                         title=title,
                         season=int(data["seasonNumber"]),
@@ -238,14 +252,22 @@ class ROKU(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            pssh = "AAAAKXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAkiASpI49yVmwY="
+        pssh = "AAAAKXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAkiASpI49yVmwY="
 
-            lic_url, manifest = self.get_playlist(stream.data)
-            self.res, audio = self.get_mediainfo(manifest, self.quality)
+        lic_url, manifest = self.get_playlist(stream.id)
+        self.res, audio = self.get_mediainfo(manifest, self.quality)
 
         keys = self.get_keys(pssh, lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
@@ -262,14 +284,11 @@ class ROKU(Config):
             self.log.info(f"{key}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

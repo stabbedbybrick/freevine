@@ -9,8 +9,10 @@ CWTV is 1080p, AAC 2.0 max
 from __future__ import annotations
 
 import asyncio
+import json
 import re
 import subprocess
+import time
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
@@ -26,17 +28,28 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    force_numbering,
     get_wvd,
+    in_cache,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class CW(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.use_shaka_packager = True
         self.get_options()
@@ -79,7 +92,7 @@ class CW(Config):
         return Series(
             [
                 Episode(
-                    id_=None,
+                    id_=episode["guid"],
                     service="CW",
                     title=episode.get("series_name"),
                     season=int(episode.get("season")) or 0,
@@ -101,7 +114,7 @@ class CW(Config):
         return Movies(
             [
                 Movie(
-                    id_=None,
+                    id_=movie["guid"],
                     service="CW",
                     title=movie.get("title"),
                     name=movie.get("title"),
@@ -151,14 +164,16 @@ class CW(Config):
             reverse=True,
         )
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error(
+                "Video quality unavailable. Please select another resolution"
+            )
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_hls_quality(self, manifest: str, quality: str) -> str:
         r = self.client.get(manifest)
@@ -171,15 +186,17 @@ class CW(Config):
                 playlists.append(playlist.stream_info.resolution[1])
 
             heights = sorted([x for x in playlists], reverse=True)
-            res = heights[0]
 
-        if quality is not None:
-            if int(quality) in heights:
-                res = quality
-            else:
-                res = min(heights, key=lambda x: abs(int(x) - int(quality)))
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error(
+                "Video quality unavailable. Please select another resolution"
+            )
+            resolution = None
+            self.skip_download = True
 
-        return res
+        return resolution
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         if manifest.endswith(".mpd"):
@@ -232,7 +249,7 @@ class CW(Config):
             episode = Series(
                 [
                     Episode(
-                        id_=None,
+                        id_=data["guid"],
                         service="CW",
                         title=data.get("series_name"),
                         season=int(data.get("season")) or 0,
@@ -253,12 +270,20 @@ class CW(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            manifest, lic_url = self.get_playlist(stream.data)
-            self.res, pssh = self.get_mediainfo(manifest, self.quality)
+        manifest, lic_url = self.get_playlist(stream.data)
+        self.res, pssh = self.get_mediainfo(manifest, self.quality)
 
         keys = None
         if lic_url:
@@ -275,14 +300,11 @@ class CW(Config):
         self.log.info(f"{str(stream)}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)

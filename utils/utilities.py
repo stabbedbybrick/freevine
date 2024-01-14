@@ -4,6 +4,7 @@ import logging
 import re
 import shutil
 import http.cookiejar
+import json
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta  # noqa: F811
 from pathlib import Path
@@ -14,7 +15,9 @@ import requests
 from bs4 import BeautifulSoup
 from pywidevine.device import Device, DeviceTypes
 from unidecode import unidecode
+from rich.console import Console
 
+console = Console()
 log = logging.getLogger()
 
 
@@ -157,6 +160,25 @@ def get_cookie(cookie_jar: http.cookiejar.MozillaCookieJar, name: str) -> dict:
         if cookie.name == name:
             return {"value": cookie.value, "expires": cookie.expires}
     return None
+
+
+def in_cache(cache: json, quality: str, download: object) -> bool:
+    video = str(download.id)
+    if video in cache and quality in cache[video].get("quality", []):
+        log.info(f"{str(download)} was found in cache. Skipping download...")
+        return True
+    else:
+        return False
+
+
+def update_cache(cache: json, config: dict, quality: str, download: str) -> None:
+    if download in cache and isinstance(cache[download].get("quality"), list):
+        cache[download]["quality"].append(quality)
+    else:
+        cache[download] = {"quality": [quality]}
+
+    with config["download_cache"].open("w") as f:
+        json.dump(cache, f, indent=4)
 
 
 def string_cleaning(filename: str) -> str:

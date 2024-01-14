@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import subprocess
-import sys
+import time
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
@@ -25,18 +25,29 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    force_numbering,
     get_wvd,
+    in_cache,
     kid_to_pssh,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
+    update_cache,
 )
+
+MAX_VIDEO = "1080"
+MAX_AUDIO = "AAC2.0"
 
 
 class CRACKLE(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        with self.config["download_cache"].open("r") as file:
+            self.cache = json.load(file)
+
+        if self.quality is None:
+            self.quality = MAX_VIDEO
 
         self.api = self.config["api"]
         self.client.headers.update({"x-crackle-platform": self.config["key"]})
@@ -77,14 +88,14 @@ class CRACKLE(Config):
         return Series(
             [
                 Episode(
-                    id_=None,
+                    id_=episode["id"],
                     service="CRKL",
                     title=data["metadata"][0]["title"],
                     season=int(episode["seasonNumber"]),
                     number=int(episode["episodeNumber"]),
                     name=episode["title"],
                     year=None,
-                    data=episode["id"],
+                    data=None,
                     description=episode.get("shortDescription"),
                 )
                 for season in seasons
@@ -100,7 +111,7 @@ class CRACKLE(Config):
         return Movies(
             [
                 Movie(
-                    id_=None,
+                    id_=r["data"][0]["id"],
                     service="CRKL",
                     title=data["metadata"][0]["title"],
                     year=data["metadata"][0]["releaseDate"].split("-")[0]
@@ -144,14 +155,16 @@ class CRACKLE(Config):
             reverse=True,
         )
 
-        if quality is not None:
-            if int(quality) in heights:
-                return quality
-            else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+        if int(quality) in heights:
+            resolution = quality
+        else:
+            self.log.error(
+                "Video quality unavailable. Please select another resolution"
+            )
+            resolution = None
+            self.skip_download = True
 
-        return heights[0]
+        return resolution
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -193,7 +206,7 @@ class CRACKLE(Config):
             episode = Series(
                 [
                     Episode(
-                        id_=None,
+                        id_=episode_id,
                         service="CRKL",
                         title=show,
                         season=int(data["seasonNumber"]),
@@ -214,13 +227,21 @@ class CRACKLE(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
+            if in_cache(self.cache, self.quality, download):
+                continue
+
+            if self.slowdown:
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
+                    time.sleep(self.slowdown)
+
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        with self.console.status("Getting media info..."):
-            lic_url, manifest = self.get_playlist(stream.data)
-            self.res = self.get_mediainfo(manifest, self.quality)
-            pssh = kid_to_pssh(self.soup)
+        lic_url, manifest = self.get_playlist(stream.id)
+        self.res = self.get_mediainfo(manifest, self.quality)
+        pssh = kid_to_pssh(self.soup)
 
         keys = self.get_keys(pssh, lic_url)
         with open(self.tmp / "keys.txt", "w") as file:
@@ -237,14 +258,11 @@ class CRACKLE(Config):
             self.log.info(f"{key}")
         click.echo("")
 
-        args, file_path = get_args(self)
-
-        if not file_path.exists():
-            try:
-                subprocess.run(args, check=True)
-            except Exception as e:
-                raise ValueError(f"{e}")
-        else:
-            self.log.info(f"{self.filename} already exist. Skipping download\n")
+        try:
+            subprocess.run(get_args(self), check=True)
+        except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
-            pass
+            raise ValueError(f"{e}")
+
+        if not self.skip_download:
+            update_cache(self.cache, self.config, self.res, stream.id)
