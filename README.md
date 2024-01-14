@@ -64,15 +64,13 @@ freevine.py profile --username "USERNAME" --password "PASSWORD" --service "SERVI
 > [!NOTE]
 >Setting a user profile will create a profile.yaml in the service folder that'll store credentials along with cached auth and refresh tokens
 
-Some services can be used with a cookie file.
-
-Use a browser extension to download cookies as .txt file format:
+If a service supports cookies, you can use a browser extension to download cookies as .txt file format:
 
 Firefox: https://addons.mozilla.org/addon/export-cookies-txt
 
 Chrome: https://chrome.google.com/webstore/detail/gdocmgbfkjnnpapoeobnolbbkoibbcif
 
-Name it "cookies.txt" and place it in service folder
+Name it `cookies.txt` and place it in service folder
 
 ## Proxies:
 
