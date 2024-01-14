@@ -1,6 +1,7 @@
 import subprocess
 import re
 import random
+import logging
 
 from utils.utilities import get_binary, contains_ip_address
 
@@ -8,7 +9,7 @@ from utils.utilities import get_binary, contains_ip_address
 
 class Hola:
     def __init__(self) -> None:
-        self.executable = get_binary("hola-proxy")
+        self.executable = get_binary("hola-proxy", "hola-proxy.windows-amd64", "hola-proxy.linux-amd64")
         if not self.executable:
             raise ValueError("Required hola-proxy executable was not found on your system")
         
@@ -41,6 +42,8 @@ class Hola:
     #     pass
 
 def get_proxy(query: str) -> str:
+    log = logging.getLogger()
+    log.info(f"+ Adding {query} proxy")
     query = query.lower()
 
     if len(query) > 2 and contains_ip_address(query):
