@@ -45,7 +45,16 @@ main_help = f"""
             Setting a user profile will create a profile.yaml in the service folder
             It will store credentials along with cached auth and refresh tokens
     \b
-    Instructions:
+    Cookies:
+        Some services can be used with a cookie file:
+    \b
+            Use a browser extension to download a standard Netscape file format:
+            Firefox: https://addons.mozilla.org/addon/export-cookies-txt
+            Chrome: https://chrome.google.com/webstore/detail/gdocmgbfkjnnpapoeobnolbbkoibbcif
+    \b
+            Name it "cookies.txt" and place it in the service folder
+    \b
+    Download Instructions:
         This program has got two methods of downloading:
     \b
         Method 1: (singles and batch)
@@ -65,6 +74,11 @@ main_help = f"""
             Use --episode S01E01-S01E10 to request a range of episodes (from the same season)
             Use --episode S01E01,S03E07,S10E12 (no spaces!) to request a mix of episodes
             Use --season S01,S03,S10 (no spaces!) to request a mix of seasons
+    \b
+            If a season is displaying duplicate numbering and/or no numbers at all, you can use -fn to force numbering
+            This will add numbers based on its placement on site, making it easier to download
+    \b     
+            freevine.py --titles -fn https://www.example.com/series_url
     \b
         Method 2: (singles)
             Provide URL to episode or movie to download it directly:
@@ -96,7 +110,7 @@ main_help = f"""
             See "N_m3u8DL-RE --morehelp select-video/audio/subtitle" for possible selection patterns
             If you request a quality that's not available, the closest match is downloaded instead
     \b
-    Searching (beta):
+    Searching:
         You can use the search option to search for titles in the command line:
     \b
             freevine.py search all4 "QUERY"
@@ -107,7 +121,7 @@ main_help = f"""
             The results should produce usable URL to series or movie
             Some services have geo block even for searching
     \b
-    Proxy (beta):
+    Proxy:
         You can request or specify a proxy server to be used for API and license requests:
     \b
             freevine.py --proxy US
@@ -115,31 +129,14 @@ main_help = f"""
     \b
             NOTES:
             Requesting a proxy by country code requires https://github.com/Snawoot/hola-proxy
-            Make sure to re-name the executable to "hola-proxy" in order to work properly
+            Download the exectutable from the releases page and rename it to "hola-proxy"
+            Place it in the same location as the other required tools. System PATH is recommended
     \b
             The proxy currently only affects API and license requests, not downloads
-    \b    
-    Service information:
-        (Premium content on any service is not supported)
-    \b
-            ROKU:     1080p, DD5.1
-            CTV:      1080p, DD5.1
-            CBC GEM:  1080p, DD5.1
-            iView:    1080p, AAC2.0
-            ALL4:     1080p, AAC2.0
-            MY5:      1080p, AAC2.0
-            iPLAYER:  1080p, AAC2.0
-            UKTVPLAY: 1080p, AAC2.0
-            STV:      1080p, AAC2.0
-            CRACKLE:  1080p, AAC2.0
-            CWTV:     1080p, AAC2.0
-            ITV:      720p,  AAC2.0
-            TUBI:     720p,  AAC2.0
-            PLUTO:    720p,  AAC2.0 
     \b
     Final notes:
     \b
-        This program is just a hobby project inbetween real-life responsibilities
+        This program is just a hobby project made for fun
         Expect bugs and odd behavior, and consider it to be in forever beta
     \b
         Known bugs:

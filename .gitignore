@@ -3,6 +3,7 @@ profile
 profile.yaml
 cookies
 cookies.txt
+cache.json
 
 # CDM
 pywidevine

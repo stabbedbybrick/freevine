@@ -55,7 +55,19 @@
 
 ## Usage:
 
-Available arguments:
+Available commands:
+
+```
+Commands:
+  clear-cache   Delete download cache
+  file          Read commands from a text file
+  get           Download series or movies
+  profile       Create a profile with user credentials
+  search        Search one or multiple services for titles
+  service-info  Print information about each streaming service
+```
+
+Available arguments for `get` command:
 
 ```
   --proxy TEXT                 Request or specify a proxy server
@@ -70,6 +82,7 @@ Available arguments:
   --sub-no-fix                 Leave subtitles untouched
   --use-shaka-packager         Use shaka-packager to decrypt
   --add-command TEXT           Add extra command to N_m3u8DL-RE
+  --slowdown INTEGER           Add sleep (in seconds) between downloads
   -fn, --force-numbering       Force add numbering to episodes
   -e, --episode TEXT           Download episode(s)
   -s, --season TEXT            Download complete season
@@ -92,7 +105,7 @@ freevine.py get --help (READ THIS!)
 freevine.py get --titles URL
 freevine.py get --movie URL
 freevine.py get --info --episode S01E01 URL
-freevine.py get --subtitles --episode S01E01 URL
+freevine.py get --sub_only --episode S01E01 URL
 freevine.py get --episode S01E01 URL
 freevine.py get --episode "name of episode" URL
 freevine.py get --episode EPISODE_URL
@@ -110,6 +123,8 @@ freevine.py profile --username "username" --password "password" --service "servi
 
 freevine.py search --help
 freevine.py search iplayer "KEYWORDS"
+
+freevine.py clear-cache
 
 ```
 > [!TIP]
