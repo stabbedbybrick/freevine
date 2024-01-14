@@ -165,7 +165,7 @@ def get_cookie(cookie_jar: http.cookiejar.MozillaCookieJar, name: str) -> dict:
 def in_cache(cache: json, quality: str, download: object) -> bool:
     video = str(download.id)
     if video in cache and quality in cache[video].get("quality", []):
-        log.info(f"{str(download)} was found in cache. Skipping download...")
+        log.info(f"{str(download)} {quality}p was found in cache. Skipping download...")
         return True
     else:
         return False
@@ -399,4 +399,4 @@ def check_version(local_version: str):
         latest_version = int(re.sub(r"[v.]", "", version))
 
     if latest_version and local_version < latest_version:
-        notification(f"New version available! {version}\n")
+        notification(f"{version} available: https://github.com/stabbedbybrick/freevine/releases/latest\n")
