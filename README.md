@@ -136,7 +136,7 @@ freevine.py get --help (READ THIS!)
 freevine.py get --titles URL
 freevine.py get --movie URL
 freevine.py get --info --episode S01E01 URL
-freevine.py get --sub_only --episode S01E01 URL
+freevine.py get --sub-only --episode S01E01 URL
 freevine.py get --episode S01E01 URL
 freevine.py get --episode "name of episode" URL
 freevine.py get --episode EPISODE_URL
