@@ -54,6 +54,38 @@
 > [!TIP]
 > Clone/download the main branch for immediate fixes and updates
 
+## Credentials:
+
+A user profile with credentials can be set for services that require it:
+```
+freevine.py profile --username "USERNAME" --password "PASSWORD" --service "SERVICE"
+```
+
+> [!NOTE]
+>Setting a user profile will create a profile.yaml in the service folder that'll store credentials along with cached auth and refresh tokens
+
+Some services can be used with a cookie file.
+
+Use a browser extension to download cookies as .txt file format:
+
+Firefox: https://addons.mozilla.org/addon/export-cookies-txt
+
+Chrome: https://chrome.google.com/webstore/detail/gdocmgbfkjnnpapoeobnolbbkoibbcif
+
+Name it "cookies.txt" and place it in service folder
+
+## Proxies:
+
+When using the `--proxy` option, you can either provide one or request a proxy using country codes (US, UK, SE etc.).
+
+In order to request proxies, [hola-proxy](https://github.com/Snawoot/hola-proxy) is required. Download the exectutable from the releases page and rename it to "hola-proxy". Place it in the same location as the other required tools. System PATH is recommended.
+
+    freevine.py --proxy US
+    freevine.py --proxy "01.234.56.789:10"
+
+> [!NOTE]
+>The proxy only affects API and license requests, not downloads
+
 ## Usage:
 
 Available commands:

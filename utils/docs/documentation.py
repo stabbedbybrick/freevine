@@ -48,11 +48,11 @@ main_help = f"""
     Cookies:
         Some services can be used with a cookie file:
     \b
-            Use a browser extension to download a standard Netscape file format:
+            Use a browser extension to download cookies as .txt file format:
             Firefox: https://addons.mozilla.org/addon/export-cookies-txt
             Chrome: https://chrome.google.com/webstore/detail/gdocmgbfkjnnpapoeobnolbbkoibbcif
     \b
-            Name it "cookies.txt" and place it in the service folder
+            Name it "cookies.txt" and place it in service folder
     \b
     Download Instructions:
         This program has got two methods of downloading:
@@ -108,7 +108,6 @@ main_help = f"""
     \b
             NOTES:
             See "N_m3u8DL-RE --morehelp select-video/audio/subtitle" for possible selection patterns
-            If you request a quality that's not available, the closest match is downloaded instead
     \b
     Searching:
         You can use the search option to search for titles in the command line:
