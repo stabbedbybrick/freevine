@@ -35,8 +35,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "720"
-MAX_AUDIO = "AAC2.0"
 
 
 class ITV(Config):
@@ -45,9 +43,6 @@ class ITV(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.get_options()
 
@@ -167,16 +162,14 @@ class ITV(Config):
         with open(self.tmp / "manifest.mpd", "w") as f:
             f.write(str(self.soup.prettify()))
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error(
-                "Video quality unavailable. Please select another resolution"
-            )
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                return quality
+            else:
+                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                return closest_match
 
-        return resolution
+        return heights[0]
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -236,7 +229,7 @@ class ITV(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -274,4 +267,4 @@ class ITV(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

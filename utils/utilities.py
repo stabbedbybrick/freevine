@@ -162,20 +162,20 @@ def get_cookie(cookie_jar: http.cookiejar.MozillaCookieJar, name: str) -> dict:
     return None
 
 
-def in_cache(cache: json, quality: str, download: object) -> bool:
+def in_cache(cache: json, download: object) -> bool:
     video = str(download.id)
-    if video in cache and quality in cache[video].get("quality", []):
-        log.info(f"{str(download)} {quality}p was found in cache. Skipping download...")
+    title = str(download.title)
+    if video in cache and cache[video].get("title", {}) == title:
+        log.info(f'"{str(download)}" was found in cache. Skipping download...')
         return True
     else:
         return False
 
 
-def update_cache(cache: json, config: dict, quality: str, download: str) -> None:
-    if download in cache and isinstance(cache[download].get("quality"), list):
-        cache[download]["quality"].append(quality)
-    else:
-        cache[download] = {"quality": [quality]}
+def update_cache(cache: json, config: dict, download: object) -> None:
+    video = str(download.id)
+    title = str(download.title)
+    cache[video] = {"title": title}
 
     with config["download_cache"].open("w") as f:
         json.dump(cache, f, indent=4)

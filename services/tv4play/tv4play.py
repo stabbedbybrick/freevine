@@ -40,9 +40,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "1080"
-MAX_AUDIO = "AAC2.0"
-
 
 class TV4Play(Config):
     def __init__(self, config, **kwargs):
@@ -50,9 +47,6 @@ class TV4Play(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.authenticate()
         self.get_options()
@@ -249,12 +243,11 @@ class TV4Play(Config):
             reverse=True,
         )
         
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error("Video quality unavailable. Please select another resolution")
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                resolution = quality
+            else:
+                resolution = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
         return resolution, pssh
 
@@ -265,12 +258,11 @@ class TV4Play(Config):
 
         heights = sorted(heights, reverse=True)
         
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error("Video quality unavailable. Please select another resolution")
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                resolution = quality
+            else:
+                resolution = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
         return resolution, pssh
 
@@ -372,7 +364,7 @@ class TV4Play(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -407,4 +399,4 @@ class TV4Play(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

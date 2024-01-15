@@ -33,8 +33,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "1080"
-MAX_AUDIO = "AAC2.0"
 
 
 class BBC(Config):
@@ -48,9 +46,6 @@ class BBC(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.get_options()
 
@@ -326,7 +321,7 @@ class BBC(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -376,7 +371,7 @@ class BBC(Config):
         manifest, subtitle = self.get_playlist(stream.id)
         playlist, self.res = self.get_mediainfo(manifest, self.quality)
 
-        self.filename = set_filename(self, stream, self.res, audio=MAX_AUDIO)
+        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest if self.skip_download else playlist
         self.key_file = None  # not encrypted
@@ -401,4 +396,4 @@ class BBC(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

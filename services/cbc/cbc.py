@@ -37,8 +37,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "1080"
-MAX_AUDIO = "DDP5.1"
 
 
 class CBC(Config):
@@ -55,9 +53,6 @@ class CBC(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.username = self.config.get("credentials", {}).get("username")
         self.password = self.config.get("credentials", {}).get("password")
@@ -304,16 +299,16 @@ class CBC(Config):
             else:
                 audio = "AAC2.0"
 
-        if quality in resolutions:
-            resolution = quality
-        else:
-            self.log.error(
-                "Video quality unavailable. Please select another resolution"
-            )
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if quality in resolutions:
+                return quality, audio
+            else:
+                closest_match = min(
+                    resolutions, key=lambda x: abs(int(x) - int(quality))
+                )
+                return closest_match, audio
 
-        return resolution, audio
+        return resolutions[0], audio
 
     def get_hls(self, url: str):
         base_url = url.split("desktop")[0]
@@ -429,7 +424,7 @@ class CBC(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -460,4 +455,4 @@ class CBC(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

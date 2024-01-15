@@ -35,9 +35,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "1080"
-MAX_AUDIO = "AAC2.0"
-
 
 class CRACKLE(Config):
     def __init__(self, config, **kwargs):
@@ -45,9 +42,6 @@ class CRACKLE(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.api = self.config["api"]
         self.client.headers.update({"x-crackle-platform": self.config["key"]})
@@ -155,16 +149,14 @@ class CRACKLE(Config):
             reverse=True,
         )
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error(
-                "Video quality unavailable. Please select another resolution"
-            )
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                return quality
+            else:
+                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                return closest_match
 
-        return resolution
+        return heights[0]
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -227,7 +219,7 @@ class CRACKLE(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -265,4 +257,4 @@ class CRACKLE(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

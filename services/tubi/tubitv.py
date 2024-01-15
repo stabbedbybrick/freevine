@@ -38,8 +38,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "720"
-MAX_AUDIO = "AAC2.0"
 
 
 class TUBITV(Config):
@@ -48,9 +46,6 @@ class TUBITV(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.get_options()
 
@@ -154,18 +149,18 @@ class TUBITV(Config):
                 playlists.append((playlist.stream_info.resolution[1], playlist.uri))
 
             heights = sorted([x[0] for x in playlists], reverse=True)
+            resolution = heights[0]
             manifest = [base + x[1] for x in playlists if heights[0] == x[0]][0]
 
-        for playlist in playlists:
-            if int(quality) in heights:
-                resolution = quality
-                manifest = base + playlist[1]
-            else:
-                self.log.error(
-                    "Video quality unavailable. Please select another resolution"
-                )
-                resolution = None
-                self.skip_download = True
+        if quality is not None:
+            for playlist in playlists:
+                if int(quality) in playlist:
+                    resolution = playlist[0]
+                    manifest = base + playlist[1]
+                else:
+                    resolution = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                    if resolution == playlist[0]:
+                        manifest = base + playlist[1]
 
         return manifest, resolution
 
@@ -241,7 +236,7 @@ class TUBITV(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -262,7 +257,7 @@ class TUBITV(Config):
             with open(self.tmp / "keys.txt", "w") as file:
                 file.write("\n".join(keys))
 
-        self.filename = set_filename(self, stream, self.res, audio=MAX_AUDIO)
+        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = stream.data
         self.key_file = self.tmp / "keys.txt" if keys else None
@@ -285,4 +280,4 @@ class TUBITV(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

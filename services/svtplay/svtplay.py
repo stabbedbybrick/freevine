@@ -32,9 +32,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "1080"
-MAX_AUDIO = "DD5.1"
-
 
 FORMATS = [
     "dash-full", 
@@ -51,9 +48,6 @@ class SVTPlay(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.get_options()
 
@@ -159,16 +153,16 @@ class SVTPlay(Config):
             reverse=True,
         )
 
-        audio = MAX_AUDIO if "ac-3" in codecs else "AAC2.0"
+        audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error("Video quality unavailable. Please select another resolution")
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                return quality, audio
+            else:
+                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                return closest_match, audio
 
-        return resolution, audio
+        return heights[0], audio
 
     def get_hls_info(self, manifest: str, quality: str) -> tuple:
         r = self.client.get(manifest)
@@ -176,19 +170,19 @@ class SVTPlay(Config):
         heights, codecs = from_m3u8(r.text)
 
         heights = sorted(heights, reverse=True)
-        audio = MAX_AUDIO if "ac-3" in codecs[0] else "AAC2.0"
+        audio = "DD5.1" if "ac-3" in codecs[0] else "AAC2.0"
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error("Video quality unavailable. Please select another resolution")
-            resolution = None
-            self.skip_download = True
-            
         self.log.info("Subtitles for this format are currently not supported")
         self.drop_subtitle = "all" # TODO
 
-        return resolution, audio
+        if quality is not None:
+            if int(quality) in heights:
+                return quality, audio
+            else:
+                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                return closest_match, audio
+
+        return heights[0], audio
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         if manifest.endswith(".mpd"):
@@ -272,7 +266,7 @@ class SVTPlay(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -301,4 +295,4 @@ class SVTPlay(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

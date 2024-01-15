@@ -36,9 +36,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "1080"
-MAX_AUDIO = "AAC2.0"
-
 
 class UKTVPLAY(Config):
     def __init__(self, config, **kwargs):
@@ -46,9 +43,6 @@ class UKTVPLAY(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.vod = self.config["vod"]
         self.api = self.config["api"]
@@ -134,16 +128,14 @@ class UKTVPLAY(Config):
         r.raise_for_status()
         heights, self.soup = get_heights(self.client, manifest)
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error(
-                "Video quality unavailable. Please select another resolution"
-            )
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                return quality
+            else:
+                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                return closest_match
 
-        return resolution
+        return heights[0]
 
     def get_content(self, url: str) -> object:
         if self.movie:

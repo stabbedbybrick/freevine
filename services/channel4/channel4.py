@@ -45,9 +45,6 @@ from utils.utilities import (
 )
 
 
-MAX_VIDEO = "1080"
-MAX_AUDIO = "AAC2.0"
-
 
 class CHANNEL4(Config):
     def __init__(self, config, **kwargs):
@@ -60,9 +57,6 @@ class CHANNEL4(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.client.headers = {
             "x-c4-platform-name": "android",
@@ -317,18 +311,19 @@ class CHANNEL4(Config):
         manifest, token = self.android_playlist(video_id, bearer, quality)
         lic_token = self.decrypt_token(token, client="android")
         heights, self.soup = get_heights(self.client, manifest)
+        resolution = heights[0]
 
         if heights[0] < 1080:
             manifest, token = self.web_playlist(video_id)
             lic_token = self.decrypt_token(token, client="web")
             heights, self.soup = get_heights(self.client, manifest)
+            resolution = heights[0]
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error("Video quality unavailable. Please select another resolution")
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                resolution = quality
+            else:
+                resolution = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
         return resolution, manifest, lic_token
 
@@ -387,7 +382,7 @@ class CHANNEL4(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -405,7 +400,7 @@ class CHANNEL4(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        self.filename = set_filename(self, stream, self.res, audio=MAX_AUDIO)
+        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = self.tmp / "manifest.mpd" if self.web else manifest
         self.key_file = self.tmp / "keys.txt"
@@ -422,4 +417,4 @@ class CHANNEL4(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

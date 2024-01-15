@@ -38,8 +38,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "1080"
-MAX_AUDIO = "AAC2.0"
 
 
 class ABC(Config):
@@ -52,9 +50,6 @@ class ABC(Config):
         
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.lic_url = self.config["license"]
         self.get_options()
@@ -177,12 +172,11 @@ class ABC(Config):
             with open(self.tmp / "manifest.mpd", "w") as f:
                 f.write(str(self.soup.prettify()))
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error("Video quality unavailable. Please select another resolution")
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                resolution = quality
+            else:
+                resolution = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
         return resolution
 
@@ -250,7 +244,7 @@ class ABC(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -270,7 +264,7 @@ class ABC(Config):
         with open(self.tmp / "keys.txt", "w") as file:
             file.write("\n".join(keys))
 
-        self.filename = set_filename(self, stream, self.res, audio=MAX_AUDIO)
+        self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest if not subtitle else self.tmp / "manifest.mpd"
         self.key_file = self.tmp / "keys.txt"
@@ -287,4 +281,4 @@ class ABC(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)

@@ -43,9 +43,6 @@ from utils.utilities import (
     update_cache,
 )
 
-MAX_VIDEO = "720"
-MAX_AUDIO = "AAC2.0"
-
 
 class PLUTO(Config):
     def __init__(self, config, **kwargs):
@@ -53,9 +50,6 @@ class PLUTO(Config):
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
-
-        if self.quality is None:
-            self.quality = MAX_VIDEO
 
         self.lic_url = self.config["lic"]
         self.api = self.config["api"]
@@ -248,14 +242,14 @@ class PLUTO(Config):
                 heights.append(int(item.attrs["height"]))
                 heights.sort(reverse=True)
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error("Video quality unavailable. Please select another resolution")
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            if int(quality) in heights:
+                return quality
+            else:
+                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
+                return closest_match
 
-        return resolution
+        return heights[0]
 
     def get_hls_quality(self, manifest: str, quality: str) -> str:
         self.client.headers.pop("Authorization")
@@ -269,15 +263,16 @@ class PLUTO(Config):
                 playlists.append((playlist.stream_info.resolution[1], playlist.uri))
 
             heights = sorted([x[0] for x in playlists], reverse=True)
+            res = heights[0]
 
-        if int(quality) in heights:
-            resolution = quality
-        else:
-            self.log.error("Video quality unavailable. Please select another resolution")
-            resolution = None
-            self.skip_download = True
+        if quality is not None:
+            for playlist in playlists:
+                if int(quality) in playlist:
+                    res = playlist[0]
+                else:
+                    res = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
-        return resolution, manifest
+        return res, manifest
 
     def generate_pssh(self, kid: str):
         array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
@@ -342,7 +337,7 @@ class PLUTO(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -378,4 +373,4 @@ class PLUTO(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)
