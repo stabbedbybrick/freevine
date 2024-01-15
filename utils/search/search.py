@@ -2,26 +2,26 @@ import httpx
 from rich.console import Console
 
 from utils.search.api import _dict, _parse
+from utils.proxies import get_proxy
 
 console = Console()
 
 
 class Config:
-    def __init__(self, alias: str, keywords: str) -> None:
+    def __init__(self, alias: str, keywords: str, proxy: str) -> None:
         if alias:
             alias = alias.upper()
         if keywords:
             keywords = keywords.lower()
 
-        self.client = httpx.Client(
-            headers={
-                "user-agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/118.0.0.0 Safari/537.36"
-                ),
-            }
-        )
+        if proxy != "False":
+            uri = get_proxy(proxy)
+            self.client = httpx.Client(proxies={"http://": uri, "https://": uri})
+        else:
+            self.client = httpx.Client(
+                headers={"user-agent": "Chrome/119.0.0.0 Safari/537.36"}
+            )
+
         self.alias = [alias]
         self.keywords = keywords
 
@@ -70,9 +70,9 @@ def search_post(search: object, service: dict):
         return None
 
 
-def search_engine(alias: str, keywords: str):
+def search_engine(alias: str, keywords: str, proxy: str):
     # alias, keywords = search
-    cfg = Config(alias, keywords)
+    cfg = Config(alias, keywords, proxy)
 
     services = [
         service

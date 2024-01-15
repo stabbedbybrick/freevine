@@ -36,16 +36,17 @@ def cli(debug: bool):
 
 
 @cli.command()
-@click.argument("alias", type=str)
-@click.argument("keywords", type=str)
-def search(alias: str, keywords: str) -> None:
+@click.option("--proxy", type=str, default=False, help="Request or specify a proxy server")
+@click.argument("alias", type=str, required=True)
+@click.argument("keywords", type=str, required=True)
+def search(proxy: str, alias: str, keywords: str) -> None:
     """
     Search one or multiple services for titles
 
     Usage: freevine.py search bbc,all4 "KEYWORDS"
     """
     if keywords is not None:
-        search_engine(alias, keywords)
+        search_engine(alias, keywords, proxy)
 
 
 @cli.command(short_help="Download series or movies", help=main_help)
