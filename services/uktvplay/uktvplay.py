@@ -196,7 +196,7 @@ class UKTVPLAY(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, self.quality, download):
+            if in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
