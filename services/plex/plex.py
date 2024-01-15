@@ -139,8 +139,8 @@ class Plex(Config):
                     drm=True
                     if next((x["drm"] for x in episode["Media"]), None)
                     else False,
-                    subtitle=(
-                        next(
+                    subtitle=next(
+                        (
                             x["key"]
                             for x in episode["Media"][0]["Part"][0]["Stream"]
                             if x.get("streamType") == 3
@@ -171,8 +171,8 @@ class Plex(Config):
                     drm=True
                     if next((x["drm"] for x in movie["Media"]), None)
                     else False,
-                    subtitle=(
-                        next(
+                    subtitle=next(
+                        (
                             x["key"]
                             for x in movie["Media"][0]["Part"][0]["Stream"]
                             if x.get("streamType") == 3
