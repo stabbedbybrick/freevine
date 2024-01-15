@@ -234,4 +234,4 @@ class UKTVPLAY(Config):
             raise ValueError(f"{e}")
 
         if not self.skip_download:
-            update_cache(self.cache, self.config, self.res, stream.id)
+            update_cache(self.cache, self.config, stream)
