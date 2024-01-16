@@ -392,11 +392,13 @@ class TV4Play(Config):
         self.log.info(self.filename)
         click.echo("")
 
+        args, file_path = get_args(self)
+
         try:
-            subprocess.run(get_args(self), check=True)
+            subprocess.run(args, check=True)
         except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
             raise ValueError(f"{e}")
-
-        if not self.skip_download:
+        
+        if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)

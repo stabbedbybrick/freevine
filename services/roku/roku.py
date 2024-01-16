@@ -69,14 +69,17 @@ class ROKU(Config):
 
         try:
             data = json.loads(r.content)
-        except Exception:
-            raise ConnectionError("This video is unavailable in your location")
+        except json.JSONDecodeError:
+            raise ConnectionError("Roku video is unavailable in your location")
 
         return data
 
     async def fetch_titles(self, async_client: httpx.AsyncClient, id: str) -> json:
         response = await async_client.get(f"{self.api}{id}")
-        return response.json()
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            raise ConnectionError("Roku is unavailable in your current location")
 
     async def get_titles(self, data: dict) -> list:
         async with httpx.AsyncClient() as async_client:
@@ -276,11 +279,13 @@ class ROKU(Config):
             self.log.info(f"{key}")
         click.echo("")
 
+        args, file_path = get_args(self)
+
         try:
-            subprocess.run(get_args(self), check=True)
+            subprocess.run(args, check=True)
         except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
             raise ValueError(f"{e}")
-
-        if not self.skip_download:
+        
+        if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)

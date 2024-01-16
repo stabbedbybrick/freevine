@@ -72,7 +72,10 @@ class TUBITV(Config):
         r = self.client.get(f"{content}")
         r.raise_for_status()
 
-        return r.json()
+        try:
+            return r.json()
+        except json.JSONDecodeError:
+            raise ConnectionError("Tubi is unavailable in your current location")
 
     def get_series(self, url: str) -> Series:
         data = self.get_data(url)
@@ -273,11 +276,13 @@ class TUBITV(Config):
         self.log.info(f"{keys[0]}") if keys else None
         click.echo("")
 
+        args, file_path = get_args(self)
+
         try:
-            subprocess.run(get_args(self), check=True)
+            subprocess.run(args, check=True)
         except Exception as e:
             self.sub_path.unlink() if self.sub_path else None
             raise ValueError(f"{e}")
-
-        if not self.skip_download:
+        
+        if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)
