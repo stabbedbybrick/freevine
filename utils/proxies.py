@@ -2,6 +2,7 @@ import subprocess
 import re
 import random
 import logging
+import sys
 
 from utils.utilities import get_binary, contains_ip_address
 
@@ -16,8 +17,8 @@ class Hola:
     def proxy(self, query):
         command = [
             self.executable,
-            "-country",
-            query,
+            "-country", query,
+            "-proxy-type", "lum", # residential
             "-list-proxies"
         ]
         output = subprocess.run(command, capture_output=True, text=True)
@@ -43,12 +44,17 @@ class Hola:
 
 def get_proxy(query: str) -> str:
     log = logging.getLogger()
-    log.info(f"+ Adding {query} proxy")
-    query = query.lower()
 
     if len(query) > 2 and contains_ip_address(query):
         return query
     
-    if len(query) == 2:
+    elif len(query) == 2:
+        log.info(f"+ Adding {query} proxy")
+        query = query.lower()
+        query = "gb" if query == "uk" else query
         hola = Hola()
         return hola.proxy(query)
+    
+    else:
+        log.error("Unsupported input for proxy")
+        sys.exit(1)
