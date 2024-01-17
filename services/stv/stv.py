@@ -33,6 +33,7 @@ from utils.utilities import (
     set_save_path,
     string_cleaning,
     force_numbering,
+    append_id,
     get_heights,
     in_cache,
     update_cache
@@ -182,7 +183,9 @@ class STV(Config):
             num_episodes = sum(seasons.values())
 
             if self.force_numbering:
-                    content = force_numbering(content)
+                content = force_numbering(content)
+            if self.append_id:
+                content = append_id(content)
 
         self.log.info(
             f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"

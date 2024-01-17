@@ -24,6 +24,7 @@ from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
     force_numbering,
+    append_id,
     from_m3u8,
     in_cache,
     set_filename,
@@ -209,6 +210,8 @@ class SVTPlay(Config):
 
                 if self.force_numbering:
                     content = force_numbering(content)
+                if self.append_id:
+                    content = append_id(content)
 
             self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"

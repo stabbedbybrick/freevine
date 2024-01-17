@@ -149,6 +149,13 @@ def force_numbering(content: list) -> list:
     return content
 
 
+def append_id(content: list) -> list:
+    for episode in content:
+        episode.name += f" {[episode.id]}"
+    
+    return content
+
+
 def load_cookies(path: Path) -> http.cookiejar.MozillaCookieJar:
     cookie_jar = http.cookiejar.MozillaCookieJar(path)
     cookie_jar.load()

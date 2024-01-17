@@ -27,6 +27,7 @@ from utils.titles import Episode, Series
 from utils.utilities import (
     construct_pssh,
     force_numbering,
+    append_id,
     get_heights,
     get_wvd,
     in_cache,
@@ -156,6 +157,8 @@ class UKTVPLAY(Config):
 
                 if self.force_numbering:
                     content = force_numbering(content)
+                if self.append_id:
+                    content = append_id(content)
 
             self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"

@@ -31,6 +31,7 @@ from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
     add_subtitles,
     force_numbering,
+    append_id,
     get_wvd,
     kid_to_pssh,
     set_filename,
@@ -237,6 +238,8 @@ class Plex(Config):
 
                 if self.force_numbering:
                     content = force_numbering(content)
+                if self.append_id:
+                    content = append_id(content)
 
             self.log.info(
                 f"{str(content)}: {num_seasons} Season(s), {num_episodes} Episode(s)\n"
