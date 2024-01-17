@@ -290,11 +290,14 @@ class SVTPlay(Config):
 
         args, file_path = get_args(self)
 
-        try:
-            subprocess.run(args, check=True)
-        except Exception as e:
+        if not file_path.exists():
+            try:
+                subprocess.run(args, check=True)
+            except Exception as e:
+                raise ValueError(f"{e}")
+        else:
+            self.log.info(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
-            raise ValueError(f"{e}")
         
         if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)
