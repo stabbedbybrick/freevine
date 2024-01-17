@@ -166,7 +166,8 @@ def in_cache(cache: json, download: object) -> bool:
     video = str(download.id)
     title = str(download.title)
     if video in cache and cache[video].get("title", {}) == title:
-        log.info(f'"{str(download)}" was found in cache. Skipping download...')
+        log.warning(
+            f'"{str(download)}" was found in cache, skipping download. Use "--no-cache" to ignore.')
         return True
     else:
         return False

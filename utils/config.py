@@ -45,6 +45,7 @@ class Config:
         add_command: Optional[list] = None,
         slowdown: Optional[int] = None,
         force_numbering: Optional[list] = None,
+        no_cache: Optional[bool] = None,
         proxy: Optional[str] = None,
         # skip_download: Optional[bool] = None,
     ) -> None:
@@ -89,6 +90,7 @@ class Config:
         self.slowdown = slowdown
         self.skip_download = info
         self.force_numbering = force_numbering
+        self.no_cache = no_cache
 
         self.console = Console()
 

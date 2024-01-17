@@ -424,7 +424,7 @@ class CBC(Config):
         downloads, title = get_downloads(self)
 
         for download in downloads:
-            if in_cache(self.cache, download):
+            if not self.no_cache and in_cache(self.cache, download):
                 continue
 
             if self.slowdown:
@@ -456,7 +456,7 @@ class CBC(Config):
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
-            self.log.info(f"{self.filename} already exists. Skipping download...\n")
+            self.log.warning(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
         
         if not self.skip_download and file_path.exists():
