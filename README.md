@@ -38,7 +38,9 @@
 
 * [hola-proxy](https://github.com/Snawoot/hola-proxy) (optional)
 
-* Valid Widevine CDM (only needed for encrypted streams)
+* [windscribe-proxy](https://github.com/Snawoot/windscribe-proxy) (optional)
+
+* Valid Widevine CDM (this is not included, so don't ask)
 
 > [!TIP]
 > Windows users are recommended to use Powershell 7 in Windows Terminal for best experience
@@ -52,7 +54,9 @@
 5. Install necessary packages: `pip install -r requirements.txt`
 
 > [!TIP]
-> Clone/download the main branch for immediate fixes and updates
+> Clone the main branch for immediate fixes and updates:
+>
+> ```git clone https://github.com/stabbedbybrick/freevine.git freevine```
 
 ## Credentials:
 
@@ -76,7 +80,7 @@ Name it `cookies.txt` and place it in service folder
 
 When using the `--proxy` option, you can either provide one or request a proxy using country codes (US, UK, SE etc.).
 
-In order to request proxies, [hola-proxy](https://github.com/Snawoot/hola-proxy) is required. Download the exectutable from the releases page and rename it to "hola-proxy". Place it in the same location as the other required tools. System PATH is recommended.
+In order to request proxies, [hola-proxy](https://github.com/Snawoot/hola-proxy) and/or [windscribe-proxy](https://github.com/Snawoot/windscribe-proxy) is required. Download the exectutable from the releases page and rename it to "hola-proxy" or "windscribe-proxy". Place it in the same location as the other required tools. System PATH is recommended. Make sure to specify which proxy you want to use in the config file.
 
     freevine.py --proxy US
     freevine.py --proxy "01.234.56.789:10"
@@ -114,6 +118,8 @@ Available arguments for `get` command:
   --use-shaka-packager         Use shaka-packager to decrypt
   --add-command TEXT           Add extra command to N_m3u8DL-RE
   --slowdown INTEGER           Add sleep (in seconds) between downloads
+  --no-cache                   Ignore download cache
+  --append-id                  Append video id to filename
   -fn, --force-numbering       Force add numbering to episodes
   -e, --episode TEXT           Download episode(s)
   -s, --season TEXT            Download complete season

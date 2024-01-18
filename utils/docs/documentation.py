@@ -127,9 +127,10 @@ main_help = f"""
             freevine.py --proxy "01.234.56.789:10"
     \b
             NOTES:
-            Requesting a proxy by country code requires https://github.com/Snawoot/hola-proxy
-            Download the exectutable from the releases page and rename it to "hola-proxy"
-            Place it in the same location as the other required tools. System PATH is recommended
+            In order to request proxies, (https://github.com/Snawoot/hola-proxy) and/or (https://github.com/Snawoot/windscribe-proxy)
+            is required. Download the exectutable from the releases page and rename it to "hola-proxy" or "windscribe-proxy". 
+            Place it in the same location as the other required tools. System PATH is recommended. 
+            Make sure to specify which proxy you want to use in the config file.
     \b
             The proxy currently only affects API and license requests, not downloads
     \b
