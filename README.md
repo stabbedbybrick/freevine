@@ -54,7 +54,7 @@
 5. Install necessary packages: `pip install -r requirements.txt`
 
 > [!TIP]
-> Clone the main branch for immediate fixes and updates:
+> Clone the main branch to always stay up to date:
 >
 > ```git clone https://github.com/stabbedbybrick/freevine.git freevine```
 
