@@ -4,6 +4,7 @@ profile.yaml
 cookies
 cookies.txt
 cache.json
+wndstate.json
 
 # CDM
 pywidevine
