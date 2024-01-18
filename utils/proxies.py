@@ -11,7 +11,7 @@ log = logging.getLogger()
 
 
 class Windscribe:
-    def __init__(self, config: dict) -> None:
+    def __init__(self, username: str, password: str) -> None:
         self.executable = get_binary(
             "windscribe-proxy",
             "windscribe-proxy.windows-amd64",
@@ -24,8 +24,8 @@ class Windscribe:
 
         self.wndstate = Path("utils") / "settings" / "wndstate.json"
 
-        self.username = config["windscribe"].get("username")
-        self.password = config["windscribe"].get("password")
+        self.username = username
+        self.password = password
         if not self.wndstate.exists() and not self.username and not self.password:
             raise IndexError("Windscribe credentials must be provided")
 
@@ -115,8 +115,21 @@ class Hola:
     #     pass
 
 
-def get_proxy(cli: object, location: str = None) -> str:
-    client = cli.config.get("proxy")
+def get_proxy(
+        cli: object = None, 
+        config: dict = None, 
+        client: str = None, 
+        location: str = None
+    ) -> str:
+
+    # client = cli.config.get("proxy") if cli else client
+    if cli is not None:
+        client = cli.config.get("proxy")
+    elif config is not None:
+        client = config.get("proxy")
+    elif client is not None:
+        client = client
+
     if not client:
         raise IndexError("A proxy client must be set in config file")
     client = client.lower()
@@ -129,7 +142,7 @@ def get_proxy(cli: object, location: str = None) -> str:
         return url
 
     elif client == "hola":
-        iso = location if location else cli.proxy
+        iso = cli.proxy if cli else location
         if not len(iso) == 2:
             raise ValueError("Country codes should only be two letters")
 
@@ -141,12 +154,19 @@ def get_proxy(cli: object, location: str = None) -> str:
         return hola.proxy(query)
 
     elif client == "windscribe":
-        iso = location if location else cli.proxy
+        iso = cli.proxy if cli else location
         if not len(iso) == 2:
             raise ValueError("Country codes should only be two letters")
+
+        if cli is not None:
+            username = cli.config["windscribe"].get("username")
+            password = cli.config["windscribe"].get("password")
+        elif config is not None:
+            username = config["windscribe"].get("username")
+            password = config["windscribe"].get("password")
 
         log.info(f"+ Adding Windscribe proxy location: {iso.upper()}")
 
         query = iso.lower()
-        windscribe = Windscribe(cli.config)
+        windscribe = Windscribe(username, password)
         return windscribe.proxy(query)

@@ -1,3 +1,4 @@
+import yaml
 import httpx
 from rich.console import Console
 
@@ -14,8 +15,11 @@ class Config:
         if keywords:
             keywords = keywords.lower()
 
+        with open("config.yaml", "r") as f:
+            self.config = yaml.safe_load(f)
+
         if proxy != "False":
-            uri = get_proxy(proxy)
+            uri = get_proxy(config=self.config, location=proxy)
             self.client = httpx.Client(proxies={"http://": uri, "https://": uri})
         else:
             self.client = httpx.Client(

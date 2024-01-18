@@ -115,5 +115,5 @@ class Config:
         )
 
         if self.proxy != "False":
-            uri = get_proxy(self)
+            uri = get_proxy(cli=self)
             self.client.proxies = {"http": uri, "https": uri}
