@@ -93,6 +93,7 @@ class Config:
         self.force_numbering = force_numbering
         self.no_cache = no_cache
         self.append_id = append_id
+        self.proxy = proxy
 
         self.console = Console()
 
@@ -113,6 +114,6 @@ class Config:
             }
         )
 
-        if proxy != "False":
-            uri = get_proxy(proxy)
+        if self.proxy != "False":
+            uri = get_proxy(self)
             self.client.proxies = {"http": uri, "https": uri}
