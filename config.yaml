@@ -51,3 +51,12 @@ subtitles:
   drop:
   no_mux: "false" # If "true", subtitles will be stored separately
   fix: "true" # Clean and convert subtitles. If "false", subtitles remain untouched
+
+# Set proxy to be used when invoking --proxy
+# See README and help documentation on how to set up proxies
+proxy: # basic, hola or windscribe
+
+# If using windscribe, credentials must be provided
+windscribe:
+  username:
+  password:

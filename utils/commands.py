@@ -3,7 +3,9 @@ import logging
 import sys
 import subprocess
 import shlex
+import urllib3
 from pathlib import Path
+from urllib3.exceptions import InsecureRequestWarning
 
 import click
 import yaml
@@ -30,6 +32,8 @@ def cli(debug: bool):
 
     logging.getLogger("requests").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+
+    urllib3.disable_warnings(InsecureRequestWarning)
 
     click.echo(f"\n❯_freevine {__version__}\n")
     check_version(__version__)
