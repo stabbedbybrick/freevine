@@ -1,10 +1,10 @@
 import base64
 import datetime
+import http.cookiejar
+import json
 import logging
 import re
 import shutil
-import http.cookiejar
-import json
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta  # noqa: F811
 from pathlib import Path
@@ -14,8 +14,8 @@ import m3u8
 import requests
 from bs4 import BeautifulSoup
 from pywidevine.device import Device, DeviceTypes
-from unidecode import unidecode
 from rich.console import Console
+from unidecode import unidecode
 
 console = Console()
 log = logging.getLogger()
@@ -152,7 +152,7 @@ def force_numbering(content: list) -> list:
 def append_id(content: list) -> list:
     for episode in content:
         episode.name += f" {[episode.id]}"
-    
+
     return content
 
 
@@ -174,7 +174,8 @@ def in_cache(cache: json, download: object) -> bool:
     title = str(download.title)
     if video in cache and cache[video].get("title", {}) == title:
         log.warning(
-            f'"{str(download)}" was found in cache, skipping download. Use "--no-cache" to ignore.')
+            f'"{str(download)}" was found in cache, skipping download. Use "--no-cache" to ignore.'
+        )
         return True
     else:
         return False
@@ -407,4 +408,6 @@ def check_version(local_version: str):
         latest_version = int(re.sub(r"[v.]", "", version))
 
     if latest_version and local_version < latest_version:
-        notification(f"{version} available: https://github.com/stabbedbybrick/freevine/releases/latest\n")
+        notification(
+            f"{version} available: https://github.com/stabbedbybrick/freevine/releases/latest\n"
+        )

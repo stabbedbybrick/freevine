@@ -1,9 +1,11 @@
 import logging
 import random
 import re
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
+
+import requests
 
 from utils.utilities import get_binary
 
@@ -44,7 +46,7 @@ class Windscribe:
         output = subprocess.run(command, capture_output=True, text=True)
         if output.returncode != 0:
             raise ConnectionError(f"{output.stderr}")
-        
+
         if Path("wndstate.json").exists():
             shutil.move(Path("wndstate.json"), Path("utils") / "settings")
 
@@ -116,13 +118,12 @@ class Hola:
 
 
 def get_proxy(
-        cli: object = None, 
-        config: dict = None, 
-        client: str = None, 
-        location: str = None
-    ) -> str:
+    cli: object = None, 
+    config: dict = None, 
+    client: str = None, 
+    location: str = None
+) -> str:
 
-    # client = cli.config.get("proxy") if cli else client
     if cli is not None:
         client = cli.config.get("proxy")
     elif config is not None:
@@ -137,16 +138,16 @@ def get_proxy(
     if client == "basic":
         url = location if location else cli.proxy
 
-        log.info(f"+ Adding basic proxy location: {url}")
+        log.info("+ Adding basic proxy location: %s", url)
 
         return url
 
     elif client == "hola":
-        iso = cli.proxy if cli else location
+        iso = location if location else cli.proxy
         if not len(iso) == 2:
             raise ValueError("Country codes should only be two letters")
 
-        log.info(f"+ Adding Hola proxy location: {iso.upper()}")
+        log.info("+ Adding Hola proxy location: %s", iso.upper())
 
         query = iso.lower()
         query = "gb" if query == "uk" else query
@@ -154,7 +155,7 @@ def get_proxy(
         return hola.proxy(query)
 
     elif client == "windscribe":
-        iso = cli.proxy if cli else location
+        iso = location if location else cli.proxy
         if not len(iso) == 2:
             raise ValueError("Country codes should only be two letters")
 
@@ -165,8 +166,23 @@ def get_proxy(
             username = config["windscribe"].get("username")
             password = config["windscribe"].get("password")
 
-        log.info(f"+ Adding Windscribe proxy location: {iso.upper()}")
+        log.info("+ Adding Windscribe proxy location: %s", iso.upper())
 
         query = iso.lower()
         windscribe = Windscribe(username, password)
         return windscribe.proxy(query)
+
+def proxy_session(
+    cli: object = None, 
+    url: str = None, 
+    method: str = None, 
+    location: str = None
+):
+    proxy = get_proxy(cli=cli, location=location)
+    proxies = {"http": proxy, "https": proxy}
+
+    return (
+        requests.get(url, proxies=proxies)
+        if method == "get"
+        else requests.post(url, proxies=proxies)
+    )
