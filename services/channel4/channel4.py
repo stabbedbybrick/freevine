@@ -30,9 +30,9 @@ from utils.cdm import LocalCDM
 from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
+from utils.proxies import proxy_session
 from utils.utilities import (
     expiration,
-    get_heights,
     get_wvd,
     kid_to_pssh,
     set_filename,
@@ -44,7 +44,6 @@ from utils.utilities import (
     in_cache,
     update_cache,
 )
-
 
 
 class CHANNEL4(Config):
@@ -270,7 +269,12 @@ class CHANNEL4(Config):
 
         r = self.client.get(url=url)
         if not r.ok:
-            raise ConnectionError(f"{r} {r.text}")
+            self.log.warning(
+                "Request for video returned %s, attempting proxy request...", r
+            )
+            r = proxy_session(self, url=url, method="get", location="UK")
+            if not r.ok:
+                raise ConnectionError(f"{r.text}")
 
         data = json.loads(r.content)
         manifest = data["videoProfiles"][0]["streams"][0]["uri"]
@@ -282,7 +286,12 @@ class CHANNEL4(Config):
         url = self.config["web"]["vod"].format(programmeId=video_id)
         r = self.client.get(url)
         if not r.ok:
-            raise ConnectionError(f"{r} {r.json().get('message')}")
+            self.log.warning(
+                "Request for video returned %s, attempting proxy request...", r
+            )
+            r = proxy_session(self, url=url, method="get", location="UK")
+            if not r.ok:
+                raise ConnectionError(f"{r.json().get('message')}")
 
         data = json.loads(r.content)
 
@@ -306,18 +315,36 @@ class CHANNEL4(Config):
 
         return manifest, token
 
+    def get_heights(self, session, manifest: str) -> tuple:
+        r = session.get(manifest)
+        if not r.ok:
+            self.log.warning(
+                "Request for manifest returned %s, attempting proxy request...", r
+            )
+            r = proxy_session(self, url=manifest, method="get", location="UK")
+            if not r.ok:
+                raise ConnectionError(f"{r.text}")
+
+        soup = BeautifulSoup(r.text, "xml")
+        elements = soup.find_all("Representation")
+        heights = sorted(
+            [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
+            reverse=True,
+        )
+        return heights, soup
+
     def get_mediainfo(self, video_id: str, quality: str, bearer: str) -> str:
         self.web = None
 
         manifest, token = self.android_playlist(video_id, bearer, quality)
         lic_token = self.decrypt_token(token, client="android")
-        heights, self.soup = get_heights(self.client, manifest)
+        heights, self.soup = self.get_heights(self.client, manifest)
         resolution = heights[0]
 
         if heights[0] < 1080:
             manifest, token = self.web_playlist(video_id)
             lic_token = self.decrypt_token(token, client="web")
-            heights, self.soup = get_heights(self.client, manifest)
+            heights, self.soup = self.get_heights(self.client, manifest)
             resolution = heights[0]
 
         if quality is not None:
@@ -389,7 +416,9 @@ class CHANNEL4(Config):
                 continue
 
             if self.slowdown:
-                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
                     time.sleep(self.slowdown)
 
             self.download(download, title, bearer)
@@ -418,11 +447,12 @@ class CHANNEL4(Config):
         if not file_path.exists():
             try:
                 subprocess.run(args, check=True)
+                click.echo("")
             except Exception as e:
                 raise ValueError(f"{e}")
         else:
             self.log.warning(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
-        
+
         if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)
