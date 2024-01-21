@@ -202,5 +202,17 @@
         "config": "services/tv4play/config.yaml",
         "profile": "services/tv4play/profile.yaml",
         "cookies": "services/tv4play/cookies.txt"
+    },
+    "www.tvnz.co.nz": {
+        "name": "TVNZ",
+        "alias": ["TVNZ"],
+        "credentials": "login",
+        "quality": "720p, AAC2.0",
+        "path": "services/tvnz/tvnz.py",
+        "api": "services/tvnz/api.yaml",
+        "cache": "services/tvnz/cache.json",
+        "config": "services/tvnz/config.yaml",
+        "profile": "services/tvnz/profile.yaml",
+        "cookies": "services/tvnz/cookies.txt"
     }
 }
