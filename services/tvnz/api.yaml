@@ -1,0 +1,10 @@
+auth0_client: eyJuYW1lIjoiYXV0aDAuanMiLCJ2ZXJzaW9uIjoiOS4xMC4yIn0=
+client_id: tp5hyPrFuXLJV0jgRWy5l7lEtJlPN98R
+
+play: https://playback.brightcovecdn.com/playback/v1/accounts/{account_id}/videos/{video_id}
+
+login: https://login.tvnz.co.nz/co/authenticate
+authorize: https://login.tvnz.co.nz/authorize
+api: https://apis-edge-prod.tech.tvnz.co.nz
+vod: https://apis-public-prod.tech.tvnz.co.nz
+show: https://apis-public-prod.tech.tvnz.co.nz/api/v1/web/play/page/shows/{title_id}/episodes

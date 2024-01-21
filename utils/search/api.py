@@ -211,16 +211,33 @@ def _dict(keywords: str):
             "alias": ["PLEX", "PLEX.TV"],
             "url": f"https://discover.provider.plex.tv/library/search?searchTypes=livetv,movies,people,tv&searchProviders=discover,plexAVOD,plexFAST&includeMetadata=1&filterPeople=1&limit=10&query={keywords}",
             "header": {
-                'authority': 'discover.provider.plex.tv',
-                'accept': 'application/json',
-                'content-type': 'application/json',
-                'origin': 'https://watch.plex.tv',
-                'referer': 'https://watch.plex.tv/',
-                'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
-                'x-plex-client-identifier': 'e3109fe5-d10c-4d8a-b71b-24f60c2c550b',
-                'x-plex-language': 'en',
-                'x-plex-product': 'Plex Mediaverse',
-                'x-plex-provider-version': '6.5.0',
+                "authority": "discover.provider.plex.tv",
+                "accept": "application/json",
+                "content-type": "application/json",
+                "origin": "https://watch.plex.tv",
+                "referer": "https://watch.plex.tv/",
+                "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+                "x-plex-client-identifier": "e3109fe5-d10c-4d8a-b71b-24f60c2c550b",
+                "x-plex-language": "en",
+                "x-plex-product": "Plex Mediaverse",
+                "x-plex-provider-version": "6.5.0",
+            },
+            "method": "GET",
+        },
+        {
+            "name": "TVNZ",
+            "alias": ["TVNZ"],
+            "url": "https://apis-public-prod.tech.tvnz.co.nz/api/v1/web/play/search",
+            "params": {
+                "q": f"{keywords}",
+                "includeTypes": [
+                    "show",
+                    "channel",
+                    "category",
+                    "tvguide",
+                    "hub",
+                    "sportVideo",
+                ],
             },
             "method": "GET",
         },
@@ -515,7 +532,9 @@ def _parse(query: dict, service: dict, client=None):
                         title=field["teaser"]["item"].get("name"),
                         synopsis=field["teaser"].get("description"),
                         type=field["teaser"]["item"].get("__typename"),
-                        url=link.format(slug=field["teaser"]["item"]["urls"]["svtplay"]),
+                        url=link.format(
+                            slug=field["teaser"]["item"]["urls"]["svtplay"]
+                        ),
                     )
                 )
     if service["name"] == "Plex":
@@ -523,7 +542,9 @@ def _parse(query: dict, service: dict, client=None):
 
         if query:
             media = query["MediaContainer"]["SearchResults"]
-            search_results = next(x.get("SearchResult") for x in media if x.get("id") == "external")
+            search_results = next(
+                x.get("SearchResult") for x in media if x.get("id") == "external"
+            )
             for field in search_results:
                 results.append(
                     template.format(
@@ -531,7 +552,27 @@ def _parse(query: dict, service: dict, client=None):
                         title=field["Metadata"]["title"],
                         synopsis=None,
                         type=field["Metadata"].get("type"),
-                        url=link.format(type=field["Metadata"].get("type"), slug=field["Metadata"]["slug"]),
+                        url=link.format(
+                            type=field["Metadata"].get("type"),
+                            slug=field["Metadata"]["slug"],
+                        ),
+                    )
+                )
+
+    if service["name"] == "TVNZ":
+        link = "https://www.tvnz.co.nz{slug}"
+
+        if query:
+            
+            for field in query["results"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field.get("title"),
+                        synopsis=field.get("synopsis"),
+                        type=field.get("type"),
+                        url=link.format(slug=field["page"].get("url")
+                        ),
                     )
                 )
 
