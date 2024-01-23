@@ -23,7 +23,7 @@ def _dict(keywords: str):
             "url": "https://search.api.bbci.co.uk/formula/iplayer-ibl-root",
             "params": {
                 "q": f"{keywords}",
-                "apikey": "HJ34sajBaTjACnUJtGZ2Gvsy0QeqJ5UK",
+                "apikey": "D2FgtcTxGqqIgLsfBWTJdrQh2tVdeaAp",
             },
             "method": "GET",
         },
