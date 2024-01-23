@@ -6,8 +6,6 @@
     </a>
     <a href="https://docs.python.org/3/library/venv.html">
         <img src="https://img.shields.io/badge/python-venv-blue" alt="Python virtual environments">
-    </a><br/>
-    <a href='https://ko-fi.com/A0A2MZDCO' target='_blank'><img height='30' style='border:0px;height:30px;' src='https://storage.ko-fi.com/cdn/kofi3.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' /></a>
 </p>
 
 ## Features:

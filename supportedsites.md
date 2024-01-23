@@ -12,6 +12,7 @@
 * UKTVPlay: 1080p, AAC2.0 :uk:
 * ITVx: 720p,  AAC2.0 :uk:
 * ABC iView: 1080p, AAC2.0 :australia:
+* TVNZ, 720p, AAC2.0 :new_zealand:
 * SVTPlay: 1080p, DD5.1 :sweden:
 * TV4Play: 1080p, AAC2.0 :sweden:
 * Plex.tv: 1080p, AAC2.0 :earth_americas:
