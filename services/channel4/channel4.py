@@ -300,9 +300,10 @@ class CHANNEL4(Config):
                 token = item["streams"][0]["token"]
                 manifest = item["streams"][0]["uri"]
 
-        subtitle = [
-            x["url"] for x in data["subtitlesAssets"] if x["url"].endswith(".vtt")
-        ][0]
+        subtitle = next(
+            (x["url"] for x in data["subtitlesAssets"] if x["url"].endswith(".vtt")),
+            None,
+        )
         if subtitle is not None:
             r = self.client.get(manifest)
             r.raise_for_status()
