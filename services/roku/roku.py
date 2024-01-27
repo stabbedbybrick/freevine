@@ -156,11 +156,14 @@ class ROKU(Config):
 
         videos = r.json()["playbackMedia"]["videos"]
 
-        lic_url = [
-            x["drmParams"]["licenseServerURL"]
-            for x in videos
-            if x["drmParams"]["keySystem"] == "Widevine"
-        ][0]
+        lic_url = next(
+            (
+                x["drmParams"]["licenseServerURL"]
+                for x in videos
+                if x.get("drmParams") and x["drmParams"]["keySystem"] == "Widevine"
+            ),
+            None,
+        )
 
         mpd = [x["url"] for x in videos if x["streamFormat"] == "dash"][0]
         mpd = re.sub(r"https:\/\/vod-playlist\.sr\.roku\.com\/1\.mpd\?origin=", "", mpd)
@@ -194,8 +197,6 @@ class ROKU(Config):
             with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
-
-            self.log.info(f"{str(content)}\n")
 
         else:
             with self.console.status("Fetching series titles..."):
@@ -267,19 +268,19 @@ class ROKU(Config):
         lic_url, manifest = self.get_playlist(stream.id)
         self.res, audio = self.get_mediainfo(manifest, self.quality)
 
-        keys = self.get_keys(pssh, lic_url)
-        with open(self.tmp / "keys.txt", "w") as file:
-            file.write("\n".join(keys))
+        keys = None
+        if lic_url is not None:
+            keys = self.get_keys(pssh, lic_url)
+            with open(self.tmp / "keys.txt", "w") as file:
+                file.write("\n".join(keys))
 
         self.filename = set_filename(self, stream, self.res, audio)
         self.save_path = set_save_path(stream, self, title)
         self.manifest = manifest
-        self.key_file = self.tmp / "keys.txt"
+        self.key_file = self.tmp / "keys.txt" if keys else None
         self.sub_path = None
 
         self.log.info(f"{str(stream)}")
-        for key in keys:
-            self.log.info(f"{key}")
         click.echo("")
 
         args, file_path = get_args(self)
