@@ -29,7 +29,6 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
-    add_subtitles,
     force_numbering,
     append_id,
     get_wvd,
@@ -142,7 +141,7 @@ class Plex(Config):
                     else False,
                     subtitle=next(
                         (
-                            x["key"]
+                            (x.get("key"), x.get("language"))
                             for x in episode["Media"][0]["Part"][0]["Stream"]
                             if x.get("streamType") == 3
                         ),
@@ -174,7 +173,7 @@ class Plex(Config):
                     else False,
                     subtitle=next(
                         (
-                            x["key"]
+                            (x.get("key"), x.get("language"))
                             for x in movie["Media"][0]["Part"][0]["Stream"]
                             if x.get("streamType") == 3
                         ),
@@ -208,14 +207,10 @@ class Plex(Config):
         pssh = kid_to_pssh(self.soup) if stream.drm else None
         quality = self.get_dash_quality(self.soup, quality)
 
+        self.sub_lang = None
         if stream.subtitle:
-            subtitle = self.config["subtitle"].format(id=stream.id)
-            self.soup = add_subtitles(self.soup, subtitle)
-
-        self.base_url = re.sub(r"(\w+.mpd)", "", stream.data)
-
-        with open(self.tmp / "manifest.mpd", "w") as f:
-            f.write(str(self.soup.prettify()))
+            sub_path, self.sub_lang = stream.subtitle
+            self.subtitle = f'{self.config["vod"]}{sub_path}?format=srt'
 
         return quality, pssh
 
@@ -224,8 +219,6 @@ class Plex(Config):
             with self.console.status("Fetching movie titles..."):
                 content = self.get_movies(self.url)
                 title = string_cleaning(str(content))
-
-            self.log.info(f"{str(content)}\n")
 
         else:
             with self.console.status("Fetching series titles..."):
@@ -274,12 +267,21 @@ class Plex(Config):
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
-        self.manifest = self.tmp / "manifest.mpd"
+        self.manifest = stream.data
         self.key_file = self.tmp / "keys.txt" if keys else None
         self.sub_path = None
 
         self.log.info(f"{str(stream)}")
         click.echo("")
+
+        if stream.subtitle is not None:
+            self.log.info(f"Downloading subtitles: {self.subtitle}\n")
+            self.sub_path = self.tmp / f"{self.filename}.srt"
+            r = self.client.get(url=f"{self.subtitle}")
+            with open(self.sub_path, "wb") as f:
+                f.write(r.content)
+        else:
+            self.log.warning("Subtitles aren't available for this title\n")
 
         args, file_path = get_args(self)
 
