@@ -257,8 +257,10 @@ def set_filename(service: object, stream: object, res: str, audio: str):
     )
 
 
-def add_subtitles(soup: object, subtitle: str) -> object:
+def add_subtitles(soup: object, subtitle: str, language: str = None) -> object:
     """Add subtitle stream to manifest"""
+
+    lang = language if language else "English"
 
     adaptation_set = soup.new_tag(
         "AdaptationSet",
@@ -268,7 +270,7 @@ def add_subtitles(soup: object, subtitle: str) -> object:
         mimeType="text/vtt",
         startWithSAP="1",
     )
-    representation = soup.new_tag("Representation", id="English", bandwidth="0")
+    representation = soup.new_tag("Representation", id=f"{lang}", bandwidth="0")
     base_url = soup.new_tag("BaseURL")
     base_url.string = f"{subtitle}"
 

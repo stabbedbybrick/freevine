@@ -132,6 +132,7 @@ def get_args(service: object) -> tuple:
     skip_download = service.skip_download
     hls_playlist = hasattr(service, "playlist")
     base_url = service.base_url if hasattr(service, "base_url") else None
+    sub_lang = service.sub_lang if hasattr(service, "sub_lang") else "English"
 
     m3u8dl = get_binary("N_m3u8DL-RE", "n-m3u8dl-re")
     if not m3u8dl:
@@ -190,7 +191,7 @@ def get_args(service: object) -> tuple:
         arguments.extend(["-M", f"format={format}:muxer={muxer}:skip_sub={sub_no_mux}"])
 
     if sub_path and sub_no_mux == "false":
-        arguments.extend(["--mux-import", f"path={sub_path}:lang=eng:name='English'"])
+        arguments.extend(["--mux-import", f"path={sub_path}:name={sub_lang}"])
 
     if sub_path and sub_no_mux == "true":
         shutil.move(sub_path, save_path)
