@@ -35,7 +35,6 @@ from utils.utilities import (
 )
 
 
-
 class BBC(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
@@ -74,10 +73,17 @@ class BBC(Config):
         cetegory = labels.get("category") if labels else None
 
         series = re.finditer(
-            r"Series (\d+):|Season (\d+):|(\d{4}/\d{2}): Episode \d+", subtitle.get("default")
+            r"Series (\d+):|Season (\d+):|(\d{4}/\d{2}): Episode \d+",
+            subtitle.get("default"),
         )
         season_num = int(
-            next((m.group(1) or m.group(2) or m.group(3).replace("/", "") for m in series), 0)
+            next(
+                (
+                    m.group(1) or m.group(2) or m.group(3).replace("/", "")
+                    for m in series
+                ),
+                0,
+            )
         )
 
         number = re.finditer(r"(\d+)\.|Episode (\d+)", subtitle.get("slice") or "")
@@ -150,7 +156,8 @@ class BBC(Config):
         for caption in [x for x in content if x["kind"] == "captions"]:
             connections = sorted(caption["connection"], key=lambda x: x["priority"])
             subtitle = next(
-                x["href"] for x in connections if x["supplier"] == "mf_cloudfront"
+                (x["href"] for x in connections if x["supplier"] == "mf_cloudfront"),
+                None,
             )
             break
 
@@ -163,15 +170,39 @@ class BBC(Config):
 
         return r.json()["media"]
 
+    def get_max_quality(self, heights, target):
+        return max((h for h in heights if h < target), default=None)
+
     def get_playlist(self, pid: str) -> tuple:
         r = self.client.get(self.config["playlist"].format(pid=pid))
         r.raise_for_status()
 
-        version = r.json().get("defaultAvailableVersion")
-        vpid = version["smpConfig"]["items"][0]["vpid"]
+        heights = [
+            connection.get("height")
+            for i in (
+                self.get_version_content(version)
+                for version in (x.get("pid") for x in r.json()["allAvailableVersions"])
+            )
+            for connection in i
+            if connection.get("height")
+        ]
+        max_quality = self.get_max_quality(heights, "1080")
 
-        content = self.get_version_content(vpid)
-        return self.get_streams(content)
+        media = next(
+            (
+                i
+                for i in (
+                    self.get_version_content(version)
+                    for version in (
+                        x.get("pid") for x in r.json()["allAvailableVersions"]
+                    )
+                )
+                if any(connection.get("height") == max_quality for connection in i)
+            ),
+            None,
+        )
+
+        return self.get_streams(media)
 
     def get_mediainfo(self, manifest: str, quality: int, resolution=None):
         r = self.client.get(manifest)
@@ -328,7 +359,9 @@ class BBC(Config):
                 continue
 
             if self.slowdown:
-                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
                     time.sleep(self.slowdown)
 
             self.download(download, title)
@@ -363,9 +396,7 @@ class BBC(Config):
                     text = tag.get_text().strip()
                     srt += f"{i+1}\n{start.replace('.', ',')} --> {end.replace('.', ',')}\n{text}\n\n"
 
-                with open(
-                    self.tmp / f"{filename}.srt", "w", encoding="UTF-8"
-                ) as f:
+                with open(self.tmp / f"{filename}.srt", "w", encoding="UTF-8") as f:
                     f.write(srt)
 
             self.sub_path = self.tmp / f"{filename}.srt"
@@ -402,6 +433,6 @@ class BBC(Config):
         else:
             self.log.warning(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
-        
+
         if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)
