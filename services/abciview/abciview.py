@@ -17,6 +17,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import click
+import requests
 from bs4 import BeautifulSoup
 
 from utils.args import get_args
@@ -25,9 +26,9 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
-    add_subtitles,
-    force_numbering,
     append_id,
+    convert_subtitles,
+    force_numbering,
     get_heights,
     get_wvd,
     in_cache,
@@ -40,7 +41,6 @@ from utils.utilities import (
 )
 
 
-
 class ABC(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
@@ -48,7 +48,7 @@ class ABC(Config):
         if self.sub_only:
             info("Subtitle downloads are not supported on this service")
             return
-        
+
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
 
@@ -150,7 +150,7 @@ class ABC(Config):
             ]
         )
 
-    def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
+    def get_mediainfo(self, manifest: str, quality: str) -> str:
         r = self.client.get(manifest)
         r.raise_for_status()
 
@@ -168,11 +168,6 @@ class ABC(Config):
         for base in base_urls:
             base.string = f"{_base}/{base.string}"
 
-        if subtitle is not None:
-            self.soup = add_subtitles(self.soup, subtitle)
-            with open(self.tmp / "manifest.mpd", "w") as f:
-                f.write(str(self.soup.prettify()))
-
         if quality is not None:
             if int(quality) in heights:
                 resolution = quality
@@ -184,7 +179,7 @@ class ABC(Config):
     def get_playlist(self, video_id: str) -> tuple:
         r = self.client.get(self.config["vod"].format(video_id=video_id)).json()
         if not r.get("playable"):
-             raise ConnectionError(r.get("unavailableMessage"))
+            raise ConnectionError(r.get("unavailableMessage"))
 
         playlist = r["_embedded"]["playlist"]
         streams = [
@@ -251,14 +246,16 @@ class ABC(Config):
                 continue
 
             if self.slowdown:
-                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
                     time.sleep(self.slowdown)
 
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
         manifest, subtitle = self.get_playlist(stream.id)
-        self.res = self.get_mediainfo(manifest, self.quality, subtitle)
+        self.res = self.get_mediainfo(manifest, self.quality)
         pssh = kid_to_pssh(self.soup)
         customdata = self.get_license_url(stream.id)
         self.client.headers.update({"customdata": customdata})
@@ -274,8 +271,32 @@ class ABC(Config):
         self.sub_path = None
 
         self.log.info(f"{str(stream)}")
-        self.log.info(f"{keys[0]}")
         click.echo("")
+
+        if subtitle is not None and not self.skip_download:
+            self.log.info(f"Subtitles: {subtitle}")
+            try:
+                sub = self.client.get(subtitle)
+                sub.raise_for_status()
+            except requests.exceptions.HTTPError:
+                self.log.warning(f"Subtitle response {sub.status_code}, skipping")
+            else:
+                sub_path = self.tmp / f"{self.filename}.vtt"
+                with open(sub_path, "wb") as f:
+                    f.write(sub.content)
+
+                if not self.sub_no_fix:
+                    sub_path = convert_subtitles(
+                        self.tmp, self.filename, sub_type="vtt"
+                    )
+
+                self.sub_path = sub_path
+
+        if self.skip_download:
+            self.log.info(f"Filename: {self.filename}")
+            self.log.info("Subtitles: Yes\n") if subtitle else self.log.info(
+                "Subtitles: None\n"
+            )
 
         args, file_path = get_args(self)
 
@@ -287,6 +308,6 @@ class ABC(Config):
         else:
             self.log.warning(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
-        
+
         if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)

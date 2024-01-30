@@ -24,10 +24,10 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
-    add_subtitles,
-    construct_pssh,
-    force_numbering,
     append_id,
+    construct_pssh,
+    convert_subtitles,
+    force_numbering,
     get_wvd,
     in_cache,
     set_filename,
@@ -35,7 +35,6 @@ from utils.utilities import (
     string_cleaning,
     update_cache,
 )
-
 
 
 class ITV(Config):
@@ -137,7 +136,7 @@ class ITV(Config):
 
         return mpd_url, lic_url, subtitle
 
-    def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
+    def get_mediainfo(self, manifest: str, quality: str) -> str:
         r = requests.get(manifest)
         r.raise_for_status()
 
@@ -156,9 +155,6 @@ class ITV(Config):
         for segment in segments:
             segment["media"] += params
             segment["initialization"] += params
-
-        if subtitle is not None:
-            self.soup = add_subtitles(self.soup, subtitle)
 
         with open(self.tmp / "manifest.mpd", "w") as f:
             f.write(str(self.soup.prettify()))
@@ -245,7 +241,7 @@ class ITV(Config):
 
     def download(self, stream: object, title: str) -> None:
         manifest, lic_url, subtitle = self.get_playlist(stream.data)
-        self.res = self.get_mediainfo(manifest, self.quality, subtitle)
+        self.res = self.get_mediainfo(manifest, self.quality)
         pssh = construct_pssh(self.soup)
 
         keys = self.get_keys(pssh, lic_url)
@@ -259,9 +255,30 @@ class ITV(Config):
         self.sub_path = None
 
         self.log.info(f"{str(stream)}")
-        for key in keys:
-            self.log.info(f"{key}")
         click.echo("")
+
+        if subtitle is not None and not self.skip_download:
+            self.log.info(f"Subtitles: {subtitle}")
+            try:
+                sub = self.client.get(subtitle)
+                sub.raise_for_status()
+            except requests.exceptions.HTTPError:
+                self.log.warning(f"Subtitle response {sub.status_code}, skipping")
+            else:
+                sub_path = self.tmp / f"{self.filename}.vtt"
+                with open(sub_path, "wb") as f:
+                    f.write(sub.content)
+
+                if not self.sub_no_fix:
+                    sub_path = convert_subtitles(self.tmp, self.filename, sub_type="vtt")
+                
+                self.sub_path = sub_path
+
+        if self.skip_download:
+            self.log.info(f"Filename: {self.filename}")
+            self.log.info("Subtitles: Yes\n") if subtitle else self.log.info(
+                "Subtitles: None\n"
+            )
 
         args, file_path = get_args(self)
 
@@ -273,6 +290,6 @@ class ITV(Config):
         else:
             self.log.warning(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
-        
+
         if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)

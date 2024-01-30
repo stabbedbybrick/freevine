@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 
 import click
 import httpx
+import requests
 from bs4 import BeautifulSoup
 
 from utils.args import get_args
@@ -25,19 +26,18 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
-    add_subtitles,
+    append_id,
+    convert_subtitles,
+    force_numbering,
     from_mpd,
     get_wvd,
+    in_cache,
     pssh_from_init,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
-    append_id,
-    in_cache,
     update_cache,
 )
-
 
 
 class CTV(Config):
@@ -252,7 +252,7 @@ class CTV(Config):
             tasks = [self.fetch_manifests(async_client, x) for x in data]
             return await asyncio.gather(*tasks)
 
-    def get_mediainfo(self, manifest: str, quality: str, subtitle: str) -> str:
+    def get_mediainfo(self, manifest: str, quality: str) -> str:
         content = asyncio.run(
             self.parse_manifests(
                 [manifest + num for num in ["14", "3", "25", "fe&mca=true&mta=true"]]
@@ -281,7 +281,6 @@ class CTV(Config):
 
         audio = "DD5.1" if "ac-3" in codecs else "AAC2.0"
 
-        self.soup = add_subtitles(self.soup, subtitle)
         if dv_audio:
             self.soup.find("AdaptationSet", {"contentType": "audio"}).append(
                 self.soup.new_tag(
@@ -393,14 +392,16 @@ class CTV(Config):
                 continue
 
             if self.slowdown:
-                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
                     time.sleep(self.slowdown)
 
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
         manifest, subtitle = self.get_playlist(stream.data, stream.id)
-        self.res, audio = self.get_mediainfo(manifest, self.quality, subtitle)
+        self.res, audio = self.get_mediainfo(manifest, self.quality)
         pssh = self.get_init(self.soup)
 
         keys = self.get_keys(pssh, self.lic_url)
@@ -414,9 +415,32 @@ class CTV(Config):
         self.sub_path = None
 
         self.log.info(f"{str(stream)}")
-        for key in keys:
-            self.log.info(f"{key}")
         click.echo("")
+
+        if subtitle is not None and not self.skip_download:
+            self.log.info(f"Subtitles: {subtitle}")
+            try:
+                sub = self.client.get(subtitle)
+                sub.raise_for_status()
+            except requests.exceptions.HTTPError:
+                self.log.warning(f"Subtitle response {sub.status_code}, skipping")
+            else:
+                sub_path = self.tmp / f"{self.filename}.vtt"
+                with open(sub_path, "wb") as f:
+                    f.write(sub.content)
+
+                if not self.sub_no_fix:
+                    sub_path = convert_subtitles(
+                        self.tmp, self.filename, sub_type="vtt"
+                    )
+
+                self.sub_path = sub_path
+
+        if self.skip_download:
+            self.log.info(f"Filename: {self.filename}")
+            self.log.info("Subtitles: Yes\n") if subtitle else self.log.info(
+                "Subtitles: None\n"
+            )
 
         args, file_path = get_args(self)
 
@@ -428,6 +452,6 @@ class CTV(Config):
         else:
             self.log.warning(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
-        
+
         if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)

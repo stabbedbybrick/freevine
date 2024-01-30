@@ -17,20 +17,21 @@ from collections import Counter
 
 import click
 import m3u8
-from bs4 import BeautifulSoup
+import requests
 
 from utils.args import get_args
 from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    append_id,
+    convert_subtitles,
+    force_numbering,
+    in_cache,
     is_title_match,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
-    append_id,
-    in_cache,
     update_cache,
 )
 
@@ -366,41 +367,6 @@ class BBC(Config):
 
             self.download(download, title)
 
-    def clean_subtitles(self, subtitle: str, filename: str):
-        """
-        Temporary solution, but seems to work for the most part
-        """
-        if self.sub_no_fix:
-            xml = self.client.get(subtitle)
-            with open(self.save_path / f"{filename}.xml", "wb") as f:
-                f.write(xml.content)
-
-            self.sub_path = self.tmp / f"{filename}.xml"
-
-        else:
-            with self.console.status("Cleaning subtitles..."):
-                r = self.client.get(subtitle)
-                r.raise_for_status()
-                soup = BeautifulSoup(r.content, "xml")
-                for tag in soup.find_all():
-                    if tag.name != "p" and tag.name != "br" and tag.name != "span":
-                        tag.unwrap()
-
-                for br in soup.find_all("br"):
-                    br.replace_with(" ")
-
-                srt = ""
-                for i, tag in enumerate(soup.find_all("p")):
-                    start = tag["begin"]
-                    end = tag["end"]
-                    text = tag.get_text().strip()
-                    srt += f"{i+1}\n{start.replace('.', ',')} --> {end.replace('.', ',')}\n{text}\n\n"
-
-                with open(self.tmp / f"{filename}.srt", "w", encoding="UTF-8") as f:
-                    f.write(srt)
-
-            self.sub_path = self.tmp / f"{filename}.srt"
-
     def download(self, stream: object, title: str) -> None:
         manifest, subtitle = self.get_playlist(stream.id)
         playlist, self.res = self.get_mediainfo(manifest, self.quality)
@@ -411,11 +377,25 @@ class BBC(Config):
         self.key_file = None  # not encrypted
         self.sub_path = None
 
-        if subtitle is not None and not self.skip_download:
-            self.clean_subtitles(subtitle, self.filename)
-
         self.log.info(f"{str(stream)}")
         click.echo("")
+
+        if subtitle is not None and not self.skip_download:
+            self.log.info(f"Subtitles: {subtitle}")
+            try:
+                sub = self.client.get(subtitle)
+                sub.raise_for_status()
+            except requests.exceptions.HTTPError:
+                self.log.warning(f"Subtitle response {sub.status_code}, skipping")
+            else:
+                sub_path = self.tmp / f"{self.filename}.ttml"
+                with open(sub_path, "wb") as f:
+                    f.write(sub.content)
+
+                if not self.sub_no_fix:
+                    sub_path = convert_subtitles(self.tmp, self.filename, sub_type="ttml")
+                
+                self.sub_path = sub_path
 
         if self.skip_download:
             self.log.info(f"Filename: {self.filename}")

@@ -20,6 +20,7 @@ from datetime import datetime
 from pathlib import Path
 
 import click
+import requests
 import yaml
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
@@ -40,7 +41,7 @@ from utils.utilities import (
     string_cleaning,
     force_numbering,
     append_id,
-    add_subtitles,
+    convert_subtitles,
     in_cache,
     update_cache,
 )
@@ -304,17 +305,8 @@ class CHANNEL4(Config):
             (x["url"] for x in data["subtitlesAssets"] if x["url"].endswith(".vtt")),
             None,
         )
-        if subtitle is not None:
-            r = self.client.get(manifest)
-            r.raise_for_status()
 
-            soup = BeautifulSoup(r.content, "xml")
-            self.web = add_subtitles(soup, subtitle)
-            self.base_url = manifest.split("stream.mpd")[0]
-            with open(self.tmp / "manifest.mpd", "w") as f:
-                f.write(str(self.web.prettify()))
-
-        return manifest, token
+        return manifest, token, subtitle
 
     def get_heights(self, session, manifest: str) -> tuple:
         r = session.get(manifest)
@@ -334,16 +326,16 @@ class CHANNEL4(Config):
         )
         return heights, soup
 
-    def get_mediainfo(self, video_id: str, quality: str, bearer: str) -> str:
-        self.web = None
-
+    def get_mediainfo(
+        self, video_id: str, quality: str, bearer: str, subtitle=None
+    ) -> str:
         manifest, token = self.android_playlist(video_id, bearer, quality)
         lic_token = self.decrypt_token(token, client="android")
         heights, self.soup = self.get_heights(self.client, manifest)
         resolution = heights[0]
 
         if heights[0] < 1080:
-            manifest, token = self.web_playlist(video_id)
+            manifest, token, subtitle = self.web_playlist(video_id)
             lic_token = self.decrypt_token(token, client="web")
             heights, self.soup = self.get_heights(self.client, manifest)
             resolution = heights[0]
@@ -354,7 +346,7 @@ class CHANNEL4(Config):
             else:
                 resolution = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
-        return resolution, manifest, lic_token
+        return resolution, manifest, lic_token, subtitle
 
     def get_content(self, url: str) -> object:
         if self.movie:
@@ -425,7 +417,9 @@ class CHANNEL4(Config):
             self.download(download, title, bearer)
 
     def download(self, stream: object, title: str, bearer: str) -> None:
-        self.res, manifest, token = self.get_mediainfo(stream.id, self.quality, bearer)
+        self.res, manifest, token, subtitle = self.get_mediainfo(
+            stream.id, self.quality, bearer
+        )
         pssh = kid_to_pssh(self.soup)
         assets = manifest, token, stream.data
 
@@ -435,13 +429,37 @@ class CHANNEL4(Config):
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
-        self.manifest = self.tmp / "manifest.mpd" if self.web else manifest
+        self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        click.echo("")
         self.log.info(f"{str(stream)}")
         click.echo("")
+
+        if subtitle is not None and not self.skip_download:
+            self.log.info(f"Subtitles: {subtitle}")
+            try:
+                sub = self.client.get(subtitle)
+                sub.raise_for_status()
+            except requests.exceptions.HTTPError:
+                self.log.warning(f"Subtitle response {sub.status_code}, skipping")
+            else:
+                sub_path = self.tmp / f"{self.filename}.vtt"
+                with open(sub_path, "wb") as f:
+                    f.write(sub.content)
+
+                if not self.sub_no_fix:
+                    sub_path = convert_subtitles(
+                        self.tmp, self.filename, sub_type="vtt"
+                    )
+
+                self.sub_path = sub_path
+
+        if self.skip_download:
+            self.log.info(f"Filename: {self.filename}")
+            self.log.info("Subtitles: Yes\n") if subtitle else self.log.info(
+                "Subtitles: None\n"
+            )
 
         args, file_path = get_args(self)
 
