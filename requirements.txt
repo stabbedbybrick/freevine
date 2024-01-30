@@ -8,3 +8,4 @@ m3u8
 sortedcontainers
 beautifulsoup4
 pywidevine==1.8.0
+https://github.com/stabbedbybrick/subby/archive/main.zip
