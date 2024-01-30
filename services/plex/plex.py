@@ -86,11 +86,9 @@ class Plex(Config):
         return self.auth_token
 
     def get_data(self, url: str) -> dict:
-        kind = urlparse(url).path.split("/")[1]
-        video_id = urlparse(url).path.split("/")[2]
+        kind, video_id = urlparse(url).path.split("/")[-2:]
 
         self.client.headers.update({"x-plex-token": self.get_auth_token()})
-
         r = self.client.get(f"{self.config['vod']}/library/metadata/{kind}:{video_id}")
         if not r.ok:
             raise ConnectionError(r.json()["Error"].get("message"))
