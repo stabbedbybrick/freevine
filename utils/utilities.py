@@ -15,6 +15,14 @@ import requests
 from bs4 import BeautifulSoup
 from pywidevine.device import Device, DeviceTypes
 from rich.console import Console
+from subby import (
+    CommonIssuesFixer,
+    SMPTEConverter,
+    WebVTTConverter,
+    ISMTConverter,
+    WVTTConverter,
+    SAMIConverter,
+)
 from unidecode import unidecode
 
 console = Console()
@@ -281,6 +289,25 @@ def add_subtitles(soup: object, subtitle: str, language: str = None) -> object:
     period.append(adaptation_set)
 
     return soup
+
+
+def convert_subtitles(tmp: Path, filename: str, sub_type: str) -> Path:
+    converters = {
+        "vtt": WebVTTConverter(),
+        "ttml": SMPTEConverter(),
+        "mp4": WVTTConverter(),
+        "dfxp": ISMTConverter(),
+        "sami": SAMIConverter(),
+    }
+
+    converter = converters[sub_type]
+    fixer = CommonIssuesFixer()
+
+    file = Path(tmp / f"{filename}.{sub_type}")
+    srt, _ = fixer.from_srt(converter.from_file(file))
+    output = Path(tmp / f"{filename}.srt")
+    srt.save(output)
+    return output
 
 
 def from_mpd(mpd_data: str, url: str = None):
