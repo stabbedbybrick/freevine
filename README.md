@@ -56,6 +56,20 @@
 >
 > ```git clone https://github.com/stabbedbybrick/freevine.git freevine```
 
+## Common issues:
+
+> ModuleNotFoundError: No module named ...
+
+You haven't installed the necessary packages. Run `pip install -r requirements.txt`
+
+> "Required key and client ID not found"
+
+Content is encrypted and a decryption module is needed. This is up to the user and not provided by this project.
+
+> ConnectionError: 400/403/404
+
+You're most likely being geo blocked by the service. Use a VPN or try the proxy option.
+
 ## Credentials:
 
 A user profile with credentials can be set for services that require it:
