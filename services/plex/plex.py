@@ -130,9 +130,9 @@ class Plex(Config):
                     name=episode.get("title"),
                     year=episode.get("year"),
                     data=next(
-                        x["url"]
-                        for x in episode["Media"]
-                        if x.get("protocol") == "dash"
+                        f'{self.config["vod"]}{x.get("key")}?X-Plex-Token={self.auth_token}'
+                        for x in episode["Media"][0]["Part"]
+                        if "-dash" in x.get("key")
                     ),
                     drm=True
                     if next((x["drm"] for x in episode["Media"]), None)
@@ -164,7 +164,9 @@ class Plex(Config):
                     year=movie.get("year"),
                     name=movie["title"],
                     data=next(
-                        x["url"] for x in movie["Media"] if x.get("protocol") == "dash"
+                        f'{self.config["vod"]}{x.get("key")}?X-Plex-Token={self.auth_token}'
+                        for x in movie["Media"][0]["Part"]
+                        if "-dash" in x.get("key")
                     ),
                     drm=True
                     if next((x["drm"] for x in movie["Media"]), None)
@@ -272,14 +274,14 @@ class Plex(Config):
         self.log.info(f"{str(stream)}")
         click.echo("")
 
-        if stream.subtitle is not None:
-            self.log.info(f"Downloading subtitles: {self.subtitle}\n")
-            self.sub_path = self.tmp / f"{self.filename}.srt"
-            r = self.client.get(url=f"{self.subtitle}")
-            with open(self.sub_path, "wb") as f:
-                f.write(r.content)
-        else:
-            self.log.warning("Subtitles aren't available for this title\n")
+        # if stream.subtitle is not None:
+        #     self.log.info(f"Downloading subtitles: {self.subtitle}\n")
+        #     self.sub_path = self.tmp / f"{self.filename}.srt"
+        #     r = self.client.get(url=f"{self.subtitle}")
+        #     with open(self.sub_path, "wb") as f:
+        #         f.write(r.content)
+        # else:
+        #     self.log.warning("Subtitles aren't available for this title\n")
 
         args, file_path = get_args(self)
 
