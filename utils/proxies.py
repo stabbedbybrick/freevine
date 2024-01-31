@@ -182,7 +182,7 @@ def proxy_session(
     proxies = {"http": proxy, "https": proxy}
 
     return (
-        requests.get(url, proxies=proxies)
+        cli.client.get(url, proxies=proxies)
         if method == "get"
-        else requests.post(url, proxies=proxies)
+        else cli.client.post(url, proxies=proxies)
     )
