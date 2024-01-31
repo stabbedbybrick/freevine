@@ -162,12 +162,6 @@ class ABC(Config):
         heights, self.soup = get_heights(self.client, manifest)
         resolution = heights[0]
 
-        _base = "/".join(manifest.split("/")[:-1])
-
-        base_urls = self.soup.find_all("BaseURL")
-        for base in base_urls:
-            base.string = f"{_base}/{base.string}"
-
         if quality is not None:
             if int(quality) in heights:
                 resolution = quality
@@ -266,7 +260,7 @@ class ABC(Config):
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
-        self.manifest = manifest if not subtitle else self.tmp / "manifest.mpd"
+        self.manifest = manifest
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
