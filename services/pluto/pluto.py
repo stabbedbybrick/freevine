@@ -153,7 +153,7 @@ class PLUTO(Config):
         r.raise_for_status()
         soup = BeautifulSoup(r.content, "xml")
         base_urls = soup.find_all("BaseURL")
-        ads = ("_ad/", "/creative/", "Bumper", "Promo/")
+        ads = ("_ad/", "/creative/", "Bumper", "Promo/", "WarningCard")
         for base_url in base_urls:
             if not any(ad in base_url.text for ad in ads):
                 new_base = base_url.text
@@ -187,7 +187,10 @@ class PLUTO(Config):
 
         response = self.client.get(url).text
         playlist = m3u8.loads(response)
-        segment = playlist.segments[0].uri
+        ads = ("_ad/", "/creative/", "Bumper", "Promo/", "WarningCard")
+        for seg in playlist.segments:
+            if not any(ad in seg.uri for ad in ads):
+                segment = seg.uri
 
         if "hls/hls" in segment:
             master = re.sub(r"hls_\d+-\d+\.ts$", "", segment)
@@ -209,7 +212,6 @@ class PLUTO(Config):
 
         return master
 
-
     def get_playlist(self, playlists: str) -> tuple:
         manifest = None
 
@@ -227,7 +229,6 @@ class PLUTO(Config):
             manifest = self.get_dash(dash)
 
         return manifest
-
 
     def get_dash_quality(self, soup: object, quality: str) -> str:
         elements = soup.find_all("Representation")
@@ -344,7 +345,9 @@ class PLUTO(Config):
                 continue
 
             if self.slowdown:
-                with self.console.status(f"Slowing things down for {self.slowdown} seconds..."):
+                with self.console.status(
+                    f"Slowing things down for {self.slowdown} seconds..."
+                ):
                     time.sleep(self.slowdown)
 
             self.download(download, title)
@@ -379,6 +382,6 @@ class PLUTO(Config):
         else:
             self.log.warning(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
-        
+
         if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)
