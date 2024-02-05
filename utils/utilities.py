@@ -127,6 +127,11 @@ def get_binary(*names: str) -> Path:
     return None
 
 
+def is_path(s):
+    p = Path(s)
+    return p.exists() and p.is_file()
+
+
 def contains_ip_address(input_string):
     pattern = r"\b((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b"
     return bool(re.search(pattern, input_string))
