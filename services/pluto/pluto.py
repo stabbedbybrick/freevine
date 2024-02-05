@@ -19,6 +19,7 @@ import subprocess
 import uuid
 import json
 import time
+import sys
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
@@ -40,6 +41,7 @@ from utils.utilities import (
     string_cleaning,
     force_numbering,
     append_id,
+    is_path,
     in_cache,
     update_cache,
 )
@@ -208,9 +210,24 @@ class PLUTO(Config):
         # TODO: Determine DRM without extra request
         response = requests.get(master).text
         if re.search(r'#PLUTO-DRM:ID="fairplay"', response):
-            return
+            manifest = self.create_manifest(response, master.rsplit("master.m3u8")[0])
+            with open(self.tmp / "manifest.m3u8", "w") as f:
+                f.write(manifest)
+
+            master = "fairplay"
 
         return master
+    
+    def create_manifest(self, text, url):
+        lines = text.split("\n")
+        for i in range(len(lines)):
+            lines[i] = lines[i].replace("fp/", "")
+            
+            if "hls_" in lines[i]:
+                lines[i] = url + lines[i]
+        
+        text = "\n".join(lines)
+        return text
 
     def get_playlist(self, playlists: str) -> tuple:
         manifest = None
@@ -218,14 +235,17 @@ class PLUTO(Config):
         hls = next((x for x in playlists if x.endswith(".m3u8")), None)
         dash = next((x for x in playlists if x.endswith(".mpd")), None)
 
-        if not hls and dash:
+        if not hls and not dash:
             self.log.error("Unable to find manifest")
-            return
+            sys.exit(1)
 
         if hls:
             manifest = self.get_hls(hls)
 
-        if not manifest:
+        if manifest == "fairplay" and not dash:
+            manifest = self.tmp / "manifest.m3u8"
+
+        elif manifest == "fairplay":
             manifest = self.get_dash(dash)
 
         return manifest
@@ -253,11 +273,14 @@ class PLUTO(Config):
 
         return heights[0]
 
-    def get_hls_quality(self, manifest: str, quality: str) -> str:
+    def get_hls_quality(self, manifest, quality: str) -> str:
         self.client.headers.pop("Authorization")
-        r = self.client.get(manifest)
-        r.raise_for_status()
-        m3u8_obj = m3u8.loads(r.text)
+        if is_path(manifest):
+            m3u8_obj = m3u8.load(str(manifest))
+        else:
+            r = self.client.get(manifest)
+            r.raise_for_status()
+            m3u8_obj = m3u8.loads(r.text)
 
         playlists = []
         if m3u8_obj.is_variant:
@@ -296,7 +319,11 @@ class PLUTO(Config):
         return [self.generate_pssh(kid) for kid in kids]
 
     def get_mediainfo(self, manifest: str, quality: str, pssh=None, hls=None) -> str:
-        if manifest.endswith(".mpd"):
+        if is_path(manifest) or manifest.endswith(".m3u8"):
+            quality, hls = self.get_hls_quality(manifest, quality)
+            return quality, pssh, hls
+
+        elif manifest.endswith(".mpd"):
             self.client.headers.pop("Authorization")
             r = self.client.get(manifest)
             r.raise_for_status()
@@ -305,9 +332,6 @@ class PLUTO(Config):
             quality = self.get_dash_quality(self.soup, quality)
             return quality, pssh, hls
 
-        if manifest.endswith(".m3u8"):
-            quality, hls = self.get_hls_quality(manifest, quality)
-            return quality, pssh, hls
 
     def get_content(self, url: str) -> object:
         if self.movie:
