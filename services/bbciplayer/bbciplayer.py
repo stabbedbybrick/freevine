@@ -154,6 +154,7 @@ class BBC(Config):
             + ["hls", "master.m3u8"]
         )
 
+        subtitle = None
         for caption in [x for x in content if x["kind"] == "captions"]:
             connections = sorted(caption["connection"], key=lambda x: x["priority"])
             subtitle = next(
