@@ -169,7 +169,10 @@ class UKTVPLAY(Config):
     def get_episode_from_url(self, url: str):
         with self.console.status("Getting episode from URL..."):
             html = self.client.get(url).text
-            house_number = re.search(r'house_number="(.+?)"', html).group(1)
+            matches = re.findall(r'\\\"house_number\\\":\\\"(.*?)\\\"', html)
+            house_number = matches[0] if matches else None
+            if not house_number:
+                raise ValueError("Episode id could not be found")
 
             data = self.client.get(
                 f"{self.vod}episode/?house_number={house_number}"
