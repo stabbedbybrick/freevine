@@ -164,7 +164,7 @@ class Plex(Config):
                     year=movie.get("year"),
                     name=movie["title"],
                     data=next(
-                        f'{self.config["vod"]}{x.get("key")}?X-Plex-Token={self.auth_token}'
+                        f'{self.config["manifest"].format(key=x.get("key"), token=self.auth_token)}'
                         for x in movie["Media"][0]["Part"]
                         if "-dash" in x.get("key")
                     ),
@@ -190,15 +190,20 @@ class Plex(Config):
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
             reverse=True,
         )
+        if not heights:
+            self.log.warning("Manifest did not contain proper media info, using 720p as placeholder...")
+            resolution = 720
+        else:
+            resolution = heights[0]
 
         if quality is not None:
             if int(quality) in heights:
-                return quality
+                resolution = quality
             else:
                 closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+                resolution = closest_match
 
-        return heights[0]
+        return resolution
 
     def get_mediainfo(self, stream: object, quality: str) -> str:
         r = self.client.get(stream.data)
@@ -293,6 +298,6 @@ class Plex(Config):
         else:
             self.log.warning(f"{self.filename} already exists. Skipping download...\n")
             self.sub_path.unlink() if self.sub_path else None
-        
+
         if not self.skip_download and file_path.exists():
             update_cache(self.cache, self.config, stream)
