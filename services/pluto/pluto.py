@@ -14,12 +14,12 @@ Pluto's library is very spotty, so it's highly recommended to use --titles befor
 from __future__ import annotations
 
 import base64
+import json
 import re
 import subprocess
-import uuid
-import json
-import time
 import sys
+import time
+import uuid
 from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
@@ -35,14 +35,15 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    append_id,
+    force_numbering,
     get_wvd,
+    in_cache,
+    is_path,
+    is_url,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
-    append_id,
-    is_path,
-    in_cache,
     update_cache,
 )
 
@@ -50,6 +51,10 @@ from utils.utilities import (
 class PLUTO(Config):
     def __init__(self, config, **kwargs):
         super().__init__(config, **kwargs)
+
+        if is_url(self.episode):
+            self.log.error("Downloading by episode URL not supported. Use standard method")
+            return
 
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
@@ -246,6 +251,9 @@ class PLUTO(Config):
             manifest = self.tmp / "manifest.m3u8"
 
         elif manifest == "fairplay":
+            manifest = self.get_dash(dash)
+
+        else:
             manifest = self.get_dash(dash)
 
         return manifest
