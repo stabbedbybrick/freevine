@@ -82,8 +82,8 @@ class Hola:
             self.executable,
             "-country",
             query,
-            "-proxy-type",
-            "lum",  # residential
+            # "-proxy-type",
+            # "lum",  # residential
             "-list-proxies",
         ]
         output = subprocess.run(command, capture_output=True, text=True)
