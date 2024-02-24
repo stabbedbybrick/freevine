@@ -215,15 +215,16 @@ class PLUTO(Config):
         # TODO: Determine DRM without extra request
         response = requests.get(master).text
         if re.search(r'#PLUTO-DRM:ID="fairplay"', response):
+            self.base_url = master.rsplit("master.m3u8")[0]
             manifest = self.create_manifest(response, master.rsplit("master.m3u8")[0])
             with open(self.tmp / "manifest.m3u8", "w") as f:
                 f.write(manifest)
 
-            master = "fairplay"
+            master = Path(self.tmp / "manifest.m3u8")
 
         return master
     
-    def create_manifest(self, text, url):
+    def create_manifest(self, text, url) -> str:
         lines = text.split("\n")
         for i in range(len(lines)):
             lines[i] = lines[i].replace("fp/", "")
@@ -234,9 +235,7 @@ class PLUTO(Config):
         text = "\n".join(lines)
         return text
 
-    def get_playlist(self, playlists: str) -> tuple:
-        manifest = None
-
+    def get_playlist(self, playlists: str) -> (Path | str):
         hls = next((x for x in playlists if x.endswith(".m3u8")), None)
         dash = next((x for x in playlists if x.endswith(".mpd")), None)
 
@@ -246,14 +245,7 @@ class PLUTO(Config):
 
         if hls:
             manifest = self.get_hls(hls)
-
-        if manifest == "fairplay" and not dash:
-            manifest = self.tmp / "manifest.m3u8"
-
-        elif manifest == "fairplay":
-            manifest = self.get_dash(dash)
-
-        else:
+        elif dash:
             manifest = self.get_dash(dash)
 
         return manifest
@@ -305,8 +297,8 @@ class PLUTO(Config):
                 else:
                     res = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
-        return res, manifest
-
+        return res
+    
     def generate_pssh(self, kid: str):
         array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
         array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
@@ -326,10 +318,10 @@ class PLUTO(Config):
 
         return [self.generate_pssh(kid) for kid in kids]
 
-    def get_mediainfo(self, manifest: str, quality: str, pssh=None, hls=None) -> str:
+    def get_mediainfo(self, manifest: str, quality: str, pssh=None) -> str:
         if is_path(manifest) or manifest.endswith(".m3u8"):
-            quality, hls = self.get_hls_quality(manifest, quality)
-            return quality, pssh, hls
+            quality = self.get_hls_quality(manifest, quality)
+            return quality, pssh
 
         elif manifest.endswith(".mpd"):
             self.client.headers.pop("Authorization")
@@ -338,7 +330,7 @@ class PLUTO(Config):
             self.soup = BeautifulSoup(r.content, "xml")
             pssh = self.get_pssh(self.soup)
             quality = self.get_dash_quality(self.soup, quality)
-            return quality, pssh, hls
+            return quality, pssh
 
 
     def get_content(self, url: str) -> object:
@@ -386,7 +378,7 @@ class PLUTO(Config):
 
     def download(self, stream: object, title: str) -> None:
         manifest = self.get_playlist(stream.data)
-        self.res, pssh, hls = self.get_mediainfo(manifest, self.quality)
+        self.res, pssh = self.get_mediainfo(manifest, self.quality)
         self.client.headers.update({"Authorization": f"Bearer {self.token}"})
 
         keys = None
@@ -397,7 +389,7 @@ class PLUTO(Config):
 
         self.filename = set_filename(self, stream, self.res, audio="AAC2.0")
         self.save_path = set_save_path(stream, self, title)
-        self.manifest = hls if hls else manifest
+        self.manifest = manifest
         self.key_file = self.tmp / "keys.txt" if keys else None
         self.sub_path = None
 
