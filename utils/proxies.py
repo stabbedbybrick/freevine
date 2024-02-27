@@ -107,7 +107,7 @@ class Hola:
                 trial_peer,
                 vendor,
             ) = server.split(",")
-            proxies.append(f"http://{username}:{password}@{ip_address}:{peer}")
+            proxies.append(f"http://{username}:{password}@{ip_address}:{trial}")
 
         proxy = random.choice(proxies)
         return proxy
