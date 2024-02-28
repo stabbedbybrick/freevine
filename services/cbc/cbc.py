@@ -280,7 +280,7 @@ class CBC(Config):
             ]
         )
 
-    def get_mediainfo(self, quality: int, m3u8: str) -> str:
+    def get_mediainfo(self, quality: int, m3u8: str, audio: list) -> str:
         resolutions = []
 
         lines = m3u8.splitlines()
@@ -292,13 +292,10 @@ class CBC(Config):
 
         resolutions.sort(key=lambda x: int(x), reverse=True)
 
-        for line in lines:
-            if "ec3" in line and "best" in self.config["audio"]["select"]:
-                audio = "DDP5.1"
-            elif "ec3" in line and "ec3" in self.config["audio"]["select"]:
-                audio = "DDP5.1"
-            else:
-                audio = "AAC2.0"
+        if "EC-3" in audio and "best" or "ec3" in self.config["audio"]["select"]:
+            audio = "DDP5.1"
+        else:
+            audio = "AAC2.0"
 
         if quality is not None:
             if quality in resolutions:
@@ -311,7 +308,7 @@ class CBC(Config):
 
         return resolutions[0], audio
 
-    def get_hls(self, url: str):
+    def get_hls(self, url: str, audio: list = []):
         base_url = url.split("desktop")[0]
         smooth = f"{base_url}QualityLevels(5999999)/Manifest(video,type=keyframes)"
 
@@ -383,11 +380,12 @@ class CBC(Config):
                             )
                             + "\n"
                         )
+                        audio.append(level.attrs.get("FourCC"))
 
             with open(self.tmp / "manifest.m3u8", "w") as f:
                 f.write(m3u8_text)
 
-        return url, m3u8_text
+        return url, m3u8_text, audio
 
     def get_playlist(self, playsession: str) -> tuple:
         response = self.client.get(playsession).json()
@@ -439,8 +437,8 @@ class CBC(Config):
             self.download(download, title)
 
     def download(self, stream: object, title: str) -> None:
-        mpd_url, m3u8 = self.get_playlist(stream.data)
-        self.res, audio = self.get_mediainfo(self.quality, m3u8)
+        mpd_url, m3u8, audio = self.get_playlist(stream.data)
+        self.res, audio = self.get_mediainfo(self.quality, m3u8, audio)
 
         self.filename = set_filename(self, stream, self.res, audio)
         self.save_path = set_save_path(stream, self, title)
