@@ -53,7 +53,9 @@ class PLUTO(Config):
         super().__init__(config, **kwargs)
 
         if is_url(self.episode):
-            self.log.error("Downloading by episode URL not supported. Use standard method")
+            self.log.error(
+                "Downloading by episode URL not supported. Use standard method"
+            )
             return
 
         with self.config["download_cache"].open("r") as file:
@@ -160,7 +162,14 @@ class PLUTO(Config):
         r.raise_for_status()
         soup = BeautifulSoup(r.content, "xml")
         base_urls = soup.find_all("BaseURL")
-        ads = ("_ad/", "/creative/", "Bumper", "Promo/", "WarningCard")
+        ads = (
+            "Pluto_TV_OandO",
+            "_ad/",
+            "/creative/",
+            "Bumper",
+            "Promo/",
+            "WarningCard",
+        )
         for base_url in base_urls:
             if not any(ad in base_url.text for ad in ads):
                 new_base = base_url.text
@@ -194,7 +203,14 @@ class PLUTO(Config):
 
         response = self.client.get(url).text
         playlist = m3u8.loads(response)
-        ads = ("_ad/", "/creative/", "Bumper", "Promo/", "WarningCard")
+        ads = (
+            "Pluto_TV_OandO",
+            "_ad/",
+            "/creative/",
+            "Bumper",
+            "Promo/",
+            "WarningCard",
+        )
         for seg in playlist.segments:
             if not any(ad in seg.uri for ad in ads):
                 segment = seg.uri
@@ -223,19 +239,19 @@ class PLUTO(Config):
             master = Path(self.tmp / "manifest.m3u8")
 
         return master
-    
+
     def create_manifest(self, text, url) -> str:
         lines = text.split("\n")
         for i in range(len(lines)):
             lines[i] = lines[i].replace("fp/", "")
-            
+
             if "hls_" in lines[i]:
                 lines[i] = url + lines[i]
-        
+
         text = "\n".join(lines)
         return text
 
-    def get_playlist(self, playlists: str) -> (Path | str):
+    def get_playlist(self, playlists: str) -> Path | str:
         hls = next((x for x in playlists if x.endswith(".m3u8")), None)
         dash = next((x for x in playlists if x.endswith(".mpd")), None)
 
@@ -298,7 +314,7 @@ class PLUTO(Config):
                     res = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
         return res
-    
+
     def generate_pssh(self, kid: str):
         array_of_bytes = bytearray(b"\x00\x00\x002pssh\x00\x00\x00\x00")
         array_of_bytes.extend(bytes.fromhex("edef8ba979d64acea3c827dcd51d21ed"))
@@ -331,7 +347,6 @@ class PLUTO(Config):
             pssh = self.get_pssh(self.soup)
             quality = self.get_dash_quality(self.soup, quality)
             return quality, pssh
-
 
     def get_content(self, url: str) -> object:
         if self.movie:
