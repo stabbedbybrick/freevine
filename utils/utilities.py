@@ -13,15 +13,16 @@ import click
 import m3u8
 import requests
 from bs4 import BeautifulSoup
+from lxml import etree
 from pywidevine.device import Device, DeviceTypes
 from rich.console import Console
 from subby import (
     CommonIssuesFixer,
+    ISMTConverter,
+    SAMIConverter,
     SMPTEConverter,
     WebVTTConverter,
-    ISMTConverter,
     WVTTConverter,
-    SAMIConverter,
 )
 from unidecode import unidecode
 
@@ -354,6 +355,26 @@ def from_m3u8(m3u8_data: str):
             codecs.append(playlist.stream_info.codecs)
 
     return heights, codecs
+
+
+def load_xml(xml):
+        """Safely parse XML data to an ElementTree, without namespaces in tags."""
+        if not isinstance(xml, bytes):
+            xml = xml.encode("utf8")
+        root = etree.fromstring(xml)
+        for elem in root.getiterator():
+            if not hasattr(elem.tag, "find"):
+                # e.g. comment elements
+                continue
+            elem.tag = etree.QName(elem).localname
+            for name, value in elem.attrib.items():
+                local_name = etree.QName(name).localname
+                if local_name == name:
+                    continue
+                del elem.attrib[name]
+                elem.attrib[local_name] = value
+        etree.cleanup_namespaces(root)
+        return root
 
 
 def kid_to_pssh(soup: object) -> str:
