@@ -214,5 +214,17 @@
         "config": "services/tvnz/config.yaml",
         "profile": "services/tvnz/profile.yaml",
         "cookies": "services/tvnz/cookies.txt"
+    },
+    "www.rte.ie": {
+        "name": "RTE",
+        "alias": ["RTE Player", "RTE"],
+        "credentials": "none",
+        "quality": "1080p, AAC2.0",
+        "path": "services/rte/rte.py",
+        "api": "services/rte/api.yaml",
+        "cache": "services/rte/cache.json",
+        "config": "services/rte/config.yaml",
+        "profile": "services/rte/profile.yaml",
+        "cookies": "services/rte/cookies.txt"
     }
 }

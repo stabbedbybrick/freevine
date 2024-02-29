@@ -1,0 +1,6 @@
+## SERVICE SETTINGS FOR RTE
+
+base: https://www.rte.ie/mpx/1uC-gC
+login: https://www.rte.ie/servicelayer/api/anonymouslogin
+config: https://www.rte.ie/wordpress/wp-content/uploads/standard/web/config.json
+license: https://widevine.entitlement.eu.theplatform.com/wv/web/ModularDrm
