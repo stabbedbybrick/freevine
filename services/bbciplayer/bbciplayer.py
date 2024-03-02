@@ -67,7 +67,7 @@ class BBC(Config):
         return r.json()["data"]["programme"]
 
     def create_episode(self, episode):
-        title = episode["episode"]["title"]["default"]
+        title = episode["episode"]["title"]["default"].strip()
         subtitle = episode["episode"]["subtitle"]
         fallback = subtitle.get("default").split(":")[0]
         labels = episode["episode"]["labels"]
