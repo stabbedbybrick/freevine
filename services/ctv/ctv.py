@@ -59,6 +59,8 @@ class CTV(Config):
         self.password = self.config.get("credentials", {}).get("password")
 
         self.auth = self.get_auth_token()
+        self.client.headers.update({"authorization": f"Bearer {self.auth}"})
+
         self.get_options()
 
     def get_auth_token(self):
@@ -349,7 +351,9 @@ class CTV(Config):
         return from_mpd(response.text, url)
 
     async def parse_manifests(self, data: dict) -> list:
-        async with httpx.AsyncClient(headers={"authorization": f"Bearer {self.auth}"}) as async_client:
+        async with httpx.AsyncClient(
+            headers={"authorization": f"Bearer {self.auth}"}
+        ) as async_client:
             tasks = [self.fetch_manifests(async_client, x) for x in data]
             return await asyncio.gather(*tasks)
 
@@ -370,7 +374,7 @@ class CTV(Config):
                 (t["id"] for t in streams if "id" in t and "-dv-" in t["id"]), None
             )
 
-        r = self.client.get(manifest, headers={"authorization": f"Bearer {self.auth}"})
+        r = self.client.get(manifest)
         self.soup = BeautifulSoup(r.text, "xml")
 
         tags = self.soup.find_all("Representation")
