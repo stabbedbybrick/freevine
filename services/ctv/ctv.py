@@ -5,19 +5,23 @@ Author: stabbedbybrick
 Quality: up to 1080p and Dolby 5.1 audio
 
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import subprocess
 import time
+import sys
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
 
 import click
 import httpx
 import requests
+import yaml
 from bs4 import BeautifulSoup
 
 from utils.args import get_args
@@ -37,6 +41,7 @@ from utils.utilities import (
     set_save_path,
     string_cleaning,
     update_cache,
+    expiration,
 )
 
 
@@ -49,8 +54,102 @@ class CTV(Config):
 
         self.lic_url = self.config["lic"]
         self.api = self.config["api"]
+        self.login = self.config["login"]
+        self.username = self.config.get("credentials", {}).get("username")
+        self.password = self.config.get("credentials", {}).get("password")
 
+        self.auth = self.get_auth_token()
         self.get_options()
+
+    def get_auth_token(self):
+        cache = self.config.get("cache")
+
+        if not cache:
+            self.log.info("Cache is empty, aquiring new tokens...")
+            token = self.authenticate()
+        elif cache and cache.get("expiry") < datetime.now():
+            self.log.info("Refreshing expired tokens...")
+            token = self.refresh_token()
+        else:
+            self.log.info("Using cached tokens")
+            token = cache.get("token")
+
+        return token
+
+    def refresh_token(self):
+        headers = {"authorization": f"Basic {self.config['auth']}"}
+
+        data = {
+            "grant_type": "refresh_token",
+            "username": self.username,
+            "password": self.password,
+            "refresh_token": self.config["cache"]["refresh"],
+        }
+
+        r = self.client.post(self.login, headers=headers, data=data)
+        if not r.ok:
+            raise ConnectionError(f"{r} {r.text}")
+
+        auth = json.loads(r.content)
+        token = auth.get("access_token")
+        refresh = auth.get("refresh_token")
+
+        expiry = expiration(auth.get("expires_in"), auth.get("creation_date"))
+
+        profile = Path("services") / "ctv" / "profile.yaml"
+        with open(profile, "r") as f:
+            data = yaml.safe_load(f)
+
+        data["cache"]["token"] = token
+        data["cache"]["refresh"] = refresh
+        data["cache"]["expiry"] = expiry
+
+        with open(profile, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+
+        self.log.info("+ Tokens refreshed")
+
+        return token
+
+    def authenticate(self):
+        if not self.username and not self.password:
+            self.log.error(
+                "Required credentials were not found. See 'freevine.py profile --help'"
+            )
+            sys.exit(1)
+
+        self.log.info("Authenticating with service...")
+
+        headers = {"authorization": f"Basic {self.config['auth']}"}
+
+        data = {
+            "grant_type": "password",
+            "username": self.username,
+            "password": self.password,
+        }
+
+        r = self.client.post(self.login, headers=headers, data=data)
+        if not r.ok:
+            raise ConnectionError(f"{r} {r.text}")
+
+        auth = json.loads(r.content)
+        token = auth.get("access_token")
+        refresh = auth.get("refresh_token")
+
+        expiry = expiration(auth.get("expires_in"), auth.get("creation_date"))
+
+        profile = Path("services") / "ctv" / "profile.yaml"
+        with open(profile, "r") as f:
+            data = yaml.safe_load(f)
+
+        data["cache"] = {"token": token, "expiry": expiry, "refresh": refresh}
+
+        with open(profile, "w") as f:
+            yaml.safe_dump(data, f, sort_keys=False)
+
+        self.log.info("+ New tokens placed in cache")
+
+        return token
 
     def get_license(self, challenge: bytes, lic_url: str) -> bytes:
         r = self.client.post(url=lic_url, data=challenge)
@@ -163,7 +262,9 @@ class CTV(Config):
         return response.json()["data"]["axisSeason"]["episodes"]
 
     async def get_titles(self, data: dict) -> list:
-        async with httpx.AsyncClient() as async_client:
+        async with httpx.AsyncClient(
+            headers={"authorization": f"Bearer {self.auth}"}
+        ) as async_client:
             tasks = [self.fetch_titles(async_client, x["id"]) for x in data]
             titles = await asyncio.gather(*tasks)
             return [episode for episodes in titles for episode in episodes]
@@ -248,7 +349,7 @@ class CTV(Config):
         return from_mpd(response.text, url)
 
     async def parse_manifests(self, data: dict) -> list:
-        async with httpx.AsyncClient() as async_client:
+        async with httpx.AsyncClient(headers={"authorization": f"Bearer {self.auth}"}) as async_client:
             tasks = [self.fetch_manifests(async_client, x) for x in data]
             return await asyncio.gather(*tasks)
 
@@ -269,7 +370,7 @@ class CTV(Config):
                 (t["id"] for t in streams if "id" in t and "-dv-" in t["id"]), None
             )
 
-        r = self.client.get(manifest)
+        r = self.client.get(manifest, headers={"authorization": f"Bearer {self.auth}"})
         self.soup = BeautifulSoup(r.text, "xml")
 
         tags = self.soup.find_all("Representation")

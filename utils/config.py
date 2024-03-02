@@ -18,6 +18,7 @@ class Config:
         config: Any,
         wvd: Path = None,
         url: str = None,
+        auth: str = None,
         remote: Optional[bool] = None,
         titles: Optional[bool] = None,
         info: Optional[bool] = None,
@@ -62,6 +63,7 @@ class Config:
 
         self.config = config
         self.url = url
+        self.auth = auth
         self.wvd = wvd
         self.quality = quality
         self.remote = remote
@@ -109,7 +111,7 @@ class Config:
                 "user-agent": (
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/118.0.0.0 Safari/537.36"
+                    "Chrome/122.0.0.0 Safari/537.36"
                 ),
             }
         )
