@@ -1,0 +1,2 @@
+api: https://www.cbs.com/shows/{show}/xhr/episodes/page/0/size/100/xs/0/season/{season}/
+vod: https://www.cbs.com/shows/video/{content_id}/

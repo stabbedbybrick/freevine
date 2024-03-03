@@ -22,6 +22,7 @@ class Episode:
         subtitle=None,
         lic_url=None,
         drm=None,
+        premium=None,
         synopsis=None,
         description=None,
         special=None,
@@ -44,6 +45,7 @@ class Episode:
         self.subtitle = subtitle
         self.lic_url = lic_url
         self.drm = drm
+        self.premium = premium
         self.synopsis = synopsis
         self.description = description
         self.special = special
