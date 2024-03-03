@@ -226,5 +226,17 @@
         "config": "services/rte/config.yaml",
         "profile": "services/rte/profile.yaml",
         "cookies": "services/rte/cookies.txt"
+    },
+    "www.cbs.com": {
+        "name": "CBS",
+        "alias": ["CBS"],
+        "credentials": "none",
+        "quality": "1080p, DD5P.1",
+        "path": "services/cbs/cbs.py",
+        "api": "services/cbs/api.yaml",
+        "cache": "services/cbs/cache.json",
+        "config": "services/cbs/config.yaml",
+        "profile": "services/cbs/profile.yaml",
+        "cookies": "services/cbs/cookies.txt"
     }
 }
