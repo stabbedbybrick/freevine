@@ -36,7 +36,7 @@ def cli(debug: bool):
     urllib3.disable_warnings(InsecureRequestWarning)
 
     click.echo(f"\n❯_freevine {__version__}\n")
-    check_version(__version__)
+    # check_version(__version__)
 
 
 @cli.command()
