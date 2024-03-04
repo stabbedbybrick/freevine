@@ -54,7 +54,7 @@ def _dict(keywords: str):
             "name": "CRACKLE",
             "alias": ["CRACKLE", "CRKL"],
             "url": f"https://prod-api.crackle.com/contentdiscovery/search/{keywords}",
-            "header": {"x-crackle-platform": "5FE67CCA-069A-42C6-A20F-4B47A8054D46"},
+            "headers": {"x-crackle-platform": "5FE67CCA-069A-42C6-A20F-4B47A8054D46"},
             "params": {
                 "useFuzzyMatching": "false",
                 "enforcemediaRights": "true",
@@ -154,6 +154,22 @@ def _dict(keywords: str):
             },
         },
         {
+            "name": "TV4 Play",
+            "alias": ["TV4", "TV4PLAY"],
+            "url": "https://client-gateway.tv4.a2d.tv/graphql",
+            "headers": {
+                "client-name": "tv4-web",
+                "client-version": "4.0.0",
+                "content-type": "application/json",
+            },
+            "params": {
+                "operationName": "ListSearch",
+                "variables": f'{{"input": {{"limit": 40, "offset": 0, "includeUpsell": true, "query": "{keywords}", "types": ["MOVIE", "SERIES", "SPORT_EVENT", "PAGE", "CLIP"]}}}}',
+                "extensions": '{"persistedQuery":{"version":1,"sha256Hash":"dd961cc5a38bb63706d44c2e338bd44f6fae19f60a0a48dab38f5b0d605ef241"}}',
+            },
+            "method": "GET",
+        },
+        {
             "name": "TubiTV",
             "alias": ["TUBI"],
             "url": f"https://tubitv.com/oz/search/{keywords}",
@@ -210,7 +226,7 @@ def _dict(keywords: str):
             "name": "Plex",
             "alias": ["PLEX", "PLEX.TV"],
             "url": f"https://discover.provider.plex.tv/library/search?searchTypes=livetv,movies,people,tv&searchProviders=discover,plexAVOD,plexFAST&includeMetadata=1&filterPeople=1&limit=10&query={keywords}",
-            "header": {
+            "headers": {
                 "authority": "discover.provider.plex.tv",
                 "accept": "application/json",
                 "content-type": "application/json",
@@ -537,6 +553,20 @@ def _parse(query: dict, service: dict, client=None):
                         ),
                     )
                 )
+    if service["name"] == "TV4 Play":
+        link = "https://www.tv4play.se/program/{id}/{slug}"
+
+        if query:
+            for field in query["data"]["listSearch"]["items"]:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=field.get("title"),
+                        synopsis=None,
+                        type=field.get("__typename"),
+                        url=link.format(id=field.get("id"), slug=field.get("slug")),
+                    )
+                )
     if service["name"] == "Plex":
         link = "https://watch.plex.tv/{type}/{slug}"
 
@@ -563,7 +593,6 @@ def _parse(query: dict, service: dict, client=None):
         link = "https://www.tvnz.co.nz{slug}"
 
         if query:
-            
             for field in query["results"]:
                 results.append(
                     template.format(
@@ -571,8 +600,7 @@ def _parse(query: dict, service: dict, client=None):
                         title=field.get("title"),
                         synopsis=field.get("synopsis"),
                         type=field.get("type"),
-                        url=link.format(slug=field["page"].get("url")
-                        ),
+                        url=link.format(slug=field["page"].get("url")),
                     )
                 )
 

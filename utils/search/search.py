@@ -38,7 +38,7 @@ class Config:
 def search_get(search: object, service: dict):
     url = service["url"]
     params = service.get("params", {})
-    search.client.headers.update(service.get("header", {}))
+    search.client.headers.update(service.get("headers", {}))
 
     cookies = service.get("collect", {})
 
