@@ -1,3 +1,6 @@
+## Premium content is not supported
+
+* CBS: 1080p, DDP5.1 :us:
 * The Roku Channel: 1080p, DD5.1 :us:
 * Crackle: 1080p, AAC2.0 :us:
 * CWTV, The CW: 1080p, AAC2.0 :us:
@@ -11,6 +14,7 @@
 * STV Player: 1080p, AAC2.0 :uk:
 * UKTVPlay: 1080p, AAC2.0 :uk:
 * ITVx: 720p,  AAC2.0 :uk:
+* RTE Player: 1080p, AAC2.0 :ireland:
 * ABC iView: 1080p, AAC2.0 :australia:
 * TVNZ, 720p, AAC2.0 :new_zealand:
 * SVTPlay: 1080p, DD5.1 :sweden:

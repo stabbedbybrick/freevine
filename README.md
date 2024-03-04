@@ -73,14 +73,14 @@ You're most likely being geo blocked by the service. Use a VPN or try the proxy 
 ## Credentials:
 
 A user profile with credentials can be set for services that require it:
-```
+```python
 freevine.py profile --username "USERNAME" --password "PASSWORD" --service "SERVICE"
 ```
 
 > [!NOTE]
 >Setting a user profile will create a profile.yaml in the service folder that'll store credentials along with cached auth and refresh tokens
 
-If a service supports cookies, you can use a browser extension to download cookies as .txt file format:
+If a service requires cookies, you can use a browser extension to download cookies as .txt file format:
 
 Firefox: https://addons.mozilla.org/addon/export-cookies-txt
 
@@ -104,7 +104,7 @@ In order to request proxies, [hola-proxy](https://github.com/Snawoot/hola-proxy)
 
 Available commands:
 
-```
+```python
 Commands:
   clear-cache   Delete download cache
   file          Read commands from a text file
@@ -116,7 +116,7 @@ Commands:
 
 Available arguments for `get` command:
 
-```
+```python
   --proxy TEXT                 Request or specify a proxy server
   --threads TEXT               Concurrent download fragments
   --format TEXT                Specify file format
@@ -148,7 +148,7 @@ Available arguments for `get` command:
 ```
 Examples:
 
-```
+```python
 freevine.py get --help (READ THIS!)
 
 freevine.py get --titles URL
@@ -176,6 +176,26 @@ freevine.py search iplayer "KEYWORDS"
 freevine.py clear-cache
 
 ```
+Advanced track selections:
+
+```python
+# Select multiple tracks from id, codec, channel etc.
+freevine.py get --select-audio id="7|8":for=best2
+freevine.py get --select-audio codecs="ec-3|mp4a":for=best2
+
+# Select best 2, and language is ja or en
+freevine.py get --select-audio lang="ja|en":for=best2
+
+# Select best video with duration longer than 1 hour 20 minutes 30 seconds
+freevine.py get --select-video plistDurMin="1h20m30s":for=best
+
+# Select all subs containing "English"
+freevine.py get --select-subtitle name="English":for=all
+
+# Select best audio based on role (only available in 20231113 build of N_m3u8DL-RE)
+freevine.py get --select-audio role="main":for=best
+```
+
 > [!TIP]
 > See "N_m3u8DL-RE --morehelp select-video/audio/subtitle" for possible selection patterns
 
