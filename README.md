@@ -180,10 +180,8 @@ Advanced track selections:
 
 ```python
 # Select multiple tracks from id, codec, channel etc.
-freevine.py get --select-audio id="7|8":for=best2
+freevine.py get --select-video id="7|8":for=best2
 freevine.py get --select-audio codecs="ec-3|mp4a":for=best2
-
-# Select best 2, and language is ja or en
 freevine.py get --select-audio lang="ja|en":for=best2
 
 # Select best video with duration longer than 1 hour 20 minutes 30 seconds
@@ -192,8 +190,9 @@ freevine.py get --select-video plistDurMin="1h20m30s":for=best
 # Select all subs containing "English"
 freevine.py get --select-subtitle name="English":for=all
 
-# Select best audio based on role (only available in 20231113 build of N_m3u8DL-RE)
+# Select best track based on role (only available in pre-release build of N_m3u8DL-RE)
 freevine.py get --select-audio role="main":for=best
+freevine.py get --select-audio role="descriptive":for=best
 ```
 
 > [!TIP]
