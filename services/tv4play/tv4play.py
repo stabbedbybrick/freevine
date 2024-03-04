@@ -243,6 +243,7 @@ class TV4Play(Config):
             [int(x.attrs["height"]) for x in tags if x.attrs.get("height")],
             reverse=True,
         )
+        resolution = heights[0]
         
         if quality is not None:
             if int(quality) in heights:
@@ -255,9 +256,10 @@ class TV4Play(Config):
     def get_hls_info(self, manifest: str, quality: str, pssh: str = None) -> tuple:
         r = self.client.get(manifest)
         r.raise_for_status()
-        heights, codecs = from_m3u8(r.text)
+        heights, _ = from_m3u8(r.text)
 
         heights = sorted(heights, reverse=True)
+        resolution = heights[0]
         
         if quality is not None:
             if int(quality) in heights:
