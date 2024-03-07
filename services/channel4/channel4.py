@@ -59,6 +59,7 @@ class CHANNEL4(Config):
         with self.config["download_cache"].open("r") as file:
             self.cache = json.load(file)
 
+        self.drop_subtitle = "all"
         self.client.headers = {
             "x-c4-platform-name": "android",
             "x-c4-device-type": "mobile",
@@ -280,8 +281,12 @@ class CHANNEL4(Config):
         data = json.loads(r.content)
         manifest = data["videoProfiles"][0]["streams"][0]["uri"]
         token = data["videoProfiles"][0]["streams"][0]["token"]
+        subtitle = next(
+            (x["url"] for x in data["subtitlesAssets"] if x["url"].endswith(".vtt")),
+            None,
+        )
 
-        return manifest, token
+        return manifest, token, subtitle
 
     def web_playlist(self, video_id: str) -> tuple:
         url = self.config["web"]["vod"].format(programmeId=video_id)
@@ -308,8 +313,8 @@ class CHANNEL4(Config):
 
         return manifest, token, subtitle
 
-    def get_heights(self, session, manifest: str) -> tuple:
-        r = session.get(manifest)
+    def get_heights(self, manifest: str) -> tuple:
+        r = requests.get(manifest)
         if not r.ok:
             self.log.warning(
                 "Request for manifest returned %s, attempting proxy request...", r
@@ -327,17 +332,16 @@ class CHANNEL4(Config):
         return heights, soup
 
     def get_mediainfo(
-        self, video_id: str, quality: str, bearer: str, subtitle=None
-    ) -> str:
-        manifest, token = self.android_playlist(video_id, bearer, quality)
+        self, video_id: str, quality: str, bearer: str) -> str:
+        manifest, token, subtitle = self.android_playlist(video_id, bearer, quality)
         lic_token = self.decrypt_token(token, client="android")
-        heights, self.soup = self.get_heights(self.client, manifest)
+        heights, self.soup = self.get_heights(manifest)
         resolution = heights[0]
 
         if heights[0] < 1080:
             manifest, token, subtitle = self.web_playlist(video_id)
             lic_token = self.decrypt_token(token, client="web")
-            heights, self.soup = self.get_heights(self.client, manifest)
+            heights, self.soup = self.get_heights(manifest)
             resolution = heights[0]
 
         if quality is not None:
@@ -439,7 +443,7 @@ class CHANNEL4(Config):
         if subtitle is not None and not self.skip_download:
             self.log.info(f"Subtitles: {subtitle}")
             try:
-                sub = self.client.get(subtitle)
+                sub = requests.get(subtitle)
                 sub.raise_for_status()
             except requests.exceptions.HTTPError:
                 self.log.warning(f"Subtitle response {sub.status_code}, skipping")
@@ -457,7 +461,7 @@ class CHANNEL4(Config):
 
         if self.skip_download:
             self.log.info(f"Filename: {self.filename}")
-            self.log.info("Subtitles: Yes\n") if subtitle else self.log.info(
+            self.log.info(f"Subtitles: {subtitle}\n") if subtitle else self.log.info(
                 "Subtitles: None\n"
             )
 
