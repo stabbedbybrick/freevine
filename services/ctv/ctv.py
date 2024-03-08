@@ -58,8 +58,11 @@ class CTV(Config):
         self.username = self.config.get("credentials", {}).get("username")
         self.password = self.config.get("credentials", {}).get("password")
 
-        self.auth = self.get_auth_token()
-        self.client.headers.update({"authorization": f"Bearer {self.auth}"})
+        if self.username and self.password:
+            self.auth = self.get_auth_token()
+            self.client.headers.update({"authorization": f"Bearer {self.auth}"})
+        else:
+            self.auth = None
 
         self.get_options()
 
@@ -264,9 +267,8 @@ class CTV(Config):
         return response.json()["data"]["axisSeason"]["episodes"]
 
     async def get_titles(self, data: dict) -> list:
-        async with httpx.AsyncClient(
-            headers={"authorization": f"Bearer {self.auth}"}
-        ) as async_client:
+        headers = {"authorization": f"Bearer {self.auth}"} if self.auth else {}
+        async with httpx.AsyncClient(headers=headers) as async_client:
             tasks = [self.fetch_titles(async_client, x["id"]) for x in data]
             titles = await asyncio.gather(*tasks)
             return [episode for episodes in titles for episode in episodes]
@@ -351,9 +353,8 @@ class CTV(Config):
         return from_mpd(response.text, url)
 
     async def parse_manifests(self, data: dict) -> list:
-        async with httpx.AsyncClient(
-            headers={"authorization": f"Bearer {self.auth}"}
-        ) as async_client:
+        headers = {"authorization": f"Bearer {self.auth}"} if self.auth else {}
+        async with httpx.AsyncClient(headers=headers) as async_client:
             tasks = [self.fetch_manifests(async_client, x) for x in data]
             return await asyncio.gather(*tasks)
 
