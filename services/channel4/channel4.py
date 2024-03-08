@@ -7,6 +7,7 @@ Info:
 This program will grab higher 1080p bitrate (if available)
 
 """
+
 from __future__ import annotations
 
 import base64
@@ -20,29 +21,30 @@ from datetime import datetime
 from pathlib import Path
 
 import click
+import httpx
 import requests
 import yaml
+from bs4 import BeautifulSoup
 from Crypto.Cipher import AES
 from Crypto.Util.Padding import unpad
-from bs4 import BeautifulSoup
 
 from utils.args import get_args
 from utils.cdm import LocalCDM
 from utils.config import Config
 from utils.options import get_downloads
-from utils.titles import Episode, Movie, Movies, Series
 from utils.proxies import proxy_session
+from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
+    append_id,
+    convert_subtitles,
     expiration,
+    force_numbering,
     get_wvd,
+    in_cache,
     kid_to_pssh,
     set_filename,
     set_save_path,
     string_cleaning,
-    force_numbering,
-    append_id,
-    convert_subtitles,
-    in_cache,
     update_cache,
 )
 
@@ -266,17 +268,20 @@ class CHANNEL4(Config):
         return token
 
     def android_playlist(self, video_id: str, bearer: str, quality: str) -> tuple:
+        self.log.info("Requesting ANDROID assets...")
         url = self.config["android"]["vod"].format(video_id=video_id)
         self.client.headers.update({"authorization": f"Bearer {bearer}"})
 
         r = self.client.get(url=url)
         if not r.ok:
             self.log.warning(
-                "Request for video returned %s, attempting proxy request...", r
+                "Request for Android endpoint returned %s, attempting proxy request...",
+                r,
             )
             r = proxy_session(self, url=url, method="get", location="UK")
             if not r.ok:
-                raise ConnectionError(f"{r.text}")
+                self.log.warning("Proxy attempt failed")
+                return
 
         data = json.loads(r.content)
         manifest = data["videoProfiles"][0]["streams"][0]["uri"]
@@ -289,15 +294,17 @@ class CHANNEL4(Config):
         return manifest, token, subtitle
 
     def web_playlist(self, video_id: str) -> tuple:
+        self.log.info("Requesting WEB assets...")
         url = self.config["web"]["vod"].format(programmeId=video_id)
         r = self.client.get(url)
         if not r.ok:
             self.log.warning(
-                "Request for video returned %s, attempting proxy request...", r
+                "Request for WEB endpoint returned %s, attempting proxy request...", r
             )
             r = proxy_session(self, url=url, method="get", location="UK")
             if not r.ok:
-                raise ConnectionError(f"{r.json().get('message')}")
+                self.log.warning("Proxy attempt failed")
+                return
 
         data = json.loads(r.content)
 
@@ -313,36 +320,63 @@ class CHANNEL4(Config):
 
         return manifest, token, subtitle
 
-    def get_heights(self, manifest: str) -> tuple:
-        r = requests.get(manifest)
-        if not r.ok:
+    def get_heights(self, manifest: str, client: str = None) -> tuple:
+        r = httpx.get(manifest)
+        if not r.is_success:
             self.log.warning(
-                "Request for manifest returned %s, attempting proxy request...", r
+                "Request for %s manifest returned %s, attempting proxy request...",
+                client,
+                r,
             )
-            r = proxy_session(self, url=manifest, method="get", location="UK")
+            try:
+                r = proxy_session(self, url=manifest, method="get", location="UK")
+            except IndexError as e:
+                self.log.warning("Proxy attempt failed. %s", e)
+                return
             if not r.ok:
-                raise ConnectionError(f"{r.text}")
+                self.log.warning("Proxy attempt failed. %s", r)
+                return
 
-        soup = BeautifulSoup(r.text, "xml")
-        elements = soup.find_all("Representation")
+        self.soup = BeautifulSoup(r.text, "xml")
+        elements = self.soup.find_all("Representation")
         heights = sorted(
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
             reverse=True,
         )
-        return heights, soup
+        return heights
 
-    def get_mediainfo(
-        self, video_id: str, quality: str, bearer: str) -> str:
-        manifest, token, subtitle = self.android_playlist(video_id, bearer, quality)
-        lic_token = self.decrypt_token(token, client="android")
-        heights, self.soup = self.get_heights(manifest)
+    def sort_assets(self, android_assets: tuple, web_assets: tuple):
+        if android_assets is not None:
+            a_manifest, a_token, a_subtitle = android_assets
+            android_heights = self.get_heights(a_manifest, client="ANDROID")
+
+        if web_assets is not None:
+            b_manifest, b_token, b_subtitle = web_assets
+            web_heights = self.get_heights(b_manifest, client="WEB")
+
+        if not android_heights and not web_heights:
+            self.log.error(
+                "Failed to request manifest data. If you're behind a VPN/proxy, you might be blocked"
+            )
+            sys.exit(1)
+
+        if not android_heights or android_heights[0] < 1080:
+            self.log.warning(
+                "ANDROID data returned None or is missing full quality profile, falling back to WEB data..."
+            )
+            lic_token = self.decrypt_token(b_token, client="web")
+            return web_heights, b_manifest, lic_token, b_subtitle
+        else:
+            lic_token = self.decrypt_token(a_token, client="android")
+            return android_heights, a_manifest, lic_token, a_subtitle
+
+    def get_mediainfo(self, video_id: str, quality: str, bearer: str) -> str:
+        android_assets: tuple = self.android_playlist(video_id, bearer, quality)
+        web_assets: tuple = self.web_playlist(video_id)
+        heights, manifest, lic_token, subtitle = self.sort_assets(
+            android_assets, web_assets
+        )
         resolution = heights[0]
-
-        if heights[0] < 1080:
-            manifest, token, subtitle = self.web_playlist(video_id)
-            lic_token = self.decrypt_token(token, client="web")
-            heights, self.soup = self.get_heights(manifest)
-            resolution = heights[0]
 
         if quality is not None:
             if int(quality) in heights:
@@ -437,8 +471,8 @@ class CHANNEL4(Config):
         self.key_file = self.tmp / "keys.txt"
         self.sub_path = None
 
-        self.log.info(f"{str(stream)}")
         click.echo("")
+        self.log.info(f"{str(stream)}")
 
         if subtitle is not None and not self.skip_download:
             self.log.info(f"Subtitles: {subtitle}")
