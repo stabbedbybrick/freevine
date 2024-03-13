@@ -215,6 +215,13 @@ def string_cleaning(filename: str) -> str:
     return filename
 
 
+def slugify(string: str) -> str:
+    string = string.lower()
+    string = re.sub(r"\W+", "-", string)
+    string = re.sub(r"^-|-$", "", string)
+    return string
+
+
 def set_range(episode: str) -> list:
     start, end = episode.split("-")
     start_season, start_episode = start.split("E")
@@ -358,23 +365,23 @@ def from_m3u8(m3u8_data: str):
 
 
 def load_xml(xml):
-        """Safely parse XML data to an ElementTree, without namespaces in tags."""
-        if not isinstance(xml, bytes):
-            xml = xml.encode("utf8")
-        root = etree.fromstring(xml)
-        for elem in root.getiterator():
-            if not hasattr(elem.tag, "find"):
-                # e.g. comment elements
+    """Safely parse XML data to an ElementTree, without namespaces in tags."""
+    if not isinstance(xml, bytes):
+        xml = xml.encode("utf8")
+    root = etree.fromstring(xml)
+    for elem in root.getiterator():
+        if not hasattr(elem.tag, "find"):
+            # e.g. comment elements
+            continue
+        elem.tag = etree.QName(elem).localname
+        for name, value in elem.attrib.items():
+            local_name = etree.QName(name).localname
+            if local_name == name:
                 continue
-            elem.tag = etree.QName(elem).localname
-            for name, value in elem.attrib.items():
-                local_name = etree.QName(name).localname
-                if local_name == name:
-                    continue
-                del elem.attrib[name]
-                elem.attrib[local_name] = value
-        etree.cleanup_namespaces(root)
-        return root
+            del elem.attrib[name]
+            elem.attrib[local_name] = value
+    etree.cleanup_namespaces(root)
+    return root
 
 
 def kid_to_pssh(soup: object) -> str:
