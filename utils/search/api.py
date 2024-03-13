@@ -1,6 +1,9 @@
 import re
 import uuid
 
+from utils.utilities import slugify
+from bs4 import BeautifulSoup
+
 
 def _sanitize(title: str) -> str:
     title = title.lower()
@@ -255,6 +258,18 @@ def _dict(keywords: str):
                     "sportVideo",
                 ],
             },
+            "method": "GET",
+        },
+        {
+            "name": "RTE",
+            "alias": ["RTE"],
+            "url": f"https://feed.entertainment.tv.theplatform.eu/f/1uC-gC/rte-prd-prd-search?byProgramType=Series|Movie&q=title:({keywords})&range=0-40&schema=2.15&sort=rte$rank|desc&gzip=true&omitInvalidFields=true",
+            "method": "GET",
+        },
+        {
+            "name": "CBS",
+            "alias": ["CBS"],
+            "url": f"https://www.cbs.com/search/lookup/?term={keywords}",
             "method": "GET",
         },
     ]
@@ -603,5 +618,67 @@ def _parse(query: dict, service: dict, client=None):
                         url=link.format(slug=field["page"].get("url")),
                     )
                 )
+
+    if service["name"] == "CBS":
+        link = "https://www.cbs.com{slug}"
+
+        if query:
+            soup = BeautifulSoup(query["html"], "html.parser")
+            results = soup.find_all("a", {"role": "listitem"})
+            focusable_shows = [
+                result
+                for result in results
+                if "focusable" in result.get("class", [])
+            ]
+
+            for show in focusable_shows:
+                results.append(
+                    template.format(
+                        service=service["name"],
+                        title=show.get("aria-label"),
+                        synopsis=None,
+                        type="show",
+                        url=link.format(slug=show.get("href"))
+                )
+                )
+
+    if service["name"] == "RTE":
+        series = "https://www.rte.ie/player/{type}/{title}/{guid}"
+        movie = "https://www.rte.ie/player/{type}/{title}/{id}"
+
+        if query:
+            for field in query["entries"]:
+                if field.get("plprogram$programType") == "series":
+                    results.append(
+                        template.format(
+                            service=service["name"],
+                            title=field.get("title"),
+                            synopsis=field.get(
+                                "plprogram$shortDescription", "description"
+                            ),
+                            type=field.get("plprogram$programType"),
+                            url=series.format(
+                                type=field.get("plprogram$programType"),
+                                title=field.get("title").lower().replace(" ", "-"),
+                                guid=field.get("guid"),
+                            ),
+                        )
+                    )
+                elif field.get("plprogram$programType") == "movie":
+                    results.append(
+                        template.format(
+                            service=service["name"],
+                            title=field.get("title"),
+                            synopsis=field.get(
+                                "plprogram$shortDescription", "description"
+                            ),
+                            type=field.get("plprogram$programType"),
+                            url=movie.format(
+                                type=field.get("plprogram$programType"),
+                                title=slugify(field.get("title")),
+                                id=field.get("id").split("/")[-1],
+                            ),
+                        )
+                    )
 
     return results
