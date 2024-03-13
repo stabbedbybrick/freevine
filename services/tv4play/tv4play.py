@@ -342,7 +342,7 @@ class TV4Play(Config):
         cookie_jar = load_cookies(self.config["cookies"])
         cookie = get_cookie(cookie_jar, "tv4-refresh-token")
 
-        if time.time() > cookie["expires"]:
+        if not cookie or time.time() > cookie["expires"]:
             self.log.error("Cookies have expired and need to be replaced")
             sys.exit(1)
 
