@@ -354,13 +354,13 @@ class CHANNEL4(Config):
             b_manifest, b_token, b_subtitle = web_assets
             web_heights = self.get_heights(b_manifest, client="WEB")
 
-        if not android_heights and not web_heights:
+        if (not ('android_heights' in locals())) and (not ('web_heights' in locals())):
             self.log.error(
                 "Failed to request manifest data. If you're behind a VPN/proxy, you might be blocked"
             )
             sys.exit(1)
 
-        if not android_heights or android_heights[0] < 1080:
+        if (not ('android_heights' in locals())) or android_heights[0] < 1080:
             self.log.warning(
                 "ANDROID data returned None or is missing full quality profile, falling back to WEB data..."
             )
