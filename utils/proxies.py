@@ -132,9 +132,10 @@ def get_proxy(
         client = client
 
     if not client:
-        raise IndexError("A proxy client must be set in config file")
-    client = client.lower()
+        log.error("A proxy must be set in config file")
+        return
 
+    client = client.lower()
     if client == "basic":
         url = location if location else cli.proxy
 
