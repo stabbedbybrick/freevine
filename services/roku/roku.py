@@ -10,7 +10,7 @@ This program will grab higher 1080p bitrate and Dolby 5.1 audio (if available)
 """
 from __future__ import annotations
 
-import asyncio
+import concurrent.futures
 import json
 import re
 import subprocess
@@ -21,7 +21,6 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import click
-import httpx
 from bs4 import BeautifulSoup
 
 from utils.args import get_args
@@ -30,8 +29,8 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
-    force_numbering,
     append_id,
+    force_numbering,
     get_wvd,
     in_cache,
     set_filename,
@@ -75,25 +74,17 @@ class ROKU(Config):
 
         return data
 
-    async def fetch_titles(self, async_client: httpx.AsyncClient, id: str) -> json:
-        response = await async_client.get(f"{self.api}{id}")
-        try:
-            return response.json()
-        except json.JSONDecodeError:
-            raise ConnectionError("Roku is unavailable in your current location")
+    def fetch_episode(self, episode: dict) -> json:
+        return self.client.get(f"{self.api}" + episode["meta"]["id"]).json()
 
-    async def get_titles(self, data: dict) -> list:
-        async with httpx.AsyncClient() as async_client:
-            tasks = [
-                self.fetch_titles(async_client, x["meta"]["id"])
-                for x in data["episodes"]
-            ]
-
-            return await asyncio.gather(*tasks)
+    def fetch_episodes(self, data: dict) -> list:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+            tasks = list(executor.map(self.fetch_episode, data["episodes"]))
+        return tasks
 
     def get_series(self, url: str) -> Series:
         data = self.get_data(url)
-        episodes = asyncio.run(self.get_titles(data))
+        episodes = self.fetch_episodes(data)
 
         return Series(
             [
