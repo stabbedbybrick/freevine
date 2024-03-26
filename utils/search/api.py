@@ -300,7 +300,7 @@ def _parse(query: dict, service: dict, client=None):
                 )
 
     if service["name"] == "ALL4":
-        if query:
+        if query and isinstance(query["results"], list):
             for field in query["results"]:
                 results.append(
                     template.format(
@@ -555,7 +555,7 @@ def _parse(query: dict, service: dict, client=None):
     if service["name"] == "SVTPlayer":
         link = "https://www.svtplay.se{slug}"
 
-        if query:
+        if query and query["data"]["searchPage"]["flat"]:
             for field in query["data"]["searchPage"]["flat"]["hits"]:
                 results.append(
                     template.format(
