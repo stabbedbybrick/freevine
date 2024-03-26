@@ -328,11 +328,7 @@ class CHANNEL4(Config):
                 client,
                 r,
             )
-            try:
-                r = proxy_session(self, url=manifest, method="get", location="UK")
-            except IndexError as e:
-                self.log.warning("Proxy attempt failed. %s", e)
-                return
+            r = proxy_session(self, url=manifest, method="get", location="UK")
             if not r.ok:
                 self.log.warning("Proxy attempt failed. %s", r)
                 return
@@ -345,7 +341,10 @@ class CHANNEL4(Config):
         )
         return heights
 
-    def sort_assets(self, android_assets: tuple, web_assets: tuple):
+    def sort_assets(self, android_assets: tuple, web_assets: tuple) -> tuple:
+        android_heights = None
+        web_heights = None
+
         if android_assets is not None:
             a_manifest, a_token, a_subtitle = android_assets
             android_heights = self.get_heights(a_manifest, client="ANDROID")
