@@ -1,11 +1,14 @@
 import yaml
 import httpx
+import logging
+import sys
 from rich.console import Console
 
 from utils.search.api import _dict, _parse
 from utils.proxies import get_proxy
 
 console = Console()
+log = logging.getLogger()
 
 
 class Config:
@@ -20,6 +23,9 @@ class Config:
 
         if proxy != "False":
             uri = get_proxy(config=self.config, location=proxy)
+            if uri is None:
+                sys.exit(1)
+
             self.client = httpx.Client(proxies={"http://": uri, "https://": uri})
         else:
             self.client = httpx.Client(
@@ -78,16 +84,19 @@ def search_engine(alias: str, keywords: str, proxy: str):
     # alias, keywords = search
     cfg = Config(alias, keywords, proxy)
 
-    services = [
-        service
-        for service in cfg.services
-        if any(
-            i in service_alias for i in cfg.alias for service_alias in service["alias"]
-        )
-    ]
+    if cfg.alias[0] == "ALL":
+        services = [service for service in cfg.services]
+
+    else:
+        services = [
+            service
+            for service in cfg.services
+            if any(
+                i in service_alias for i in cfg.alias for service_alias in service["alias"]
+            )
+        ]
 
     queries = []
-
     with console.status("Searching..."):
         for service in services:
             if service["method"] == "GET":
