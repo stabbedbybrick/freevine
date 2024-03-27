@@ -8,12 +8,12 @@ CWTV is 1080p, AAC 2.0 max
 """
 from __future__ import annotations
 
-import asyncio
 import json
 import re
 import subprocess
 import time
 from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -28,8 +28,8 @@ from utils.config import Config
 from utils.options import get_downloads
 from utils.titles import Episode, Movie, Movies, Series
 from utils.utilities import (
-    force_numbering,
     append_id,
+    force_numbering,
     get_wvd,
     in_cache,
     set_filename,
@@ -37,7 +37,6 @@ from utils.utilities import (
     string_cleaning,
     update_cache,
 )
-
 
 
 class CW(Config):
@@ -71,19 +70,18 @@ class CW(Config):
         thumbs = container.find_all("a", class_="thumbLink")
         return [x.get("href").split("=")[1] for x in thumbs if "play" in x.get("href")]
 
-    async def get_title_data(self, async_client, id: str):
-        r = await async_client.get(self.config["vod"].format(guid=id))
+    def fetch_episode(self, id: str):
+        r = self.client.get(self.config["vod"].format(guid=id))
         return r.json()["video"]
 
-    async def get_titles(self, data: list) -> list:
-        async with httpx.AsyncClient() as async_client:
-            tasks = [self.get_title_data(async_client, x) for x in data]
-
-            return await asyncio.gather(*tasks)
+    def get_titles(self, data: list) -> list:
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            tasks = [executor.submit(self.fetch_episode, x) for x in data]
+            return [future.result() for future in as_completed(tasks)]
 
     def get_series(self, url: str) -> Series:
         data = self.get_data(url)
-        episodes = asyncio.run(self.get_titles(data))
+        episodes = self.get_titles(data)
 
         return Series(
             [
@@ -105,7 +103,7 @@ class CW(Config):
 
     def get_movies(self, url: str) -> Movies:
         data = self.get_data(url)
-        movies = asyncio.run(self.get_titles(data))
+        movies = self.get_titles(data)
 
         return Movies(
             [
@@ -159,18 +157,18 @@ class CW(Config):
             [int(x.attrs["height"]) for x in elements if x.attrs.get("height")],
             reverse=True,
         )
+        res = heights[0]
 
         if quality is not None:
             if int(quality) in heights:
-                return quality
+                res = quality
             else:
-                closest_match = min(heights, key=lambda x: abs(int(x) - int(quality)))
-                return closest_match
+                res = min(heights, key=lambda x: abs(int(x) - int(quality)))
 
-        return heights[0]
+        return res
 
     def get_hls_quality(self, manifest: str, quality: str) -> str:
-        r = self.client.get(manifest)
+        r = httpx.get(manifest)
         r.raise_for_status()
         m3u8_obj = m3u8.loads(r.text)
 
@@ -192,7 +190,7 @@ class CW(Config):
 
     def get_mediainfo(self, manifest: str, quality: str) -> str:
         if manifest.endswith(".mpd"):
-            r = self.client.get(manifest)
+            r = httpx.get(manifest)
             r.raise_for_status()
             self.soup = BeautifulSoup(r.content, "xml")
             pssh = self.get_pssh(self.soup)
