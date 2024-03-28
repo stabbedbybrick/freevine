@@ -8,6 +8,8 @@
         <img src="https://img.shields.io/badge/python-venv-blue" alt="Python virtual environments">
 </p>
 
+## This project has been archived and is no longer actively maintained as of 2024/03/28
+
 ## Features:
 
 - [x] Movies & TV-series
